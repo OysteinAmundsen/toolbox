@@ -75,7 +75,8 @@ Loaded on demand from `.github/knowledge/` — read relevant files before starti
 | `grid-data-pipeline`        | Data pipeline               | value-accessor & field paths, row-manager & transactions, sort hot path, aggregators                                        |
 | `grid-input`                | Input & pointer             | Pointer modality, pointer-drag capture/promotion, coarse long-press priority policy (#302)                                  |
 | `grid-plugins`              | Plugin system               | Plugin manager, lifecycle, hooks, inter-plugin communication, manifest, scroll dispatch                                     |
-| `grid-plugins-catalog-data` | Plugin catalog (data)       | ServerSide, Pivot, pinned/virtualized/grouped columns, sorting, filtering, pinned rows, clipboard/export/print              |
+| `grid-plugins-catalog-data` | Plugin catalog (data)       | Pivot, row-identity rule, pinned/virtualized/grouped columns, sorting, filtering, pinned rows, clipboard/export/print       |
+| `grid-plugin-server-side`   | ServerSide plugin           | Block cache, placeholders, `discardCache`/`fetchBlock`, viewport fill, AbortSignal + child-fetch contract, `data-src`       |
 | `grid-plugins-hierarchy`    | Row hierarchy plugins       | HierarchyPlugin contributor contract, Tree, GroupingRows, treegrid ARIA, Tree + GroupingRows composition                    |
 | `grid-plugins-catalog-ui`   | Plugin catalog (UI)         | MasterDetail, reordering & drag-drop, Responsive, Tooltip, StickyRows                                                       |
 | `grid-plugin-selection`     | Selection & ContextMenu     | Selection modes, keyboard/touch selection, context-menu selection sync (#541), menu contribution `order` bands              |

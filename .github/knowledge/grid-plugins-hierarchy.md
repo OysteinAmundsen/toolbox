@@ -5,7 +5,7 @@ related: [grid-plugins, grid-plugins-catalog-data, grid-data-pipeline, a11y]
 
 # Plugin Catalog — Row Hierarchy (Hierarchy, Tree, GroupingRows)
 
-> Plugin system (manager, lifecycle, `PluginDependency.provide`) → grid-plugins.md. ServerSide (feeds Tree/GroupingRows via `datasource:*`), Pivot, row-identity rule → grid-plugins-catalog-data.md. Treegrid ARIA conventions → a11y.md.
+> Plugin system (manager, lifecycle, `PluginDependency.provide`) → grid-plugins.md. ServerSide (feeds Tree/GroupingRows via `datasource:*`) → grid-plugin-server-side.md. Pivot, row-identity rule → grid-plugins-catalog-data.md. Treegrid ARIA conventions → a11y.md.
 > Read order for "tree/group rows wrong": Hierarchy contract → the contributor's section → data-flow-traces.md (tree expand).
 
 ## Hierarchy (#504)

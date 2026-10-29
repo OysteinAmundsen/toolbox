@@ -16,17 +16,16 @@ import {
   warnDiagnostic,
 } from '../../core/internal/diagnostics';
 import { builtInSort } from '../../core/internal/sorting';
-import { BaseGridPlugin, ScrollEvent, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
+import {
+  BaseGridPlugin,
+  ScrollEvent,
+  type GridElement,
+  type PluginManifest,
+  type PluginQuery,
+} from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
 import { renderLoadingPlaceholderRow } from '../shared/loading-placeholder';
-import {
-  createUrlDataSource,
-  getBlockNumber,
-  getRequiredBlocks,
-  getRowFromCache,
-  isUrlDataSource,
-  loadBlock,
-} from './datasource';
+import { createUrlDataSource, getBlockNumber, getRequiredBlocks, isUrlDataSource, loadBlock } from './datasource';
 import type {
   DataSourceChildrenDetail,
   DataSourceDataDetail,
@@ -195,7 +194,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   // #region Lifecycle
 
   /** @internal */
-  override attach(grid: import('../../core/plugin/base-plugin').GridElement): void {
+  override attach(grid: GridElement): void {
     super.attach(grid);
 
     // Invalidate cache and refetch on sort/filter changes — gated by sortMode/filterMode.
@@ -239,23 +238,42 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   /** @internal */
   override detach(): void {
     this.dataSource = null;
-    this.totalNodeCount = 0;
-    this.infiniteScrollMode = false;
-    this.loadedBlocks.clear();
-    this.#generation++;
-    this.abortAllBlocks();
+    this.discardCache(true);
     for (const controller of this.childControllers) controller.abort();
     this.childControllers.clear();
+  }
+  // #endregion
+
+  // #region Private Methods
+
+  /**
+   * Abort in-flight block requests and drop the block cache. Every discard path
+   * (`setDataSource`, `onModelChange`, `purgeCache`, `detach`) goes through here so
+   * `#generation` is bumped exactly once per discard and no deferred fetch — the
+   * `afterRender()` viewport check or the scroll debounce — can refetch what was
+   * just dropped. `resetTotal` also forgets `totalNodeCount` / infinite-scroll
+   * mode; `purgeCache()` keeps them so the grid keeps rendering placeholders for
+   * the known row count instead of collapsing to empty.
+   */
+  private discardCache(resetTotal: boolean): void {
+    this.abortAllBlocks();
+    this.loadedBlocks.clear();
+    this.#generation++;
     this.managedNodes = [];
     this.pendingViewportCheck = false;
+    this.clearScrollDebounce();
+    if (resetTotal) {
+      this.totalNodeCount = 0;
+      this.infiniteScrollMode = false;
+    }
+  }
+
+  private clearScrollDebounce(): void {
     if (this.scrollDebounceTimer) {
       clearTimeout(this.scrollDebounceTimer);
       this.scrollDebounceTimer = undefined;
     }
   }
-  // #endregion
-
-  // #region Private Methods
 
   /**
    * Abort all in-flight block requests and release their loading slots. Called
@@ -269,6 +287,13 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     }
     this.blockControllers.clear();
     this.loadingBlocks.clear();
+  }
+
+  /** Broadcast `datasource:loading` `false` once no root block request is in flight. */
+  private broadcastIdleIfSettled(): void {
+    if (this.loadingBlocks.size === 0) {
+      this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
+    }
   }
 
   /**
@@ -367,8 +392,9 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
 
   /**
    * `totalNodeCount`, or `Infinity` while it is unknown — `0` means "not yet loaded"
-   * (just after purgeCache, or before the first fetch resolves), and block 0 must
-   * still be fetchable then.
+   * (just after `setDataSource()` / `onModelChange()`, before their first fetch
+   * resolves), and block 0 must still be fetchable then. `purgeCache()` keeps the
+   * total, so it stays finite there.
    */
   private get knownTotal(): number {
     return this.totalNodeCount > 0 ? this.totalNodeCount : Infinity;
@@ -408,12 +434,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
    */
   private onModelChange(): void {
     if (!this.dataSource) return;
-    this.abortAllBlocks();
-    this.loadedBlocks.clear();
-    this.#generation++;
-    this.managedNodes = [];
-    this.totalNodeCount = 0;
-    this.infiniteScrollMode = false;
+    this.discardCache(true);
     this.requestRender();
     // Eagerly fetch the current viewport with the new enrichment params.
     // Without this, the table stays blank until the user scrolls (no other
@@ -426,6 +447,8 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
    * When `lastNode` is provided, it takes priority and finalizes the total.
    * When `totalNodeCount` is -1, switch to infinite scroll (growing array).
    * When a block returns fewer rows than blockSize, detect end-of-data.
+   * A malformed total (missing, negative, non-finite) is stored as `0` ("unknown")
+   * so `getTotalNodeCount()` and `knownTotal` never see `undefined`.
    */
   private applyServerResult(result: GetRowsResult, blockNum: number, blockSize: number): void {
     if (result.lastNode !== undefined) {
@@ -438,6 +461,8 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
       this.totalNodeCount = result.totalNodeCount;
       this.infiniteScrollMode = false;
     }
+    // Malformed total from either branch (`undefined`, negative, `lastNode: NaN`) → "unknown".
+    if (!Number.isFinite(this.totalNodeCount) || this.totalNodeCount < 0) this.totalNodeCount = 0;
 
     // Auto-detect end of data: short block means server has no more rows
     if (this.infiniteScrollMode && result.rows.length < blockSize) {
@@ -459,14 +484,9 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     return maxLoadedEnd + blockSize;
   }
 
-  /**
-   * Length `managedNodes` must have: the infinite-scroll estimate, else
-   * `totalNodeCount` (guarded against an invalid value from a malformed
-   * datasource response, e.g. `undefined`).
-   */
+  /** Length `managedNodes` must have: the infinite-scroll estimate, else `totalNodeCount`. */
   private getNodeCount(blockSize: number): number {
-    if (this.infiniteScrollMode) return this.getInfiniteScrollEstimate(blockSize);
-    return Number.isFinite(this.totalNodeCount) && this.totalNodeCount >= 0 ? this.totalNodeCount : 0;
+    return this.infiniteScrollMode ? this.getInfiniteScrollEstimate(blockSize) : this.totalNodeCount;
   }
 
   /**
@@ -504,116 +524,134 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
         break;
       }
 
-      this.loadingBlocks.add(blockNum);
-      const controller = new AbortController();
-      this.blockControllers.set(blockNum, controller);
-      this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: true });
-
-      loadBlock(this.dataSource, blockNum, blockSize, enrichment, controller.signal)
-        .then((result) => {
-          this.releaseBlock(blockNum, controller);
-          // Drop results from a request that was superseded after the await
-          // resolved (data source ignored the abort signal). Without this guard
-          // a stale block would land in the cache after a sort/filter change.
-          if (controller.signal.aborted) {
-            if (this.loadingBlocks.size === 0) {
-              this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
-            }
-            return;
-          }
-          this.loadedBlocks.set(blockNum, result.rows);
-          // Capture pre-update length so we can detect whether processRows must
-          // re-run to grow the managedNodes array (e.g. after onModelChange reset).
-          const previousManagedLength = this.managedNodes.length;
-          this.applyServerResult(result, blockNum, blockSize);
-
-          // Update managed nodes in place for this block (avoids full processRows rebuild)
-          const start = blockNum * blockSize;
-          for (let i = 0; i < result.rows.length; i++) {
-            if (start + i < this.managedNodes.length) {
-              this.managedNodes[start + i] = result.rows[i];
-            }
-          }
-
-          // Broadcast data event with claimed flag
-          const detail: DataSourceDataDetail = {
-            rows: result.rows,
-            totalNodeCount: result.totalNodeCount,
-            startNode: start,
-            endNode: start + result.rows.length,
-            claimed: false,
-            generation: this.#generation,
-          };
-          this.broadcast('datasource:data', detail);
-
-          if (this.loadingBlocks.size === 0) {
-            this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
-          }
-
-          // If managedNodes is not sized for the (possibly newly known) node count
-          // — reset to 0 by onModelChange() right before this fetch, an infinite-
-          // scroll estimate that grows by a block, or a short block that finalized
-          // a smaller total — we MUST run processRows to resize the array. The
-          // in-place writes above cannot grow or shrink it.
-          // Without this, sort/filter changes leave the grid permanently blank
-          // and infinite scroll stalls after the second block.
-          // A structural plugin (Tree, GroupingRows) that claimed the data derives
-          // its own row model from `managedNodes`. The in-place element swap above
-          // is invisible to that derived model — it still references the discarded
-          // placeholder objects — so processRows MUST re-run for it to re-derive.
-          // The same holds when `_rows` is not `managedNodes` itself: a later
-          // processRows stage (local sort, local filter, MultiSort) produced it
-          // from the previous contents (#520).
-          // With variable row heights the loaded rows can differ in height from the
-          // placeholders they replace; only the ROWS → forced-refresh path rebuilds
-          // the position cache and spacer (refreshVirtualWindow(false) does neither).
-          const needsRowModelRebuild =
-            previousManagedLength === 0 ||
-            detail.claimed ||
-            this.rows !== this.managedNodes ||
-            this.managedNodes.length !== this.getNodeCount(blockSize) ||
-            this.grid._virtualization?.variableHeights === true;
-
-          if (needsRowModelRebuild) {
-            // New identity so downstream processRows caches keyed on the input
-            // reference (e.g. FilteringPlugin) see the loaded rows (#520).
-            this.managedNodes = this.managedNodes.slice();
-            // Scheduled render: re-check against its viewport in afterRender().
-            this.pendingViewportCheck = true;
-            this.requestRender();
-          } else {
-            // Re-render visible rows without force geometry recalculation.
-            // requestVirtualRefresh() skips spacer height writes that cause oscillation
-            // with the scheduler's afterRender microtask. Node count hasn't changed and
-            // row heights are uniform — only cached data replaced placeholders — so
-            // geometry is stable.
-            this.requestVirtualRefresh();
-          }
-
-          // Re-check now in case the user scrolled while the block was in flight
-          // (requestVirtualRefresh() is synchronous, so the window is current).
-          this.loadRequiredBlocks();
-        })
-        .catch((error: unknown) => {
-          this.releaseBlock(blockNum, controller);
-          // A superseded request may surface as either an AbortError or as a
-          // user-thrown error after the data source detected the abort —
-          // suppress diagnostics in both cases. Real failures still surface.
-          if (controller.signal.aborted) {
-            if (this.loadingBlocks.size === 0) {
-              this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
-            }
-            return;
-          }
-          const err = error instanceof Error ? error : new Error(String(error));
-          errorDiagnostic(DATASOURCE_FETCH_ERROR, `getRows() failed: ${err.message}`, gridId);
-          this.broadcast<DataSourceErrorDetail>('datasource:error', { error: err });
-
-          if (this.loadingBlocks.size === 0) {
-            this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
-          }
-        });
+      this.fetchBlock(this.dataSource, blockNum, blockSize, enrichment, gridId);
     }
+  }
+
+  /**
+   * Start the request for `blockNum`, register its abort controller and loading
+   * slot, and on settlement land the rows (or surface the error) and schedule the
+   * render that shows them. Shared by `setDataSource()` (block 0, `initial`) and
+   * `loadRequiredBlocks()`; the caller guarantees the block is neither loaded nor
+   * in flight.
+   */
+  private fetchBlock(
+    dataSource: ServerSideDataSource,
+    blockNum: number,
+    blockSize: number,
+    enrichment: Partial<GetRowsParams>,
+    gridId: string | undefined,
+    initial = false,
+  ): void {
+    this.loadingBlocks.add(blockNum);
+    const controller = new AbortController();
+    this.blockControllers.set(blockNum, controller);
+    this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: true });
+
+    loadBlock(dataSource, blockNum, blockSize, enrichment, controller.signal)
+      .then((result) => {
+        this.releaseBlock(blockNum, controller);
+        // Drop results from a request that was superseded after the await
+        // resolved (data source ignored the abort signal). Without this guard
+        // a stale block would land in the cache after a sort/filter change.
+        if (controller.signal.aborted) {
+          this.broadcastIdleIfSettled();
+          return;
+        }
+        this.loadedBlocks.set(blockNum, result.rows);
+        // Capture pre-update length so we can detect whether processRows must
+        // re-run to grow the managedNodes array (e.g. after onModelChange reset).
+        const previousManagedLength = this.managedNodes.length;
+        this.applyServerResult(result, blockNum, blockSize);
+
+        // Update managed nodes in place for this block (avoids full processRows rebuild)
+        const start = blockNum * blockSize;
+        for (let i = 0; i < result.rows.length; i++) {
+          if (start + i < this.managedNodes.length) {
+            this.managedNodes[start + i] = result.rows[i];
+          }
+        }
+
+        // Broadcast data event with claimed flag
+        const detail: DataSourceDataDetail = {
+          rows: result.rows,
+          totalNodeCount: result.totalNodeCount,
+          startNode: start,
+          endNode: start + result.rows.length,
+          claimed: false,
+          generation: this.#generation,
+        };
+        this.broadcast('datasource:data', detail);
+        this.broadcastIdleIfSettled();
+
+        // If managedNodes is not sized for the (possibly newly known) node count
+        // — reset to 0 by onModelChange() / setDataSource() right before this
+        // fetch, an infinite-scroll estimate that grows by a block, or a short
+        // block that finalized a smaller total — we MUST run processRows to
+        // resize the array. The in-place writes above cannot grow or shrink it.
+        // Without this, sort/filter changes leave the grid permanently blank
+        // and infinite scroll stalls after the second block.
+        // A structural plugin (Tree, GroupingRows) that claimed the data derives
+        // its own row model from `managedNodes`. The in-place element swap above
+        // is invisible to that derived model — it still references the discarded
+        // placeholder objects — so processRows MUST re-run for it to re-derive.
+        // The same holds when `_rows` is not `managedNodes` itself: a later
+        // processRows stage (local sort, local filter, MultiSort) produced it
+        // from the previous contents (#520).
+        // With variable row heights the loaded rows can differ in height from the
+        // placeholders they replace; only the ROWS → forced-refresh path rebuilds
+        // the position cache and spacer (refreshVirtualWindow(false) does neither).
+        // The initial block always rebuilds: it skips the sync re-check below, so
+        // its post-render viewport check is the only refill it triggers — a
+        // scroll-started block that landed first must not demote it to the
+        // virtual-refresh path and strand the slot it frees.
+        const needsRowModelRebuild =
+          initial ||
+          previousManagedLength === 0 ||
+          detail.claimed ||
+          this.rows !== this.managedNodes ||
+          this.managedNodes.length !== this.getNodeCount(blockSize) ||
+          this.grid._virtualization?.variableHeights === true;
+
+        if (needsRowModelRebuild) {
+          // New identity so downstream processRows caches keyed on the input
+          // reference (e.g. FilteringPlugin) see the loaded rows (#520).
+          this.managedNodes = this.managedNodes.slice();
+          // Scheduled render: re-check against its viewport in afterRender() —
+          // checking now would read the PRE-render virtual window (empty when
+          // this is block 0 of a fresh data source).
+          this.pendingViewportCheck = true;
+          this.requestRender();
+        } else {
+          // Re-render visible rows without force geometry recalculation.
+          // requestVirtualRefresh() skips spacer height writes that cause oscillation
+          // with the scheduler's afterRender microtask. Node count hasn't changed and
+          // row heights are uniform — only cached data replaced placeholders — so
+          // geometry is stable.
+          this.requestVirtualRefresh();
+        }
+
+        // Re-check now in case the user scrolled while the block was in flight
+        // (requestVirtualRefresh() is synchronous, so the window is current).
+        // Not for the initial block of a fresh data source: nothing of it has
+        // rendered yet, so the current window is empty or the previous dataset's
+        // — the scheduled render's afterRender() check fills the viewport.
+        if (!initial) this.loadRequiredBlocks();
+      })
+      .catch((error: unknown) => {
+        this.releaseBlock(blockNum, controller);
+        // A superseded request may surface as either an AbortError or as a
+        // user-thrown error after the data source detected the abort —
+        // suppress diagnostics in both cases. Real failures still surface.
+        if (controller.signal.aborted) {
+          this.broadcastIdleIfSettled();
+          return;
+        }
+        const err = error instanceof Error ? error : new Error(String(error));
+        errorDiagnostic(DATASOURCE_FETCH_ERROR, `getRows() failed: ${err.message}`, gridId);
+        this.broadcast<DataSourceErrorDetail>('datasource:error', { error: err });
+        this.broadcastIdleIfSettled();
+      });
   }
   // #endregion
 
@@ -633,11 +671,16 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     // Shrink if total decreased
     this.managedNodes.length = nodeCount;
 
-    // Replace placeholders with cached data (stable refs for unchanged entries)
-    for (let i = 0; i < nodeCount; i++) {
-      const cached = getRowFromCache(i, blockSize, this.loadedBlocks);
-      if (cached) {
-        this.managedNodes[i] = cached;
+    // Replace placeholders with cached data (stable refs for unchanged entries).
+    // Walk the loaded blocks, not every node: O(loaded rows) instead of
+    // O(totalNodeCount) Map lookups per pass. A slot no loaded block covers is
+    // already a placeholder — every `loadedBlocks.clear()` goes through
+    // discardCache(), which also resets managedNodes.
+    for (const [block, rows] of this.loadedBlocks) {
+      const start = block * blockSize;
+      const end = Math.min(nodeCount, start + rows.length);
+      for (let i = start; i < end; i++) {
+        this.managedNodes[i] = rows[i - start];
       }
     }
 
@@ -805,69 +848,14 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
    * @param dataSource - Data source implementing the getRows method (and optionally getChildRows)
    */
   setDataSource(dataSource: ServerSideDataSource): void {
-    this.abortAllBlocks();
+    this.discardCache(true);
     this.dataSource = dataSource;
-    this.loadedBlocks.clear();
-    this.#generation++;
-    this.managedNodes = [];
-    this.totalNodeCount = 0;
-    this.infiniteScrollMode = false;
-    this.pendingViewportCheck = false;
 
-    // Load first block with enrichment params
+    // Load block 0; its landing schedules the render whose afterRender() fills
+    // the rest of the viewport (plus loadThreshold).
     const blockSize = this.config.pageSize ?? 100;
-    const enrichment = this.getEnrichmentParams();
     const gridId = this.grid?.getAttribute?.('id') ?? undefined;
-    const controller = new AbortController();
-    this.blockControllers.set(0, controller);
-    this.loadingBlocks.add(0);
-
-    this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: true });
-
-    loadBlock(dataSource, 0, blockSize, enrichment, controller.signal)
-      .then((result) => {
-        this.releaseBlock(0, controller);
-        if (controller.signal.aborted) {
-          if (this.loadingBlocks.size === 0) {
-            this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
-          }
-          return;
-        }
-        this.loadedBlocks.set(0, result.rows);
-        this.applyServerResult(result, 0, blockSize);
-
-        const detail: DataSourceDataDetail = {
-          rows: result.rows,
-          totalNodeCount: result.totalNodeCount,
-          startNode: 0,
-          endNode: result.rows.length,
-          claimed: false,
-          generation: this.#generation,
-        };
-        this.broadcast('datasource:data', detail);
-        this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
-        // Fill the rest of the viewport (plus loadThreshold) once block 0 has
-        // rendered — see afterRender(). Checking here would use the empty
-        // pre-data virtual window and request nothing.
-        this.pendingViewportCheck = true;
-        // processRows grows managedNodes in place; a new identity invalidates
-        // input-ref caches (a local filter rendered while block 0 was pending).
-        this.managedNodes = this.managedNodes.slice();
-        this.requestRender();
-      })
-      .catch((error: unknown) => {
-        this.releaseBlock(0, controller);
-        if (controller.signal.aborted) {
-          if (this.loadingBlocks.size === 0) {
-            this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
-          }
-          return;
-        }
-        const err = error instanceof Error ? error : new Error(String(error));
-        errorDiagnostic(DATASOURCE_FETCH_ERROR, `getRows() failed: ${err.message}`, gridId);
-        this.broadcast<DataSourceErrorDetail>('datasource:error', { error: err });
-        this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: false });
-      });
+    this.fetchBlock(dataSource, 0, blockSize, this.getEnrichmentParams(), gridId, true);
   }
 
   /**
@@ -875,28 +863,15 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
    * Purges cache and refetches from block 0.
    */
   refresh(): void {
-    if (!this.dataSource) return;
-    const ds = this.dataSource;
-    this.abortAllBlocks();
-    this.loadedBlocks.clear();
-    this.loadingBlocks.clear();
-    this.managedNodes = [];
-    this.totalNodeCount = 0;
-    this.infiniteScrollMode = false;
-    // Re-trigger load via setDataSource which handles enrichment and broadcasting
-    this.setDataSource(ds);
+    if (this.dataSource) this.setDataSource(this.dataSource);
   }
 
   /**
-   * Clear all cached data without refreshing.
+   * Clear all cached data without refreshing. The known total is kept so the
+   * grid keeps rendering placeholders; nothing is fetched until the next scroll.
    */
   purgeCache(): void {
-    this.abortAllBlocks();
-    this.loadedBlocks.clear();
-    this.#generation++;
-    this.managedNodes = [];
-    // Drop a deferred viewport fill so the purge doesn't refetch on the next render.
-    this.pendingViewportCheck = false;
+    this.discardCache(false);
   }
 
   /**

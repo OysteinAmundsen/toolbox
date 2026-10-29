@@ -1,5 +1,6 @@
 import { bench, describe } from 'vitest';
-import { getBlockNumber, getBlockRange, getRequiredBlocks, getRowFromCache, isBlockLoaded } from './datasource';
+import { getBlockNumber, getBlockRange, getRequiredBlocks, getRowFromCache } from './datasource';
+import { ServerSidePlugin } from './server-side-plugin';
 
 // #region Helpers
 
@@ -77,15 +78,49 @@ describe('getRowFromCache', () => {
 
 // #endregion
 
-// #region isBlockLoaded
+// #region processRows cache replacement
 
-describe('isBlockLoaded', () => {
-  const cache = buildCache(10_000, 100, 0.5);
+/**
+ * `processRows` walks `loadedBlocks` (O(loaded rows)) rather than probing the
+ * cache per node (O(totalNodeCount)). Large total with a sparse cache is where
+ * the difference shows; the fully loaded case is the control — there the loop
+ * copies every row, so it bounds the per-pass cost. Every invocation re-copies
+ * each loaded block into `managedNodes` (placeholders are allocated once by the
+ * warm-up call), so the timed body is the cache-replacement loop.
+ */
+describe('ServerSidePlugin.processRows', () => {
+  const blockSize = 100;
+  const blockRows = Array.from({ length: blockSize }, (_, i) => ({ id: i }));
 
-  bench('10K block checks — 50% loaded', () => {
-    for (let i = 0; i < 10_000; i++) {
-      isBlockLoaded(i, cache);
-    }
+  /** Plugin with `totalNodeCount` nodes and `loadedBlocks` blocks loaded, every `stride`-th block from 0. */
+  function pluginFor(totalNodeCount: number, loadedBlocks: number, stride: number): ServerSidePlugin {
+    const plugin = new ServerSidePlugin({ pageSize: blockSize });
+    const host = Object.assign(document.createElement('div'), {
+      rows: [] as unknown[],
+      requestRender: () => undefined,
+      requestVirtualRefresh: () => undefined,
+      _virtualization: { enabled: true, start: 0, end: 0 },
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- minimal host mock, same as the spec
+    plugin.attach(host as any);
+    // Seed internal state directly — setDataSource() would start an async fetch.
+    // Bracket access reaches private members without an `as unknown as` cast.
+    plugin['dataSource'] = { getRows: () => Promise.resolve({ rows: [], totalNodeCount }) };
+    plugin['totalNodeCount'] = totalNodeCount;
+    for (let b = 0; b < loadedBlocks; b++) plugin['loadedBlocks'].set(b * stride, blockRows);
+    plugin.processRows([]); // warm-up: allocate the placeholder array once
+    return plugin;
+  }
+
+  const sparse = pluginFor(1_000_000, 10, 10); // 1% of rows loaded
+  const full = pluginFor(100_000, 1_000, 1); // every block loaded
+
+  bench('1M total, 10 blocks loaded (sparse)', () => {
+    sparse.processRows([]);
+  });
+
+  bench('100K total, all 1000 blocks loaded (fully loaded control)', () => {
+    full.processRows([]);
   });
 });
 

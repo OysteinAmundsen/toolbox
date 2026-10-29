@@ -6,8 +6,6 @@ import {
   getBlockRange,
   getRequiredBlocks,
   getRowFromCache,
-  isBlockLoaded,
-  isBlockLoading,
   loadBlock,
 } from './datasource';
 import { createLoadingPlaceholder, isLoadingPlaceholder } from './placeholder';
@@ -274,39 +272,6 @@ describe('server-side plugin', () => {
 
       expect(getRowFromCache(0, 100, loadedBlocks)).toEqual({ id: 0 });
       expect(getRowFromCache(5, 100, loadedBlocks)).toBeUndefined();
-    });
-  });
-
-  describe('isBlockLoaded', () => {
-    it('should return false for missing block', () => {
-      const loadedBlocks = new Map<number, any[]>();
-      expect(isBlockLoaded(0, loadedBlocks)).toBe(false);
-    });
-
-    it('should return true for loaded block', () => {
-      const loadedBlocks = new Map<number, any[]>();
-      loadedBlocks.set(0, []);
-      loadedBlocks.set(2, []);
-
-      expect(isBlockLoaded(0, loadedBlocks)).toBe(true);
-      expect(isBlockLoaded(1, loadedBlocks)).toBe(false);
-      expect(isBlockLoaded(2, loadedBlocks)).toBe(true);
-    });
-  });
-
-  describe('isBlockLoading', () => {
-    it('should return false for block not loading', () => {
-      const loadingBlocks = new Set<number>();
-      expect(isBlockLoading(0, loadingBlocks)).toBe(false);
-    });
-
-    it('should return true for loading block', () => {
-      const loadingBlocks = new Set<number>([1, 3]);
-
-      expect(isBlockLoading(0, loadingBlocks)).toBe(false);
-      expect(isBlockLoading(1, loadingBlocks)).toBe(true);
-      expect(isBlockLoading(2, loadingBlocks)).toBe(false);
-      expect(isBlockLoading(3, loadingBlocks)).toBe(true);
     });
   });
 
@@ -1119,6 +1084,50 @@ describe('ServerSidePlugin', () => {
       // undefined totalNodeCount is treated as 0 (not a valid number)
       expect(() => plugin.processRows([])).not.toThrow();
       expect(plugin.processRows([]).length).toBe(0);
+      expect(plugin.getTotalNodeCount()).toBe(0);
+    });
+
+    it('treats a malformed lastNode (negative / NaN) as an unknown total instead of throwing', async () => {
+      for (const lastNode of [-5, Number.NaN]) {
+        const plugin = new ServerSidePlugin({ pageSize: 5 });
+        const grid = createServerSideMockGrid();
+        plugin.attach(grid as any);
+        plugin.setDataSource({ getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], lastNode }) });
+        await vi.waitFor(() => expect(grid.requestRender).toHaveBeenCalled());
+
+        // `managedNodes.length = NaN | -4` would throw a RangeError.
+        expect(() => plugin.processRows([])).not.toThrow();
+        expect(plugin.getTotalNodeCount()).toBe(0);
+        plugin.detach();
+      }
+    });
+
+    it('fills only the loaded blocks and keeps stable placeholders in the gaps', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
+      const grid = createServerSideMockGrid({ _virtualization: { enabled: true, start: 0, end: 0 } });
+      plugin.attach(grid as any);
+
+      plugin.setDataSource(pagedDS(12));
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+      const first = plugin.processRows([]);
+      grid.rows = first;
+      const gapPlaceholder = first[5];
+      expect(isLoadingPlaceholder(gapPlaceholder)).toBe(true);
+
+      // Land block 2 (the short last block) without block 1.
+      grid._virtualization.start = 10;
+      grid._virtualization.end = 12;
+      plugin.afterRender();
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(2));
+      expect(plugin.isNodeLoaded(5)).toBe(false);
+
+      const result = plugin.processRows([]);
+      expect(result.length).toBe(12);
+      expect(result.slice(0, 5).map((r: any) => r.id)).toEqual([0, 1, 2, 3, 4]);
+      expect(result.slice(10).map((r: any) => r.id)).toEqual([10, 11]);
+      // Unloaded block 1 keeps the very same placeholder objects as the first pass.
+      expect(result[5]).toBe(gapPlaceholder);
+      expect(result.slice(5, 10).every((r) => isLoadingPlaceholder(r))).toBe(true);
     });
 
     it('should enter infinite scroll mode when totalNodeCount is -1', async () => {
@@ -1296,6 +1305,114 @@ describe('ServerSidePlugin', () => {
 
       expect(plugin.getLoadedBlockCount()).toBe(0);
       expect(grid.requestRender).not.toHaveBeenCalled();
+    });
+
+    it('drops a pending scroll debounce so the purge does not refetch', async () => {
+      vi.useFakeTimers();
+      try {
+        const plugin = new ServerSidePlugin({ pageSize: 10 });
+        const grid = createServerSideMockGrid({ _virtualization: { enabled: true, start: 10, end: 20 } });
+        plugin.attach(grid as any);
+
+        const ds = pagedDS(100);
+        plugin.setDataSource(ds);
+        await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+        // Immediate check fetches block 1; the debounced re-check is now pending.
+        plugin.onScroll({ scrollTop: 500, scrollLeft: 0, direction: 'vertical' } as any);
+        expect(ds.getRows).toHaveBeenCalledTimes(2);
+
+        plugin.purgeCache();
+        vi.advanceTimersByTime(200);
+
+        // Without clearing the timer the debounce would refetch the purged block 1.
+        expect(ds.getRows).toHaveBeenCalledTimes(2);
+        expect(plugin.getLoadedBlockCount()).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  describe('datasource:loading (root blocks)', () => {
+    it('stays loading until every in-flight root block settles, including block 0 from setDataSource()', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 10 });
+      const grid = createServerSideMockGrid({ _virtualization: { enabled: true, start: 0, end: 20 } });
+      plugin.attach(grid as any);
+      const loading: boolean[] = [];
+      grid.addEventListener('datasource:loading', (e: Event) => {
+        const detail = (e as CustomEvent).detail;
+        if (!detail.context) loading.push(detail.loading);
+      });
+
+      const resolvers = new Map<number, (result: { rows: unknown[]; totalNodeCount: number }) => void>();
+      const ds: ServerSideDataSource = {
+        getRows: ({ startNode }) =>
+          new Promise((resolve) => {
+            resolvers.set(startNode, resolve);
+          }),
+      };
+      plugin.setDataSource(ds);
+      // A scroll while block 0 is in flight starts block 1 (total still unknown).
+      plugin.onScroll({ scrollTop: 0, scrollLeft: 0, direction: 'vertical' } as any);
+      expect([...resolvers.keys()]).toEqual([0, 10]);
+      loading.length = 0;
+
+      resolvers.get(0)!({ rows: Array.from({ length: 10 }, (_, i) => ({ id: i })), totalNodeCount: 100 });
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+      // Block 1 is still in flight — no `false` may have been broadcast yet.
+      expect(loading).not.toContain(false);
+
+      resolvers.get(10)!({ rows: Array.from({ length: 10 }, (_, i) => ({ id: 10 + i })), totalNodeCount: 100 });
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(2));
+      expect(loading.at(-1)).toBe(false);
+
+      plugin.detach();
+    });
+  });
+
+  describe('initial block landing after a scroll-started block', () => {
+    it('still schedules the post-render viewport refill so the freed slot is used', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 10, maxConcurrentRequests: 2 });
+      // Viewport needs blocks 0–3; only two requests may be in flight.
+      const grid = createServerSideMockGrid({ _virtualization: { enabled: true, start: 0, end: 40 } });
+      plugin.attach(grid as any);
+      const resolvers = new Map<number, (result: { rows: unknown[]; totalNodeCount: number }) => void>();
+      const ds: ServerSideDataSource = {
+        getRows: ({ startNode }) =>
+          new Promise((resolve) => {
+            resolvers.set(startNode, resolve);
+          }),
+      };
+      const rowsFor = (start: number) => Array.from({ length: 10 }, (_, i) => ({ id: start + i }));
+      /** Run the render block 0/1 scheduled: processRows sizes managedNodes, afterRender consumes the viewport check. */
+      const render = () => {
+        grid.rows = plugin.processRows([]);
+        plugin.afterRender();
+      };
+
+      plugin.setDataSource(ds); // block 0 in flight
+      // Viewport check while block 0 is pending (a scroll, minus its debounce
+      // timer, which would otherwise refill on its own and mask the regression).
+      plugin['loadRequiredBlocks']();
+      expect([...resolvers.keys()]).toEqual([0, 10]); // block 1 took the second slot
+
+      // Block 1 lands FIRST: its render sizes managedNodes; its re-check starts block 2.
+      resolvers.get(10)!({ rows: rowsFor(10), totalNodeCount: 100 });
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+      render();
+      expect([...resolvers.keys()]).toEqual([0, 10, 20]); // block 3 throttled behind 0 and 2
+
+      // Block 0 lands: it frees a slot. managedNodes is already sized, so nothing
+      // but `initial` puts it on the rebuild path — without that, no viewport check
+      // runs and block 3 waits for block 2 to settle.
+      resolvers.get(0)!({ rows: rowsFor(0), totalNodeCount: 100 });
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(2));
+      render();
+
+      expect([...resolvers.keys()]).toEqual([0, 10, 20, 30]);
+
+      plugin.detach();
     });
   });
 

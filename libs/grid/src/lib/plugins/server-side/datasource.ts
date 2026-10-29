@@ -138,14 +138,6 @@ export function getRowFromCache(
   return block[indexInBlock];
 }
 
-export function isBlockLoaded(blockNumber: number, loadedBlocks: Map<number, unknown[]>): boolean {
-  return loadedBlocks.has(blockNumber);
-}
-
-export function isBlockLoading(blockNumber: number, loadingBlocks: Set<number>): boolean {
-  return loadingBlocks.has(blockNumber);
-}
-
 /** Sources built by {@link createUrlDataSource}. */
 const urlDataSources = new WeakSet<ServerSideDataSource>();
 

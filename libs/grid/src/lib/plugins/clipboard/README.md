@@ -27,14 +27,15 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option           | Type                            | Default               | Description                                               |
-| ---------------- | ------------------------------- | --------------------- | --------------------------------------------------------- |
-| `includeHeaders` | `boolean`                       | `false`               | Include column headers in copied text                     |
-| `delimiter`      | `string`                        | `'\t'`                | Column delimiter (tab for Excel compatibility)            |
-| `newline`        | `string`                        | `'\n'`                | Row delimiter                                             |
-| `quoteStrings`   | `boolean`                       | `false`               | Wrap string values with quotes                            |
-| `processCell`    | `(value, field, row) => string` | -                     | Custom cell value processor (overrides copy-what-you-see) |
-| `pasteHandler`   | `PasteHandler \| null`          | `defaultPasteHandler` | Custom paste handler. Set to `null` to disable            |
+| Option           | Type                            | Default               | Description                                                |
+| ---------------- | ------------------------------- | --------------------- | ---------------------------------------------------------- |
+| `includeHeaders` | `boolean`                       | `false`               | Include column headers in copied text                      |
+| `delimiter`      | `string`                        | `'\t'`                | Column delimiter (tab for Excel compatibility)             |
+| `newline`        | `string`                        | `'\n'`                | Row delimiter                                              |
+| `quoteStrings`   | `boolean`                       | `false`               | Quote every string value (otherwise only when needed)      |
+| `escapeFormulas` | `boolean`                       | `true`                | Prefix `=`/`+`/`-`/`@`-leading strings with `'` (CWE-1236) |
+| `processCell`    | `(value, field, row) => string` | -                     | Custom cell value processor (overrides copy-what-you-see)  |
+| `pasteHandler`   | `PasteHandler \| null`          | `defaultPasteHandler` | Custom paste handler. Set to `null` to disable             |
 
 ## Keyboard Shortcuts
 

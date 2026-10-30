@@ -18,7 +18,13 @@ import {
 } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
 import { readCellDisplayText } from '../shared/cell-text';
-import { formatValueAsText, resolveColumns, resolveRows } from '../shared/data-collection';
+import {
+  formatDelimitedValue,
+  formatValueAsText,
+  resolveColumns,
+  resolveRows,
+  type DelimitedFormatOptions,
+} from '../shared/data-collection';
 import { buildClipboardHtml, parseClipboardHtmlPayload } from './clipboard-payload';
 import { copyToClipboard } from './copy';
 import { parseClipboardText, readFromClipboard } from './paste';
@@ -432,7 +438,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
 
   /**
    * Set of this grid's column labels (`header || field`), matching how
-   * {@link buildClipboardText} serializes the copied header row. Used to detect
+   * `#buildDisplayGrid` serializes the copied header row. Used to detect
    * a header row this grid copied, regardless of paste position.
    */
   #columnLabels(): Set<string> {
@@ -602,35 +608,74 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
    *
    * `contains` blanks cells that sit inside the selection's union bounding box
    * but outside every individual range, so a multi-range copy stays rectangular.
+   *
+   * `plainRows` is the `text/plain` variant of `rows`: the same strings run
+   * through `formatDelimitedValue` for `quoteStrings` / `escapeFormulas`
+   * (CWE-1236). Only cells whose RAW value is a string are quoted or
+   * formula-escaped — a formatted negative number (`"-5"`) must stay numeric
+   * for the spreadsheet, and JSON-serialised objects keep their quotes
+   * verbatim. A configured `processCell` owns the text verbatim.
    */
   #buildDisplayGrid(
     columns: ColumnConfig[],
     rows: Record<string, unknown>[],
     options?: CopyOptions,
     contains?: ((rowOffset: number, colOffset: number) => boolean) | null,
-  ): { header: string[] | null; rows: string[][] } {
+  ): { header: string[] | null; rows: string[][]; plainRows: string[][] } {
     const includeHeaders = options?.includeHeaders ?? this.config.includeHeaders ?? false;
     const processCell = options?.processCell ?? this.config.processCell;
     const header = includeHeaders ? columns.map((c) => c.header || c.field) : null;
-    const dataRows = rows.map((row, rowOffset) =>
-      columns.map((col, colOffset) => {
-        if (contains && !contains(rowOffset, colOffset)) return '';
+    // Built once — applied per cell across the whole selection.
+    const stringOpts = this.#delimitedOptions(options);
+    const dataRows: string[][] = [];
+    const plainRows: string[][] = [];
+    rows.forEach((row, rowOffset) => {
+      const display: string[] = [];
+      const plain: string[] = [];
+      columns.forEach((col, colOffset) => {
+        if (contains && !contains(rowOffset, colOffset)) {
+          display.push('');
+          plain.push('');
+          return;
+        }
         const value = resolveCellValue(row, col);
-        if (processCell) return processCell(value, col.field, row);
-        return this.#formatCellAsDisplayed(col, value, row);
-      }),
-    );
-    return { header, rows: dataRows };
+        if (processCell) {
+          const text = processCell(value, col.field, row);
+          display.push(text);
+          plain.push(text);
+          return;
+        }
+        const text = this.#formatCellAsDisplayed(col, value, row);
+        display.push(text);
+        plain.push(typeof value === 'string' ? formatDelimitedValue(text, stringOpts) : text);
+      });
+      dataRows.push(display);
+      plainRows.push(plain);
+    });
+    return { header, rows: dataRows, plainRows };
+  }
+
+  /** Map plugin config + per-call overrides onto the shared delimited-format options. */
+  #delimitedOptions(options?: CopyOptions): DelimitedFormatOptions {
+    return {
+      delimiter: options?.delimiter ?? this.config.delimiter ?? '\t',
+      newline: options?.newline ?? this.config.newline ?? '\n',
+      quoting: this.config.quoteStrings ? 'always' : 'auto',
+      escapeFormulas: this.config.escapeFormulas,
+    };
   }
 
   /** Join a display grid into delimited text (header row first when present). */
-  #joinDisplayGrid(display: { header: string[] | null; rows: string[][] }, options?: CopyOptions): string {
-    const delimiter = options?.delimiter ?? this.config.delimiter ?? '\t';
-    const newline = options?.newline ?? this.config.newline ?? '\n';
+  #joinDisplayGrid(display: { header: string[] | null; plainRows: string[][] }, options?: CopyOptions): string {
+    const opts = this.#delimitedOptions(options);
     const lines: string[] = [];
-    if (display.header) lines.push(display.header.join(delimiter));
-    for (const cells of display.rows) lines.push(cells.join(delimiter));
-    return lines.join(newline);
+    if (display.header) {
+      // Headers are consumer-authored: quote when they contain a separator, never formula-escape.
+      const headerOpts: DelimitedFormatOptions = { ...opts, quoting: 'auto', escapeFormulas: false };
+      lines.push(display.header.map((h) => formatDelimitedValue(h, headerOpts)).join(opts.delimiter));
+    }
+    for (const cells of display.plainRows) lines.push(cells.join(opts.delimiter));
+    return lines.join(opts.newline);
   }
 
   /**

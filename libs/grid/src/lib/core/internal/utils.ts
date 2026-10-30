@@ -51,27 +51,42 @@ export function formatDateValue(value: unknown): string {
 
 /**
  * Get the row index from a cell element's data-row attribute.
- * Falls back to calculating from parent row's DOM position if data-row is missing.
- * Returns -1 if no valid row index is found.
+ *
+ * Fallbacks, in order: a sibling cell's `data-row` (custom-rendered cells may
+ * omit it), then the row's `aria-rowindex` (written by `renderVisibleRows` on
+ * every pooled row BEFORE the `renderRow` hook, so plugin-rendered rows such as
+ * group headers resolve too). Returns -1 if no valid row index is found.
+ *
+ * Never derives the index from the row's DOM position: pooled rows start at the
+ * virtual window's first row, so position ≠ data index once the grid scrolls.
  */
 export function getRowIndexFromCell(cell: Element | null): number {
   if (!cell) return -1;
   const attr = cell.getAttribute('data-row');
   if (attr) return parseInt(attr, 10);
 
-  // Fallback: find the parent .data-grid-row and calculate index from siblings
   const rowEl = cell.closest('.data-grid-row');
   if (!rowEl) return -1;
+  const sibling = rowEl.querySelector(':scope > .cell[data-row]');
+  if (sibling) return parseInt(sibling.getAttribute('data-row') ?? '-1', 10);
 
-  const parent = rowEl.parentElement;
-  if (!parent) return -1;
-
-  // Get all data-grid-row siblings and find this row's index
-  const rows = parent.querySelectorAll(':scope > .data-grid-row');
-  for (let i = 0; i < rows.length; i++) {
-    if (rows[i] === rowEl) return i;
-  }
-  return -1;
+  // aria-rowindex is 1-based and offset by the header-row count `renderVisibleRows`
+  // used when it stamped the attribute. Decode with the SAME cached value
+  // (`__cachedHeaderRowCount` on the host): it is computed once, before
+  // GroupingColumns inserts its `.header-group-row`, so a fresh DOM count can
+  // disagree with it by one. The DOM derivation is only a fallback for hosts
+  // that never rendered (test mocks).
+  const ariaIndex = rowEl.getAttribute('aria-rowindex');
+  if (!ariaIndex) return -1;
+  const host = rowEl.closest('tbw-grid, [data-tbw-grid]');
+  const cached = host && '__cachedHeaderRowCount' in host ? host.__cachedHeaderRowCount : undefined;
+  const headerRowCount =
+    typeof cached === 'number'
+      ? cached
+      : rowEl.closest('.rows-body')?.querySelector(':scope > .header .header-group-row')
+        ? 2
+        : 1;
+  return parseInt(ariaIndex, 10) - headerRowCount - 1;
 }
 
 /**

@@ -1,110 +1,12 @@
 /**
  * Clipboard Copy Logic
  *
- * Pure functions for copying grid data to clipboard.
+ * Writing to the system clipboard. Text building lives in `ClipboardPlugin`
+ * (`#buildDisplayGrid` / `#joinDisplayGrid`) because it needs the rendered
+ * grid for "copy what you see".
  */
 
 import { CLIPBOARD_FAILED, warnDiagnostic } from '../../core/internal/diagnostics';
-import { resolveCellValue } from '../../core/internal/value-accessor';
-import type { ColumnConfig } from '../../core/types';
-import { formatDelimitedValue, type DelimitedFormatOptions } from '../shared/data-collection';
-import type { ClipboardConfig } from './types';
-
-/** Parameters for building clipboard text */
-export interface CopyParams {
-  /** All grid rows */
-  rows: unknown[];
-  /** Column configurations */
-  columns: ColumnConfig[];
-  /** Selected row indices */
-  selectedIndices: Set<number> | number[];
-  /** Clipboard configuration */
-  config: ClipboardConfig;
-}
-
-/**
- * Format a cell value for clipboard output.
- *
- * Uses custom processCell if provided, otherwise applies default formatting:
- * - null/undefined → empty string
- * - Date → ISO string
- * - Object → JSON string
- * - Other → String conversion with optional quoting
- *
- * @param value - The cell value to format
- * @param field - The field name
- * @param row - The full row object
- * @param config - Clipboard configuration
- * @returns Formatted string value
- */
-export function formatCellValue(value: unknown, field: string, row: unknown, config: ClipboardConfig): string {
-  if (config.processCell) {
-    return config.processCell(value, field, row);
-  }
-  return formatDelimitedValue(value, toFormatOptions(config));
-}
-
-/** Map the plugin config onto the shared delimited-format options. */
-function toFormatOptions(config: ClipboardConfig): DelimitedFormatOptions {
-  return {
-    delimiter: config.delimiter ?? '\t',
-    newline: config.newline ?? '\n',
-    quoting: config.quoteStrings ? 'always' : 'auto',
-    escapeFormulas: config.escapeFormulas,
-  };
-}
-
-/**
- * Build clipboard text from selected rows and columns.
- *
- * @param params - Copy parameters including rows, columns, selection, and config
- * @returns Tab-separated (or custom delimiter) text ready for clipboard
- */
-export function buildClipboardText(params: CopyParams): string {
-  const { rows, columns, selectedIndices, config } = params;
-  const delimiter = config.delimiter ?? '\t';
-  const newline = config.newline ?? '\n';
-  // Built once — this runs per cell across the whole selection.
-  const format = toFormatOptions(config);
-
-  // Filter to visible columns (not hidden, not internal __ prefixed)
-  const visibleColumns = columns.filter((c) => !c.hidden && !c.field.startsWith('__'));
-
-  const lines: string[] = [];
-
-  // Add header row if configured
-  if (config.includeHeaders) {
-    const headerCells = visibleColumns.map((c) => {
-      const header = c.header || c.field;
-      // Quote headers if they contain special characters
-      if (header.includes(delimiter) || header.includes(newline) || header.includes('"')) {
-        return `"${header.replace(/"/g, '""')}"`;
-      }
-      return header;
-    });
-    lines.push(headerCells.join(delimiter));
-  }
-
-  // Convert indices to sorted array
-  const indices = selectedIndices instanceof Set ? [...selectedIndices] : selectedIndices;
-  const sortedIndices = [...indices].sort((a, b) => a - b);
-
-  // Build data rows
-  for (const idx of sortedIndices) {
-    const row = rows[idx];
-    if (!row) continue;
-
-    const cells = visibleColumns.map((col) => {
-      const value = resolveCellValue(row, col);
-      return config.processCell
-        ? config.processCell(value, col.field, row)
-        : formatDelimitedValue(value, format);
-    });
-    lines.push(cells.join(delimiter));
-  }
-
-  return lines.join(newline);
-}
 
 /**
  * Copy text to the system clipboard.

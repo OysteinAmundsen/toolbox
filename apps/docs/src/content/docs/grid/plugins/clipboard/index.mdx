@@ -207,8 +207,12 @@ See [`ClipboardConfig`](./interfaces/clipboardconfig/) for the full list of opti
 
 Two options are worth calling out:
 
-- **`escapeFormulas`** — on by default. Values starting with `=`, `+`, `-`, `@`, tab or CR are
+- **`escapeFormulas`** — on by default. String values starting with `=`, `+`, `-`, `@`, tab or CR are
   prefixed with `'` so a spreadsheet treats them as text instead of evaluating them (CWE-1236).
+  Applies to the `text/plain` representation only; numbers, dates and objects are never escaped
+  (a formatted `-5` stays numeric), and a `processCell` callback owns its output verbatim.
+- **`quoteStrings`** — wraps every string value in double quotes. Off by default, in which case a
+  string is quoted only when it contains the delimiter, a newline or a quote.
 - **`fillSelection`** — tiles the clipboard source across a larger multi-cell selection
   (see [Fill Selection](#fill-selection)).
 

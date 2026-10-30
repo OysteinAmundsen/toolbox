@@ -3,87 +3,112 @@ import type { GridElement } from '../../../public';
 import type { ColumnConfig } from '../../core/types';
 import { buildClipboardHtml, parseClipboardHtmlPayload } from './clipboard-payload';
 import { ClipboardPlugin } from './clipboard-plugin';
-import { buildClipboardText, copyToClipboard, formatCellValue, type CopyParams } from './copy';
+import { copyToClipboard } from './copy';
 import { parseClipboardText, readFromClipboard } from './paste';
-import type { ClipboardConfig, PasteDetail } from './types';
+import type { ClipboardConfig, CopyOptions, PasteDetail } from './types';
 import { defaultPasteHandler } from './types';
 
+/** Minimal grid stand-in for exercising `ClipboardPlugin` without a rendered grid. */
+function createGridMockForPlugin(rows: Record<string, unknown>[] = [], columns: ColumnConfig[] = []) {
+  return {
+    rows,
+    sourceRows: rows,
+    columns,
+    _columns: columns,
+    _visibleColumns: columns,
+    _focusRow: 0,
+    _focusCol: 0,
+    gridConfig: {},
+    effectiveConfig: {},
+    getPlugin: () => undefined,
+    query: () => [],
+    queryPlugins: () => [],
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(() => true),
+    requestRender: vi.fn(),
+    children: [document.createElement('div')],
+    querySelectorAll: () => [],
+    querySelector: () => null,
+    clientWidth: 800,
+    classList: { add: vi.fn(), remove: vi.fn() },
+  };
+}
+
+/** The `text/plain` the plugin would copy for `rows` × `columns` — the live copy path. */
+function copyText(
+  rows: Record<string, unknown>[],
+  columns: ColumnConfig[],
+  config: ClipboardConfig = {},
+  options?: CopyOptions,
+): string {
+  const plugin = new ClipboardPlugin(config);
+  plugin.attach(createGridMockForPlugin(rows, columns) as any);
+  return plugin.getSelectionAsText(options);
+}
+
 describe('clipboard', () => {
-  describe('formatCellValue', () => {
-    const defaultConfig: ClipboardConfig = {
-      delimiter: '\t',
-      newline: '\n',
-      quoteStrings: false,
-    };
+  describe('copy text formatting (getSelectionAsText)', () => {
+    const column: ColumnConfig[] = [{ field: 'v', header: 'V' }];
 
-    it('should return empty string for null', () => {
-      expect(formatCellValue(null, 'field', {}, defaultConfig)).toBe('');
+    it('renders null / undefined as empty', () => {
+      expect(copyText([{ v: null }, { v: undefined }], column)).toBe('\n');
     });
 
-    it('should return empty string for undefined', () => {
-      expect(formatCellValue(undefined, 'field', {}, defaultConfig)).toBe('');
+    it('formats Date as ISO string', () => {
+      expect(copyText([{ v: new Date('2024-01-15T10:30:00.000Z') }], column)).toBe('2024-01-15T10:30:00.000Z');
     });
 
-    it('should format Date as ISO string', () => {
-      const date = new Date('2024-01-15T10:30:00.000Z');
-      expect(formatCellValue(date, 'field', {}, defaultConfig)).toBe('2024-01-15T10:30:00.000Z');
+    it('formats objects and arrays as JSON', () => {
+      expect(copyText([{ v: { name: 'test', value: 123 } }, { v: [1, 2, 3] }], column)).toBe(
+        '{"name":"test","value":123}\n[1,2,3]',
+      );
     });
 
-    it('should format object as JSON string', () => {
-      const obj = { name: 'test', value: 123 };
-      expect(formatCellValue(obj, 'field', {}, defaultConfig)).toBe('{"name":"test","value":123}');
+    it('stringifies numbers and booleans', () => {
+      expect(copyText([{ v: 42 }, { v: true }, { v: false }], column)).toBe('42\ntrue\nfalse');
     });
 
-    it('should format array as JSON string', () => {
-      const arr = [1, 2, 3];
-      expect(formatCellValue(arr, 'field', {}, defaultConfig)).toBe('[1,2,3]');
+    it('quotes strings containing the delimiter, a newline or a double quote', () => {
+      expect(copyText([{ v: 'hello\tworld' }, { v: 'hello\nworld' }, { v: 'say "hello"' }], column)).toBe(
+        '"hello\tworld"\n"hello\nworld"\n"say ""hello"""',
+      );
     });
 
-    it('should convert number to string', () => {
-      expect(formatCellValue(42, 'field', {}, defaultConfig)).toBe('42');
+    it('quotes every string when quoteStrings is true, but never numbers', () => {
+      expect(copyText([{ v: 'simple' }, { v: 7 }], column, { quoteStrings: true })).toBe('"simple"\n7');
     });
 
-    it('should convert boolean to string', () => {
-      expect(formatCellValue(true, 'field', {}, defaultConfig)).toBe('true');
-      expect(formatCellValue(false, 'field', {}, defaultConfig)).toBe('false');
+    it('neutralizes formula-triggering STRING values by default (CWE-1236)', () => {
+      const rows = [{ v: '=1+1' }, { v: '+47 123' }, { v: '-x' }, { v: '@me' }];
+      expect(copyText(rows, column)).toBe("'=1+1\n'+47 123\n'-x\n'@me");
     });
 
-    it('should quote strings containing delimiter', () => {
-      expect(formatCellValue('hello\tworld', 'field', {}, defaultConfig)).toBe('"hello\tworld"');
+    it('never formula-escapes a non-string value, even when its display text starts with "-"', () => {
+      const formatted: ColumnConfig[] = [{ field: 'v', header: 'V', format: (n) => `-${n}` }];
+      expect(copyText([{ v: -5 }, { v: 3 }], column)).toBe('-5\n3');
+      expect(copyText([{ v: 5 }], formatted)).toBe('-5');
     });
 
-    it('should quote strings containing newline', () => {
-      expect(formatCellValue('hello\nworld', 'field', {}, defaultConfig)).toBe('"hello\nworld"');
+    it('escapeFormulas: false copies the string verbatim', () => {
+      expect(copyText([{ v: '=1+1' }], column, { escapeFormulas: false })).toBe('=1+1');
     });
 
-    it('should escape and quote strings containing double quotes', () => {
-      expect(formatCellValue('say "hello"', 'field', {}, defaultConfig)).toBe('"say ""hello"""');
-    });
-
-    it('should quote all strings when quoteStrings is true', () => {
-      const config: ClipboardConfig = { ...defaultConfig, quoteStrings: true };
-      expect(formatCellValue('simple', 'field', {}, config)).toBe('"simple"');
-    });
-
-    it('should use custom processCell when provided', () => {
+    it('uses custom processCell verbatim (no quoting or escaping) and passes field + row', () => {
+      const rows = [{ v: '=raw', name: 'Alice' }];
       const config: ClipboardConfig = {
-        ...defaultConfig,
-        processCell: (value, field) => `[${field}:${value}]`,
+        processCell: (value, field, row) => `[${field}:${value}:${(row as { name: string }).name}]`,
       };
-      expect(formatCellValue('test', 'myField', {}, config)).toBe('[myField:test]');
+      expect(copyText(rows, column, config)).toBe('[v:=raw:Alice]');
     });
 
-    it('should pass row to processCell', () => {
-      const row = { id: 1, name: 'Alice' };
-      const config: ClipboardConfig = {
-        ...defaultConfig,
-        processCell: (value, field, r) => `${(r as { name: string }).name}-${value}`,
-      };
-      expect(formatCellValue('value', 'field', row, config)).toBe('Alice-value');
+    it('a per-call processCell overrides the configured one', () => {
+      const config: ClipboardConfig = { processCell: () => 'config' };
+      expect(copyText([{ v: 1 }], column, config, { processCell: () => 'call' })).toBe('call');
     });
   });
 
-  describe('buildClipboardText', () => {
+  describe('copy text layout (getSelectionAsText)', () => {
     const columns: ColumnConfig[] = [
       { field: 'id', header: 'ID' },
       { field: 'name', header: 'Name' },
@@ -96,160 +121,88 @@ describe('clipboard', () => {
       { id: 3, name: 'Charlie', email: 'charlie@example.com' },
     ];
 
-    const defaultConfig: ClipboardConfig = {
-      delimiter: '\t',
-      newline: '\n',
-      includeHeaders: false,
-      quoteStrings: false,
-    };
-
-    it('should build text from selected rows', () => {
-      const params: CopyParams = {
-        rows,
-        columns,
-        selectedIndices: new Set([0, 2]),
-        config: defaultConfig,
-      };
-
-      const result = buildClipboardText(params);
-      expect(result).toBe('1\tAlice\talice@example.com\n3\tCharlie\tcharlie@example.com');
+    it('builds text from the requested rows', () => {
+      expect(copyText(rows, columns, {}, { rowIndices: [0, 2] })).toBe(
+        '1\tAlice\talice@example.com\n3\tCharlie\tcharlie@example.com',
+      );
     });
 
-    it('should include headers when configured', () => {
-      const params: CopyParams = {
-        rows,
-        columns,
-        selectedIndices: new Set([1]),
-        config: { ...defaultConfig, includeHeaders: true },
-      };
-
-      const result = buildClipboardText(params);
-      expect(result).toBe('ID\tName\tEmail\n2\tBob\tbob@example.com');
+    it('includes headers when configured', () => {
+      expect(copyText(rows, columns, { includeHeaders: true }, { rowIndices: [1] })).toBe(
+        'ID\tName\tEmail\n2\tBob\tbob@example.com',
+      );
     });
 
-    it('should use custom delimiter', () => {
-      const params: CopyParams = {
-        rows,
-        columns,
-        selectedIndices: new Set([0]),
-        config: { ...defaultConfig, delimiter: ',' },
-      };
-
-      const result = buildClipboardText(params);
-      expect(result).toBe('1,Alice,alice@example.com');
+    it('uses a custom delimiter', () => {
+      expect(copyText(rows, columns, { delimiter: ',' }, { rowIndices: [0] })).toBe('1,Alice,alice@example.com');
     });
 
-    it('should use custom newline', () => {
-      const params: CopyParams = {
-        rows,
-        columns,
-        selectedIndices: new Set([0, 1]),
-        config: { ...defaultConfig, newline: '\r\n' },
-      };
-
-      const result = buildClipboardText(params);
-      expect(result).toBe('1\tAlice\talice@example.com\r\n2\tBob\tbob@example.com');
+    it('uses a custom newline', () => {
+      expect(copyText(rows, columns, { newline: '\r\n' }, { rowIndices: [0, 1] })).toBe(
+        '1\tAlice\talice@example.com\r\n2\tBob\tbob@example.com',
+      );
     });
 
-    it('should accept array of indices', () => {
-      const params: CopyParams = {
-        rows,
-        columns,
-        selectedIndices: [2, 0], // Order doesn't matter, will be sorted
-        config: defaultConfig,
-      };
-
-      const result = buildClipboardText(params);
-      expect(result).toBe('1\tAlice\talice@example.com\n3\tCharlie\tcharlie@example.com');
+    it('sorts unordered row indices', () => {
+      expect(copyText(rows, columns, {}, { rowIndices: [2, 0] })).toBe(
+        '1\tAlice\talice@example.com\n3\tCharlie\tcharlie@example.com',
+      );
     });
 
-    it('should filter out hidden columns', () => {
-      const columnsWithHidden: ColumnConfig[] = [
+    it('filters out hidden columns', () => {
+      const withHidden: ColumnConfig[] = [
         { field: 'id', header: 'ID' },
         { field: 'name', header: 'Name', hidden: true },
         { field: 'email', header: 'Email' },
       ];
-
-      const params: CopyParams = {
-        rows,
-        columns: columnsWithHidden,
-        selectedIndices: new Set([0]),
-        config: defaultConfig,
-      };
-
-      const result = buildClipboardText(params);
-      expect(result).toBe('1\talice@example.com');
+      expect(copyText(rows, withHidden, {}, { rowIndices: [0] })).toBe('1\talice@example.com');
     });
 
-    it('should filter out internal columns (__ prefix)', () => {
-      const columnsWithInternal: ColumnConfig[] = [
+    it('filters out internal (__-prefixed) columns', () => {
+      const withInternal: ColumnConfig[] = [
         { field: '__selection', header: '' },
         { field: 'id', header: 'ID' },
         { field: 'name', header: 'Name' },
       ];
-
-      const params: CopyParams = {
-        rows: rows.map((r) => ({ ...r, __selection: true })),
-        columns: columnsWithInternal,
-        selectedIndices: new Set([0]),
-        config: defaultConfig,
-      };
-
-      const result = buildClipboardText(params);
-      expect(result).toBe('1\tAlice');
+      const tagged = rows.map((r) => ({ ...r, __selection: true }));
+      expect(copyText(tagged, withInternal, {}, { rowIndices: [0] })).toBe('1\tAlice');
     });
 
-    it('should return empty string for empty selection', () => {
-      const params: CopyParams = {
-        rows,
-        columns,
-        selectedIndices: new Set(),
-        config: defaultConfig,
-      };
-
-      const result = buildClipboardText(params);
-      expect(result).toBe('');
+    it('returns an empty string when there is nothing to copy', () => {
+      expect(copyText([], columns)).toBe('');
+      expect(copyText(rows, [])).toBe('');
+      expect(copyText(rows, columns, { includeHeaders: true }, { rowIndices: [99] })).toBe('');
     });
 
-    it('should return only headers for empty selection with includeHeaders', () => {
-      const params: CopyParams = {
-        rows,
-        columns,
-        selectedIndices: new Set(),
-        config: { ...defaultConfig, includeHeaders: true },
-      };
-
-      const result = buildClipboardText(params);
-      expect(result).toBe('ID\tName\tEmail');
+    it('skips out-of-range row indices', () => {
+      expect(copyText(rows, columns, {}, { rowIndices: [0, 99, 1] })).toBe(
+        '1\tAlice\talice@example.com\n2\tBob\tbob@example.com',
+      );
     });
 
-    it('should skip invalid row indices', () => {
-      const params: CopyParams = {
-        rows,
-        columns,
-        selectedIndices: new Set([0, 99, 1]), // 99 is out of bounds
-        config: defaultConfig,
-      };
-
-      const result = buildClipboardText(params);
-      expect(result).toBe('1\tAlice\talice@example.com\n2\tBob\tbob@example.com');
-    });
-
-    it('should quote header containing delimiter', () => {
-      const columnsWithSpecialHeader: ColumnConfig[] = [
+    it('quotes a header containing the delimiter and never formula-escapes headers', () => {
+      const special: ColumnConfig[] = [
         { field: 'id', header: 'ID,Value' },
-        { field: 'name', header: 'Name' },
+        { field: 'name', header: '=Name' },
       ];
+      expect(copyText(rows, special, { delimiter: ',', includeHeaders: true }, { rowIndices: [0] })).toBe(
+        '"ID,Value",=Name\n1,Alice',
+      );
+    });
 
-      const params: CopyParams = {
-        rows,
-        columns: columnsWithSpecialHeader,
-        selectedIndices: new Set([0]),
-        config: { ...defaultConfig, delimiter: ',', includeHeaders: true },
-      };
+    it('renders missing fields as empty cells', () => {
+      const ab: ColumnConfig[] = [
+        { field: 'a', header: 'A' },
+        { field: 'b', header: 'B' },
+      ];
+      expect(copyText([{ a: 1 }, { b: 2 }], ab)).toBe('1\t\n\t2');
+    });
 
-      const result = buildClipboardText(params);
-      expect(result).toBe('"ID,Value",Name\n1,Alice');
+    it('round-trips special characters through parseClipboardText', () => {
+      const config: ClipboardConfig = { delimiter: '\t', newline: '\n' };
+      const rows = [{ text: 'hello\tworld' }, { text: 'line1\nline2' }, { text: 'say "hi"' }];
+      const copied = copyText(rows, [{ field: 'text', header: 'Text' }], config);
+      expect(parseClipboardText(copied, config)).toEqual([['hello\tworld'], ['line1\nline2'], ['say "hi"']]);
     });
   });
 
@@ -360,70 +313,6 @@ describe('clipboard', () => {
       const result = parseClipboardText(text, defaultConfig);
 
       expect(result).toEqual([['a', 'b\tc', 'd"e', 'f\ng']]);
-    });
-  });
-
-  describe('edge cases', () => {
-    it('should handle round-trip with special characters', () => {
-      const config: ClipboardConfig = {
-        delimiter: '\t',
-        newline: '\n',
-        quoteStrings: false,
-      };
-
-      const columns: ColumnConfig[] = [{ field: 'text', header: 'Text' }];
-
-      const rows = [
-        { text: 'hello\tworld' }, // Contains tab
-        { text: 'line1\nline2' }, // Contains newline
-        { text: 'say "hi"' }, // Contains quotes
-      ];
-
-      const copyParams: CopyParams = {
-        rows,
-        columns,
-        selectedIndices: new Set([0, 1, 2]),
-        config,
-      };
-
-      const copied = buildClipboardText(copyParams);
-      const parsed = parseClipboardText(copied, config);
-
-      expect(parsed).toEqual([['hello\tworld'], ['line1\nline2'], ['say "hi"']]);
-    });
-
-    it('should handle empty columns array', () => {
-      const params: CopyParams = {
-        rows: [{ id: 1 }],
-        columns: [],
-        selectedIndices: new Set([0]),
-        config: { delimiter: '\t', newline: '\n' },
-      };
-
-      const result = buildClipboardText(params);
-      expect(result).toBe('');
-    });
-
-    it('should handle rows with missing fields', () => {
-      const columns: ColumnConfig[] = [
-        { field: 'a', header: 'A' },
-        { field: 'b', header: 'B' },
-      ];
-
-      const rows = [
-        { a: 1 }, // Missing 'b'
-        { b: 2 }, // Missing 'a'
-      ];
-
-      const params: CopyParams = {
-        rows,
-        columns,
-        selectedIndices: new Set([0, 1]),
-        config: { delimiter: '\t', newline: '\n' },
-      };
-
-      const result = buildClipboardText(params);
-      expect(result).toBe('1\t\n\t2');
     });
   });
 
@@ -996,32 +885,6 @@ describe('clipboard', () => {
   // #region ClipboardPlugin class
 
   describe('ClipboardPlugin class', () => {
-    function createGridMockForPlugin(rows: Record<string, unknown>[] = [], columns: ColumnConfig[] = []) {
-      return {
-        rows,
-        sourceRows: rows,
-        columns,
-        _columns: columns,
-        _visibleColumns: columns,
-        _focusRow: 0,
-        _focusCol: 0,
-        gridConfig: {},
-        effectiveConfig: {},
-        getPlugin: () => undefined,
-        query: () => [],
-        queryPlugins: () => [],
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        dispatchEvent: vi.fn(() => true),
-        requestRender: vi.fn(),
-        children: [document.createElement('div')],
-        querySelectorAll: () => [],
-        querySelector: () => null,
-        clientWidth: 800,
-        classList: { add: vi.fn(), remove: vi.fn() },
-      };
-    }
-
     it('should have correct name', () => {
       const plugin = new ClipboardPlugin();
       expect(plugin.name).toBe('clipboard');

@@ -533,16 +533,17 @@ export function renderVisibleRows(
       // unchanged (e.g. toggling ResponsivePlugin's card layout). The hook may still
       // decline the row, so snapshot the cells now and only release once it claims it.
       const loadingCells = rowEl.__hasCellLoading ? Array.from(rowEl.children) : undefined;
+      const wasBusy = rowEl.hasAttribute('aria-busy');
       // A recycled element can still carry the previous row's loading state (a
       // placeholder's spinner + aria-busy). Custom renderers replace children and
       // classes but don't own it; grid.setRowLoading() state is re-applied after render.
-      if (dataRefChanged && rowEl.hasAttribute('aria-busy'))
-        setRowLoadingState(rowEl, false, undefined, grid.__frameworkAdapter);
+      if (dataRefChanged && wasBusy) setRowLoadingState(rowEl, false, undefined, grid.__frameworkAdapter);
       // An active `setRowLoading()` overlay is wiped by the same replaceChildren(); the
       // post-pass replay mounts a fresh one, so the wiped loader must be unmounted.
-      const rowLoader = rowEl.hasAttribute('aria-busy')
-        ? rowEl.querySelector<HTMLElement>(':scope > .tbw-row-loading-overlay')
-        : null;
+      const rowLoader =
+        wasBusy && rowEl.hasAttribute('aria-busy')
+          ? rowEl.querySelector<HTMLElement>(':scope > .tbw-row-loading-overlay')
+          : null;
       if (renderRowHook!(rowData, rowEl, rowIndex)) {
         if (loadingCells) releaseLoadingCells(grid, rowEl, loadingCells);
         if (rowLoader && rowLoader.parentNode !== rowEl) grid.__frameworkAdapter?.unmount?.(rowLoader);

@@ -366,11 +366,8 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
    * `config.dragFrom`. Idempotent and cheap (one attribute write per row).
    */
   private applyRowDraggable(): void {
-    const body = this.internalGrid._bodyEl;
-    if (!body) return;
     const wantDraggable = this.rowIsDraggable;
-    const rows = body.querySelectorAll<HTMLElement>('.data-grid-row');
-    for (const row of rows) {
+    for (const row of this.#ownRows()) {
       if (wantDraggable) {
         if (row.getAttribute('draggable') !== 'true') row.setAttribute('draggable', 'true');
       } else if (row.hasAttribute('draggable')) {
@@ -1106,15 +1103,15 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
   }
 
   private clearDropTargetClasses(): void {
-    this.gridElement?.querySelectorAll('.data-grid-row.drop-target').forEach((row) => {
+    for (const row of this.#ownRows('.data-grid-row.drop-target')) {
       row.classList.remove('drop-target', 'drop-before', 'drop-after');
-    });
+    }
   }
 
   private clearDragClasses(): void {
-    this.gridElement?.querySelectorAll('.data-grid-row').forEach((row) => {
+    for (const row of this.#ownRows()) {
       row.classList.remove(GridClasses.DRAGGING, 'drop-target', 'drop-before', 'drop-after');
-    });
+    }
   }
 
   private resetDragState(): void {
@@ -1129,8 +1126,25 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
   }
 
   private getRowIndex(rowEl: HTMLElement): number {
-    const cell = rowEl.querySelector('.cell[data-row]');
+    const cell = rowEl.querySelector(':scope > .cell[data-row]');
     return cell ? parseInt(cell.getAttribute('data-row') ?? '-1', 10) : -1;
+  }
+
+  /**
+   * The grid's own row elements: direct children of `.rows` plus the own
+   * StickyRows overlay (`.tbw-sticky-rows`, a `.rows` sibling whose clones keep
+   * the source row's `draggable`/drag classes and are valid drag targets).
+   * Overlay first = previous document order. The grid renders in light DOM, so
+   * a nested `<tbw-grid>` in a master-detail panel or cell renderer lives INSIDE
+   * `.rows` — a descendant `.data-grid-row` query would mark/unmark the child
+   * grid's rows (#581).
+   */
+  #ownRows(selector = '.data-grid-row'): HTMLElement[] {
+    const body = this.internalGrid?._bodyEl;
+    if (!body) return [];
+    const sticky = body.parentElement?.querySelector<HTMLElement>(':scope > .tbw-sticky-rows');
+    const scopes = sticky ? [sticky, body] : [body];
+    return scopes.flatMap((scope) => Array.from(scope.querySelectorAll<HTMLElement>(`:scope > ${selector}`)));
   }
 
   private clearDebounceTimer(): void {
@@ -1227,10 +1241,10 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
 
   private captureRowPositions(): Map<number, number> {
     const positions = new Map<number, number>();
-    this.gridElement?.querySelectorAll('.data-grid-row').forEach((row) => {
-      const rowIndex = this.getRowIndex(row as HTMLElement);
+    for (const row of this.#ownRows()) {
+      const rowIndex = this.getRowIndex(row);
       if (rowIndex >= 0) positions.set(rowIndex, row.getBoundingClientRect().top);
-    });
+    }
     return positions;
   }
 
@@ -1242,20 +1256,19 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     const maxIndex = Math.max(fromIndex, toIndex);
     const rowsToAnimate: { el: HTMLElement; deltaY: number }[] = [];
 
-    gridEl.querySelectorAll('.data-grid-row').forEach((row) => {
-      const rowEl = row as HTMLElement;
+    for (const rowEl of this.#ownRows()) {
       const newRowIndex = this.getRowIndex(rowEl);
-      if (newRowIndex < 0 || newRowIndex < minIndex || newRowIndex > maxIndex) return;
+      if (newRowIndex < 0 || newRowIndex < minIndex || newRowIndex > maxIndex) continue;
       let oldIndex: number;
       if (newRowIndex === toIndex) oldIndex = fromIndex;
       else if (fromIndex < toIndex) oldIndex = newRowIndex + 1;
       else oldIndex = newRowIndex - 1;
       const oldTop = oldPositions.get(oldIndex);
-      if (oldTop === undefined) return;
+      if (oldTop === undefined) continue;
       const newTop = rowEl.getBoundingClientRect().top;
       const deltaY = oldTop - newTop;
       if (Math.abs(deltaY) > 1) rowsToAnimate.push({ el: rowEl, deltaY });
-    });
+    }
 
     if (rowsToAnimate.length === 0) return;
 

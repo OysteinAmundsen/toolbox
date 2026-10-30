@@ -100,12 +100,16 @@ export function getColIndexFromCell(cell: Element | null): number {
 }
 
 /**
- * Clear all cell-focus styling from a root element.
- * Used when changing focus or when selection plugin takes over focus management.
+ * Clear cell-focus styling from the grid's own data cells.
+ *
+ * `body` is the grid's `.rows` container (`grid._bodyEl`). Only cells of rows
+ * that are DIRECT children of it are touched: the grid renders in light DOM,
+ * so a nested `<tbw-grid>` (master-detail panel, cell renderer) lives inside
+ * this container and a descendant query would strip ITS focus marker (#581).
  */
-export function clearCellFocus(root: Element | null): void {
-  if (!root) return;
-  root.querySelectorAll('.cell-focus').forEach((el) => el.classList.remove('cell-focus'));
+export function clearCellFocus(body: Element | null): void {
+  if (!body) return;
+  body.querySelectorAll(':scope > .data-grid-row > .cell.cell-focus').forEach((el) => el.classList.remove('cell-focus'));
 }
 // #endregion
 

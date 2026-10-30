@@ -292,13 +292,14 @@ function findFocusedCell(grid: GridHost): { rowEl: HTMLElement | null; cell: HTM
   const vEnd = grid._virtualization.end ?? grid._rows.length;
   if (rowIndex < vStart || rowIndex >= vEnd) return undefined;
 
-  const rowEl = grid._bodyEl.querySelectorAll('.data-grid-row')[rowIndex - vStart] as HTMLElement | null;
+  // Own rows only (`:scope >`): a nested grid's rows would shift the index (#581).
+  const rowEl = grid._bodyEl.querySelectorAll(':scope > .data-grid-row')[rowIndex - vStart] as HTMLElement | null;
   // Try exact column match first, then query by data-col, then fall back to the
   // first cell (full-width group rows).
   let cell = rowEl?.children[grid._focusCol] as HTMLElement | undefined;
   if (!cell || !cell.classList?.contains('cell')) {
-    cell = (rowEl?.querySelector(`.cell[data-col="${grid._focusCol}"]`) ?? rowEl?.querySelector('.cell[data-col]')) as
-      HTMLElement | undefined;
+    cell = (rowEl?.querySelector(`:scope > .cell[data-col="${grid._focusCol}"]`) ??
+      rowEl?.querySelector(':scope > .cell[data-col]')) as HTMLElement | undefined;
   }
   return cell ? { rowEl: rowEl ?? null, cell } : undefined;
 }
@@ -408,10 +409,13 @@ export function ensureCellVisible(grid: GridHost, options?: EnsureCellVisibleOpt
   if (!isEditing) grid.refreshVirtualWindow(false);
 
   clearCellFocus(grid._bodyEl);
-  // Clear previous aria-selected markers
-  Array.from(grid._bodyEl.querySelectorAll('[aria-selected="true"]')).forEach((el) => {
-    el.setAttribute('aria-selected', 'false');
-  });
+  // Clear previous aria-selected markers on own rows/cells only — a nested grid
+  // (detail panel, cell renderer) owns its own markers (#581).
+  grid._bodyEl
+    .querySelectorAll(':scope > .data-grid-row[aria-selected="true"], :scope > .data-grid-row > .cell[aria-selected="true"]')
+    .forEach((el) => {
+      el.setAttribute('aria-selected', 'false');
+    });
 
   const focused = findFocusedCell(grid);
   if (!focused) return;

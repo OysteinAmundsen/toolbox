@@ -199,23 +199,37 @@ describe('utils', () => {
       expect(() => clearCellFocus(null)).not.toThrow();
     });
 
-    it('should remove cell-focus class from all elements', () => {
-      const root = document.createElement('div');
-      root.innerHTML = `
-        <div class="cell cell-focus" data-row="0" data-col="0"></div>
-        <div class="cell" data-row="0" data-col="1"></div>
-        <div class="cell cell-focus" data-row="1" data-col="0"></div>
+    it('should remove cell-focus class from cells of own rows', () => {
+      const body = document.createElement('div');
+      body.innerHTML = `
+        <div class="data-grid-row">
+          <div class="cell cell-focus" data-row="0" data-col="0"></div>
+          <div class="cell" data-row="0" data-col="1"></div>
+        </div>
+        <div class="data-grid-row">
+          <div class="cell cell-focus" data-row="1" data-col="0"></div>
+        </div>
       `;
-      clearCellFocus(root);
-      const focused = root.querySelectorAll('.cell-focus');
-      expect(focused.length).toBe(0);
+      clearCellFocus(body);
+      expect(body.querySelectorAll('.cell-focus').length).toBe(0);
     });
 
-    it('should work with element root', () => {
-      const host = document.createElement('div');
-      host.innerHTML = `<div class="cell cell-focus"></div>`;
-      clearCellFocus(host);
-      expect(host.querySelectorAll('.cell-focus').length).toBe(0);
+    it('should leave a nested grid inside a detail row or cell untouched (#581)', () => {
+      const body = document.createElement('div');
+      body.innerHTML = `
+        <div class="data-grid-row">
+          <div class="cell cell-focus" data-row="0" data-col="0">
+            <div class="rows"><div class="data-grid-row"><div class="cell cell-focus" data-row="0" data-col="0"></div></div></div>
+          </div>
+        </div>
+        <div class="detail-row">
+          <div class="rows"><div class="data-grid-row"><div class="cell cell-focus" data-row="0" data-col="0"></div></div></div>
+        </div>
+      `;
+      clearCellFocus(body);
+      const remaining = body.querySelectorAll('.cell-focus');
+      expect(remaining.length).toBe(2);
+      for (const cell of remaining) expect(cell.closest('.rows')).not.toBeNull();
     });
   });
 

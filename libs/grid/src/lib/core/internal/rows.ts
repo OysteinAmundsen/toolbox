@@ -1219,8 +1219,8 @@ export function handleRowClick(grid: GridHost, e: MouseEvent, rowEl: HTMLElement
       // If clicking an already-editing cell, just update focus styling and return
       if (cellEl.classList.contains(GridClasses.EDITING)) {
         if (focusChanged) {
-          // Update .cell-focus class to reflect new focus (clear from grid element)
-          clearCellFocus(grid._bodyEl ?? grid);
+          // Update .cell-focus class to reflect new focus
+          clearCellFocus(grid._bodyEl);
           cellEl.classList.add('cell-focus');
         }
         // Prefer the actual click target when it's a focusable element inside the

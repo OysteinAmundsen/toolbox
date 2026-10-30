@@ -34,6 +34,7 @@ Tests are co-located with source files (`feature.ts` → `feature.spec.ts`). Int
 - **`waitUpgrade(grid)`** — `whenDefined('tbw-grid')` → `grid.ready()` → two `nextFrame()`s. The spec must still import `core/grid` (e.g. `import '../../core/grid'`) so the element is defined. Never poll `data-upgraded` instead: it is set synchronously in `#afterConnect()`, before the scheduler's first flush resolves `ready()`, so `ready()` already implies it (the old polling copies just added a 3 s worst-case stall). Calling `forceLayout()` on top is likewise unnecessary straight after upgrade.
 - **`nextFrame(frames = 1)`** — Resolves after `frames` consecutive animation frames. Use `nextFrame(2)` where a spec needs a double-rAF settle — never a local `requestAnimationFrame(() => requestAnimationFrame(r))` wrapper.
 - **`rafDebounce(fn)`** — RAF-based debounce wrapper with `.cancel()` support. Ensures callback runs at most once per animation frame.
+- **Nested-grid isolation specs → `test/nested-grid.ts`** (#581): `useParentGrid()` (registers the body-reset `beforeEach`/`afterEach`, exposes `.parent`), `mountNestedGrid(parent, { parentPlugins, childPlugins })` (child `<tbw-grid>` in row 0's MasterDetail panel), and the ownership-filtered `ownCell(grid, row, col)` / `ownRows(grid)`. Never query a parent's cells with a `:scope > .tbw-grid-root .rows …` selector — `.rows` is a descendant match and picks the child's cell for any `(row, col)` both grids render.
 
 ## DOM Testing Guidelines
 

@@ -30,16 +30,16 @@ Many former pitfalls were promoted to canonical locations because they describe 
 
 Use this index to jump to the relevant pitfalls when something fails. Each entry is numbered to match the list below.
 
-| Category                        | Pitfalls |
-| ------------------------------- | -------- |
-| **DOM structure & containers**  | 1, 6, 12 |
-| **Touch & scroll**              | 2        |
-| **Icons & CSS variables**       | 3        |
-| **Custom rendering & cells**    | 4        |
-| **Plugin hook ordering**        | 5, 11    |
-| **Virtualized DOM recycling**   | 7        |
-| **Keyboard / clipboard / undo** | 8, 9     |
-| **Context menu targeting**      | 10       |
+| Category                        | Pitfalls     |
+| ------------------------------- | ------------ |
+| **DOM structure & containers**  | 1, 6, 12, 13 |
+| **Touch & scroll**              | 2            |
+| **Icons & CSS variables**       | 3            |
+| **Custom rendering & cells**    | 4            |
+| **Plugin hook ordering**        | 5, 11        |
+| **Virtualized DOM recycling**   | 7            |
+| **Keyboard / clipboard / undo** | 8, 9         |
+| **Context menu targeting**      | 10           |
 
 1. **Plugin container access — `children[0]` is unreliable** — Use `this.gridElement.querySelector('.tbw-grid-root')` to find the grid's root container. Light DOM children (e.g. `<tbw-grid-column>`) are re-appended before `.tbw-grid-root`, making `children[0]` unpredictable.
 2. **Touch scroll boundaries require `window.scrollBy`** — The grid sets `touch-action: none` on `.rows-viewport` and `.faux-vscroll`. Because this is evaluated at gesture start and cannot be changed mid-gesture, you **cannot** release scroll control back to the browser. Propagate surplus delta to the page via `window.scrollBy()`.
@@ -54,3 +54,4 @@ Use this index to jump to the relevant pitfalls when something fails. Each entry
 10. **A synthesised `contextmenu` carries no gesture position — it targets `document.activeElement`** — Chrome dispatches `contextmenu` with `button === -1` for the ContextMenu key and for DevTools device-toolbar emulation (which routes right-click _and_ two-finger tap through that path, emitting no `pointerdown`/`mousedown` at all). `event.target` is `document.activeElement` and `clientX`/`clientY` are that element's centre — verified: right-clicking a cell at (68,424) reports `(1,1)`/`HEADER` when focus is on `<body>`, and `(220,542)`/`TBW-GRID` when focus is on the grid. **Never hit-test those coordinates** — `elementFromPoint` resolves an arbitrary cell and can hijack right-clicks aimed elsewhere on the page. `ContextMenuPlugin` therefore binds on the _host_ (a listener on `.tbw-grid-root` never fires for these) and, when `button === -1` and the target is the host, opens on the focused cell — same as the ContextMenu key. When focus is outside the grid the event is unreachable and the native menu wins; this is a DevTools-emulation artifact only. A **real** touch long-press (`pointerType === 'touch'`) and a real right-click (`button === 2`) both carry the correct target and coordinates.
 11. **`requestRender()` is batched, so render-derived state is stale right after it** — `this.requestRender()` schedules the render; it does not run it. Code that runs synchronously after the call and reads `grid._virtualization`, `datasource:viewport-mapping`, or row DOM sees the **pre-render** values. On a first load those values are empty. To act on the new layout, set a one-shot flag and consume it in `afterRender()`, which runs after the VIRTUALIZATION phase. `requestVirtualRefresh()` is the exception: it runs synchronously, so a sync read after it is already current. It fires `afterRender` only on the unvirtualized and ≤`bypassThreshold`-row paths, not on the normal virtualized path, so do not rely on it to trigger `afterRender`. ServerSidePlugin hit this in #507: a viewport taller than one block never loaded block 1 until the user scrolled.
 12. **`this.columns` includes hidden columns; CSS grid tracks do not** — `this.columns` (= `grid.columns`) is the full column model, hidden ones included, while header cells, group cells (`style.gridColumn = "N / span M"`) and `data-col` index only rendered, i.e. `this.visibleColumns`. Mapping a track index back with `this.columns[i]` / `.slice()` is silently off by one per preceding hidden column — and every test without a hidden column passes. Use `this.visibleColumns` (or filter `!col.hidden`) for any index math. PinnedColumnsPlugin hit this in #512: the group cell above a right-pinned column lost `sticky-right` whenever any column was hidden.
+13. **Descendant DOM queries reach a nested grid — anchor on your own container with `:scope >`** — The grid renders in light DOM, so a `<tbw-grid>` inside a master-detail panel or a cell renderer lives INSIDE the parent's `.rows`. `gridElement.querySelectorAll('.data-grid-row')` / `'.cell'` / `'.cell-focus'` / `'[aria-selected]'` and `rowEl.querySelector('.cell[data-row]')` therefore also match the child grid's rows and cells, and index-based lookups (`rows[i]`) shift by the child's row count. Query `grid._bodyEl.querySelectorAll(':scope > .data-grid-row > .cell…')` (sticky clones: also the own `.tbw-sticky-rows` overlay), `rowEl.querySelector(':scope > .cell…')`, and for an event target or `elementFromPoint` result reject it when `el.closest('tbw-grid, [data-tbw-grid]') !== this.gridElement`. `core/internal/utils.ts#clearCellFocus(body)` is already scoped — pass `_bodyEl`. Hit three times: virtualization measurement (#513), SelectionPlugin paint (#582), keyboard focus + RowDragDrop (#581). Test fixtures that put rows directly under the host (`_hostElement`) but leave `_bodyEl` empty hide the bug — set `_bodyEl` to the row container.

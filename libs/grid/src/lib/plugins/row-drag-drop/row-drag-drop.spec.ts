@@ -7,7 +7,7 @@ import type { RowMoveDetail } from './types';
 
 // Helper to create a minimal grid mock
 function createGridMock(rows: any[] = []) {
-  const bodyEl = document.createElement('div');
+  const bodyEl: HTMLElement = document.createElement('div');
   const mock = {
     rows,
     sourceRows: rows, // sourceRows returns the original rows
@@ -912,8 +912,10 @@ describe('RowDragDropPlugin', () => {
       }
       document.body.appendChild(gridEl);
 
-      // Set _hostElement so the plugin finds the real DOM for drag delegation
+      // Set _hostElement so the plugin finds the real DOM for drag delegation;
+      // `_bodyEl` is the `.rows` container the plugin scopes its row queries to.
       (grid as any)._hostElement = gridEl;
+      grid._bodyEl = gridEl;
 
       plugin.attach(grid as any);
     });
@@ -951,6 +953,25 @@ describe('RowDragDropPlugin', () => {
 
       const rows = gridEl.querySelectorAll('.data-grid-row.dragging');
       expect(rows.length).toBe(0);
+    });
+
+    it('dragend also clears drag classes on StickyRows clones in the own overlay (#581)', () => {
+      // `.tbw-sticky-rows` is a `.rows` sibling; its clones keep the source row's classes.
+      const viewport = document.createElement('div');
+      viewport.className = 'rows-viewport';
+      const sticky = document.createElement('div');
+      sticky.className = 'tbw-sticky-rows';
+      const clone = document.createElement('div');
+      clone.className = 'data-grid-row tbw-sticky-row dragging drop-target drop-before';
+      sticky.appendChild(clone);
+      gridEl.replaceWith(viewport);
+      viewport.append(sticky, gridEl);
+
+      gridEl.dispatchEvent(new Event('dragend', { bubbles: true }));
+
+      expect(clone.classList.contains('dragging')).toBe(false);
+      expect(clone.classList.contains('drop-target')).toBe(false);
+      expect(clone.classList.contains('drop-before')).toBe(false);
     });
 
     it('should handle drop to execute row move', () => {
@@ -1165,6 +1186,7 @@ describe('RowDragDropPlugin', () => {
       document.body.appendChild(gridEl);
       grid = createGridMock([{ id: 1 }, { id: 2 }, { id: 3 }]);
       (grid as any)._hostElement = gridEl;
+      grid._bodyEl = gridEl;
       grid.dispatchEvent = vi.fn(() => true);
     });
 

@@ -589,6 +589,8 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
    */
   private handleContextMenu = (e: Event): void => {
     const event = e as MouseEvent;
+    // A right-click inside a nested grid is that grid's menu to open (#585).
+    if (!this.isOwnTarget(event)) return;
     event.preventDefault();
 
     const target = event.target as HTMLElement | null;

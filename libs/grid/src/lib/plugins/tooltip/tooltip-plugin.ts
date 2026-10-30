@@ -466,7 +466,7 @@ export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
 
   #onMouseOver(e: MouseEvent): void {
     const target = e.target as HTMLElement;
-    if (!target?.closest) return;
+    if (!target?.closest || !this.isOwnTarget(e)) return;
 
     // Check for header cell
     const headerCell = target.closest('[part~="header-cell"]') as HTMLElement | null;
@@ -492,6 +492,18 @@ export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
     const target = e.target as HTMLElement;
     if (!target?.closest) return;
 
+    if (!this.isOwnTarget(e)) {
+      // A nested grid (cell renderer) can sit INSIDE the anchored cell. Entering
+      // it kept the tooltip (still inside the anchor), so leaving the page
+      // straight from the child must still dismiss it — the own-cell `mouseout`
+      // never fires for that move.
+      const anchor = this.#anchorCell;
+      if (anchor && anchor.contains(target) && !isSameCellCrossing(anchor, e.relatedTarget)) {
+        this.#scheduleHide();
+      }
+      return;
+    }
+
     const cell = target.closest('[part~="header-cell"], [data-row][data-col]') as HTMLElement | null;
     if (!cell) return;
 
@@ -516,6 +528,7 @@ export class TooltipPlugin extends BaseGridPlugin<TooltipConfig> {
    */
   #onKeyDownGrid(e: KeyboardEvent): void {
     if (!this.#focusEnabled || !this.#cellEnabled) return;
+    if (!this.isOwnTarget(e)) return;
     if (e.key === 'Escape') return;
     if (!NAVIGATION_KEYS.has(e.key)) {
       // Any other key (typing, Enter to edit) means the user has moved on.

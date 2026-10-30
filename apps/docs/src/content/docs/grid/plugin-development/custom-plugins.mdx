@@ -230,6 +230,7 @@ override afterRowRender(context: AfterRowRenderContext): void {
 |--------|-------------|
 | `this.grid` | Typed `GridElement` (extends `GridElementRef`) |
 | `this.gridElement` | Grid as `HTMLElement` for DOM queries |
+| `this.isOwnTarget(eventOrElement)` | `false` when an event (or element) belongs to a grid nested inside this one (see below) |
 | `this.columns` | Current column configurations |
 | `this.visibleColumns` | Only visible columns |
 | `this.rows` | Processed rows (after filtering, grouping) |
@@ -325,6 +326,27 @@ override renderRow(row: T, rowEl: HTMLElement, rowIndex: number): boolean | void
   return false;
 }
 ```
+
+## Delegated Listeners and Nested Grids
+
+The hooks above (`onCellClick`, `onCellMouseDown`, `onKeyDown`, …) are already scoped to the grid that owns the plugin. If you bind your **own** delegated listener on `this.gridElement` or `.tbw-grid-root` and resolve the element with `closest()`, remember that the grid renders in light DOM: a `<tbw-grid>` returned from a master-detail `detailRenderer` or a cell renderer lives inside your grid's subtree, and its events bubble through your listener. Reject those first with `this.isOwnTarget(e)` — pass the **event**, not `e.target`: ownership is read from its `composedPath()` as it was at dispatch, which still resolves when a listener earlier in the bubble (the child grid's own handler) has already detached the target, and which crosses shadow roots. Otherwise the child's `data-row` / `data-col` are read as if they indexed your grid's rows.
+
+```typescript
+override attach(grid: GridElement<T>): void {
+  super.attach(grid);
+  this.gridElement.addEventListener(
+    'contextmenu',
+    (e) => {
+      if (!this.isOwnTarget(e)) return; // belongs to a nested grid
+      const cell = (e.target as Element).closest('[data-row][data-col]');
+      // …
+    },
+    { signal: this.disconnectSignal },
+  );
+}
+```
+
+The element form (`this.isOwnTarget(el)`) is for subjects without an event, such as `document.elementFromPoint()` results during a drag. One native-DnD trap remains even then: `dragstart` fires at the nearest `draggable` ancestor, so a press inside a non-draggable child grid rendered in a row-draggable parent row surfaces as an *own* `dragstart` on the parent row — decide ownership at `pointerdown` time and cancel the drag (`RowDragDropPlugin` does this). DOM *queries* from `this.gridElement` have the mirror problem — anchor them on your own container with `:scope >` (e.g. `rowsEl.querySelectorAll(':scope > .data-grid-row')` where `rowsEl` is your grid's `.rows` element) so they never reach a nested grid's rows.
 
 ## Injecting Styles
 

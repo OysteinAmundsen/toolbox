@@ -20,7 +20,7 @@ import { handleGridKeyDown } from './keyboard';
 import { startPointerDrag } from './pointer-drag';
 import { getPrimaryPointer } from './pointer-modality';
 import { handleRowClick } from './rows';
-import { clearCellFocus, getColIndexFromCell, getRowIndexFromCell } from './utils';
+import { clearCellFocus, getColIndexFromCell, getRowIndexFromCell, GRID_HOST_SELECTOR, isOwnTarget } from './utils';
 import { readCellField } from './value-accessor';
 
 // #region Utilities
@@ -89,7 +89,7 @@ function handleCellMousedown(grid: InternalGrid, cell: HTMLElement): void {
   // Always call focus() — even when activeElement is inside the grid — because
   // browser default behaviors (e.g., shift+click text selection, cell re-pooling)
   // can move focus to document.body between mousedown and the next keydown.
-  const gridEl = cell.closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
+  const gridEl = cell.closest(GRID_HOST_SELECTOR) as HTMLElement | null;
   if (gridEl && document.activeElement !== gridEl) {
     gridEl.focus({ preventScroll: true });
   }
@@ -129,6 +129,11 @@ function buildCellMouseEvent(
       target = elAtPoint;
     }
   }
+
+  // `elementFromPoint` is document-wide and bubbling is tree-wide: the resolved
+  // element may sit in a nested grid (or another grid on the page). Its
+  // `data-row`/`data-col` index THAT grid's rows, not ours — report no cell.
+  if (target && !isOwnTarget(grid._hostElement, target)) target = null;
 
   // Cells have data-col and data-row attributes
   const cellEl = target?.closest?.('[data-col]') as HTMLElement | null;
@@ -291,6 +296,8 @@ function handlePointerDown(grid: InternalGrid, renderRoot: HTMLElement, e: Point
   // Only primary presses start a drag; secondary buttons belong to ContextMenuPlugin.
   if (e.button !== 0 && e.pointerType === 'mouse') return;
   if (dragState.get(grid)) return;
+  // A press inside a nested grid is that grid's to handle (#585).
+  if (!isOwnTarget(grid._hostElement, e)) return;
 
   const coarse = isCoarsePointer(e);
   let restoreTouchAction: (() => void) | null = null;
@@ -364,10 +371,16 @@ function handlePointerDown(grid: InternalGrid, renderRoot: HTMLElement, e: Point
  * @param signal - AbortSignal for cleanup
  */
 export function setupCellEventDelegation(grid: GridHost, bodyEl: HTMLElement, signal: AbortSignal): void {
+  // The grid renders in light DOM, so a nested <tbw-grid> (master-detail panel,
+  // cell renderer) lives INSIDE this body and its events bubble through these
+  // listeners. Every handler first checks the target is ours (#585).
+  const own = (e: Event): boolean => isOwnTarget(grid._hostElement, e);
+
   // Mousedown - update focus on any cell (not just editable)
   bodyEl.addEventListener(
     'mousedown',
     (e) => {
+      if (!own(e)) return;
       const cell = (e.target as HTMLElement).closest('.cell[data-col]') as HTMLElement | null;
       if (!cell) return;
 
@@ -397,6 +410,7 @@ export function setupCellEventDelegation(grid: GridHost, bodyEl: HTMLElement, si
   bodyEl.addEventListener(
     'click',
     (e) => {
+      if (!own(e)) return;
       const rowEl = (e.target as HTMLElement).closest('.data-grid-row') as HTMLElement | null;
       if (rowEl) handleRowClick(grid, e as MouseEvent, rowEl);
 
@@ -408,7 +422,7 @@ export function setupCellEventDelegation(grid: GridHost, bodyEl: HTMLElement, si
       // and receives all keyboard events via bubble phase.
       // Skip if an editor is active — editors manage their own focus.
       if (!document.activeElement?.closest(`.cell.${GridClasses.EDITING}`)) {
-        const gridEl = (e.target as HTMLElement).closest('tbw-grid, [data-tbw-grid]') as HTMLElement | null;
+        const gridEl = (e.target as HTMLElement).closest(GRID_HOST_SELECTOR) as HTMLElement | null;
         if (gridEl) gridEl.focus({ preventScroll: true });
       }
     },
@@ -419,6 +433,7 @@ export function setupCellEventDelegation(grid: GridHost, bodyEl: HTMLElement, si
   bodyEl.addEventListener(
     'dblclick',
     (e) => {
+      if (!own(e)) return;
       const rowEl = (e.target as HTMLElement).closest('.data-grid-row') as HTMLElement | null;
       if (rowEl) handleRowClick(grid, e as MouseEvent, rowEl);
     },
@@ -462,6 +477,7 @@ export function setupRootEventDelegation(
     'mouseover',
     (e) => {
       if (grid.getPluginByName?.('tooltip')) return;
+      if (!isOwnTarget(grid._hostElement, e)) return;
       const cell = (e.target as HTMLElement).closest('.cell') as HTMLElement | null;
       if (!cell) return;
       // mouseover re-fires for every child boundary crossed inside the cell, and

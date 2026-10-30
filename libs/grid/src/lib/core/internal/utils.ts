@@ -78,7 +78,7 @@ export function getRowIndexFromCell(cell: Element | null): number {
   // that never rendered (test mocks).
   const ariaIndex = rowEl.getAttribute('aria-rowindex');
   if (!ariaIndex) return -1;
-  const host = rowEl.closest('tbw-grid, [data-tbw-grid]');
+  const host = rowEl.closest(GRID_HOST_SELECTOR);
   const cached = host && '__cachedHeaderRowCount' in host ? host.__cachedHeaderRowCount : undefined;
   const headerRowCount =
     typeof cached === 'number'
@@ -110,6 +110,60 @@ export function getColIndexFromCell(cell: Element | null): number {
 export function clearCellFocus(body: Element | null): void {
   if (!body) return;
   body.querySelectorAll(':scope > .data-grid-row > .cell.cell-focus').forEach((el) => el.classList.remove('cell-focus'));
+}
+// #endregion
+
+// #region Ownership Helpers
+
+/**
+ * Selector matching any grid host element, including version-suffixed tags
+ * (`tbw-grid-v…`), which all carry `data-tbw-grid` (#339).
+ */
+export const GRID_HOST_SELECTOR = 'tbw-grid, [data-tbw-grid]';
+
+/**
+ * Whether an event — or an element such as an `elementFromPoint` result or a
+ * row — belongs to `host` rather than to a grid nested inside it.
+ *
+ * The grid renders in light DOM, so every event inside a nested `<tbw-grid>`
+ * (master-detail panel, cell renderer) bubbles through the parent's delegated
+ * listeners. Those listeners resolve their element with `closest()` and would
+ * otherwise read the CHILD's `data-row`/`data-col` as if they were their own
+ * (#585). Call this first in every delegated handler, passing the EVENT.
+ *
+ * Ownership is decided by the NEAREST grid on the way up: with none at all
+ * (detached fixtures, unit-test mocks, a not-yet-dispatched event) the subject
+ * is accepted so that a listener on a bare container keeps working; the host
+ * itself is always its own.
+ *
+ * An event is resolved from `composedPath()` — the path as it was at dispatch
+ * — not from the target's current ancestry: a listener earlier in the bubble
+ * (the child grid's own handler) may have detached the target already, in
+ * which case `closest()` would find no grid and wrongly accept it. The path
+ * also crosses shadow roots, where `closest()` stops. The element form keeps
+ * the ancestry walk (through shadow hosts) for subjects that have no event.
+ */
+export function isOwnTarget(host: Element | null | undefined, subject: EventTarget | Event | null | undefined): boolean {
+  if (!subject || subject === host) return true;
+
+  if (typeof (subject as Event).composedPath === 'function') {
+    for (const node of (subject as Event).composedPath()) {
+      if (node === host) return true;
+      const el = node as Element;
+      if (typeof el.matches === 'function' && el.matches(GRID_HOST_SELECTOR)) return false;
+    }
+    return true;
+  }
+
+  let el: Element | null = subject as Element;
+  if (typeof el.closest !== 'function') return true;
+  while (el) {
+    const owner = el.closest(GRID_HOST_SELECTOR);
+    if (owner) return owner === host;
+    const root: Node = el.getRootNode();
+    el = 'host' in root ? (root as ShadowRoot).host : null;
+  }
+  return true;
 }
 // #endregion
 

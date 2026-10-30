@@ -635,10 +635,17 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * Only registered when `editing.mode === 'grid'`.
    */
   #attachGridModeListeners(signal: AbortSignal, internalGrid: GridHost<T>): void {
+    // Every listener below is bound on the host, so a nested <tbw-grid>
+    // (master-detail panel, cell renderer) bubbles its focus/key/mouse events
+    // through here too. Its host has tabindex=0 and so matches
+    // FOCUSABLE_EDITOR_SELECTOR: unguarded, focusing the child in navigation
+    // mode blurs it straight back to us (#585).
+
     // Track focus/blur on inputs to maintain navigation vs edit mode state
     this.gridElement.addEventListener(
       'focusin',
       (e: FocusEvent) => {
+        if (!this.isOwnTarget(e)) return;
         const target = e.target as HTMLElement;
         // Ignore focus on the grid element itself — it has tabindex=0 so it
         // matches FOCUSABLE_EDITOR_SELECTOR, but blurring + re-focusing it
@@ -680,8 +687,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     this.gridElement.addEventListener(
       'focusout',
       (e: FocusEvent) => {
+        if (!this.isOwnTarget(e)) return;
         const target = e.target as HTMLElement | null;
         const related = e.relatedTarget as HTMLElement | null;
+        // Focus moving INTO a nested grid leaves our editor, even though the
+        // child's host/editors match FOCUSABLE_EDITOR_SELECTOR (#585).
+        const relatedIsOwn = this.isOwnTarget(related);
         // Intra-editor focus moves MUST NOT flip the flag — the editor
         // is still logically focused. Cases observed in the wild:
         //   - Native <select> opening: SELECT → child OPTION
@@ -695,7 +706,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         // FOCUSABLE_EDITOR_SELECTOR, but focus moving to the grid host
         // means we ARE leaving the editor — the explicit Escape/Enter
         // paths handle that by setting the flag to false themselves.
-        if (target && related) {
+        if (target && related && relatedIsOwn) {
           if (target.contains(related)) return;
           const relatedEditor = getEditorAncestor(related);
           if (relatedEditor && relatedEditor !== this.gridElement && this.gridElement.contains(relatedEditor)) {
@@ -705,6 +716,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         // Only clear if focus went outside grid (and external containers) or to a non-input element
         if (
           !related ||
+          !relatedIsOwn ||
           (!this.gridElement.contains(related) && !this.grid.containsFocus?.(related)) ||
           !related.matches(FOCUSABLE_EDITOR_SELECTOR)
         ) {
@@ -721,6 +733,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     this.gridElement.addEventListener(
       'keydown',
       (e: KeyboardEvent) => {
+        if (!this.isOwnTarget(e)) return;
         if (e.key === 'Escape' && this.#gridModeInputFocused) {
           // Check onBeforeEditClose to let overlays close first.
           if (shouldPreventEditClose(this.config, e)) {
@@ -745,6 +758,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     this.gridElement.addEventListener(
       'mousedown',
       (e: MouseEvent) => {
+        if (!this.isOwnTarget(e)) return;
         const target = e.target as HTMLElement;
         if (target.matches(FOCUSABLE_EDITOR_SELECTOR)) {
           this.#gridModeEditLocked = false; // User clicked input - allow edit

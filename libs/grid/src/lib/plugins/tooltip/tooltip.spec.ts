@@ -445,6 +445,40 @@ describe('TooltipPlugin', () => {
       expect(cell.style.getPropertyValue('anchor-name')).toBe('');
     });
 
+    it('should hide when the pointer leaves straight from a nested grid inside the anchored cell (#585)', () => {
+      const columns: ColumnConfig[] = [{ field: 'name' }];
+      const rows = [{ name: 'Long text' }];
+      grid = createMockGrid({ _visibleColumns: columns, rows });
+      plugin = new TooltipPlugin({ hideDelay: 0 });
+      plugin.attach(grid as any);
+
+      const cell = createDataCell(0, 0, 'Long text', true);
+      // A cell renderer that mounts a child grid: its cells carry the same
+      // `data-row`/`data-col` attributes but belong to the nested host.
+      const childGrid = document.createElement('div');
+      childGrid.setAttribute('data-tbw-grid', '');
+      const childCell = createDataCell(0, 0, 'child');
+      childGrid.appendChild(childCell);
+      cell.appendChild(childGrid);
+      (grid as any)._root.appendChild(cell);
+      plugin.afterRender();
+
+      cell.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      expect(cell.style.getPropertyValue('anchor-name')).toBe('--tbw-tooltip-anchor');
+
+      // Into the child grid: still inside the anchor, tooltip stays. The
+      // child's own mouseover must not re-anchor the parent tooltip either.
+      cell.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: childCell }));
+      childCell.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: cell }));
+      expect(cell.style.getPropertyValue('anchor-name')).toBe('--tbw-tooltip-anchor');
+      expect(childCell.style.getPropertyValue('anchor-name')).toBe('');
+
+      // Out of the page directly from the child: the own cell never sees a
+      // mouseout for this move, so the foreign one must dismiss.
+      childCell.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }));
+      expect(cell.style.getPropertyValue('anchor-name')).toBe('');
+    });
+
     it('should skip cells that already have an anchor-name (e.g. overlay editors)', () => {
       const columns: ColumnConfig[] = [{ field: 'name' }];
       const rows = [{ name: 'Long text that overflows the cell container' }];

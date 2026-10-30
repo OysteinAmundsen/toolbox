@@ -17,6 +17,7 @@ import {
   gridPrefix,
 } from '../internal/diagnostics';
 import { setSanitizedHTML } from '../internal/sanitize';
+import { isOwnTarget } from '../internal/utils';
 import type {
   ColumnConfig,
   ColumnState,
@@ -994,6 +995,36 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    */
   protected get gridElement(): HTMLElement {
     return this.grid?._hostElement;
+  }
+
+  /**
+   * Whether an event — or an element such as an `elementFromPoint` result —
+   * belongs to this grid rather than to a grid nested inside it.
+   *
+   * The grid renders in light DOM, so a `<tbw-grid>` returned from a
+   * master-detail `detailRenderer` or a cell renderer lives inside this grid's
+   * subtree and its events bubble through listeners bound on `gridElement` or
+   * `.tbw-grid-root`. Call this first in any such delegated handler before
+   * resolving the element with `closest()`; otherwise the child's
+   * `data-row`/`data-col` are read as if they indexed this grid's rows.
+   *
+   * Pass the **event** whenever you have one: ownership is then read from its
+   * `composedPath()` (the path at dispatch time), which still resolves when a
+   * listener earlier in the bubble detached the target and which crosses
+   * shadow roots. Pass an element only when there is no event.
+   *
+   * @example
+   * ```ts
+   * this.gridElement.addEventListener('contextmenu', (e) => {
+   *   if (!this.isOwnTarget(e)) return;
+   *   const cell = (e.target as Element).closest('[data-row][data-col]');
+   *   // …
+   * });
+   * ```
+   * @since 3.10.4
+   */
+  protected isOwnTarget(subject: EventTarget | Event | null | undefined): boolean {
+    return isOwnTarget(this.gridElement, subject);
   }
 
   /**

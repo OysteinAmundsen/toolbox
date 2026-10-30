@@ -6,7 +6,7 @@
  */
 import { afterEach, beforeEach, expect } from 'vitest';
 import type { DataGridElement } from '../src/lib/core/grid';
-import type { GridPlugin } from '../src/lib/core/types';
+import type { ColumnConfig, GridPlugin } from '../src/lib/core/types';
 import { MasterDetailPlugin } from '../src/lib/plugins/master-detail';
 import { nextFrame, waitUpgrade } from './helpers';
 
@@ -34,6 +34,10 @@ export interface NestedGridOptions {
   parentPlugins?: GridPlugin[];
   /** Plugins for the child grid rendered in row 0's detail panel. */
   childPlugins?: GridPlugin[];
+  /** Parent columns; defaults to a single `id` column. */
+  parentColumns?: ColumnConfig<Order>[];
+  /** Child columns; defaults to `sku` + `qty`. */
+  childColumns?: ColumnConfig[];
 }
 
 /**
@@ -63,20 +67,25 @@ export function useParentGrid(): { readonly parent: DataGridElement<Order> } {
  */
 export async function mountNestedGrid(
   parent: DataGridElement<Order>,
-  { parentPlugins = [], childPlugins = [] }: NestedGridOptions = {},
+  {
+    parentPlugins = [],
+    childPlugins = [],
+    parentColumns = [{ field: 'id' }],
+    childColumns = [{ field: 'sku' }, { field: 'qty' }],
+  }: NestedGridOptions = {},
 ): Promise<DataGridElement> {
   // Assigned inside the renderer closure, so TS cannot narrow a plain `let`.
   const mounted: { child: DataGridElement | null } = { child: null };
   const masterDetail = new MasterDetailPlugin({
     detailRenderer: (row) => {
       const grid = document.createElement('tbw-grid') as DataGridElement;
-      grid.gridConfig = { columns: [{ field: 'sku' }, { field: 'qty' }], plugins: childPlugins };
+      grid.gridConfig = { columns: childColumns, plugins: childPlugins };
       grid.rows = row.items as Order['items'];
       mounted.child = grid;
       return grid;
     },
   });
-  parent.gridConfig = { columns: [{ field: 'id' }], plugins: [masterDetail, ...parentPlugins] };
+  parent.gridConfig = { columns: parentColumns, plugins: [masterDetail, ...parentPlugins] };
   parent.rows = ORDERS;
   await waitUpgrade(parent);
   masterDetail.expand(0);

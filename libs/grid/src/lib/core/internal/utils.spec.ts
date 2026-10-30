@@ -145,9 +145,9 @@ describe('utils', () => {
     });
 
     it('decodes aria-rowindex with the host cached header count, not a fresh DOM count', () => {
-      // rows.ts caches __cachedHeaderRowCount once, BEFORE GroupingColumns inserts its
-      // header row, so the stamped aria-rowindex is offset by the cached value (1) even
-      // though the DOM now shows two header rows.
+      // The decoder must use the SAME value the stamp used (the host cache), never a
+      // fresh DOM probe — within a frame the two can disagree between the ROWS pass
+      // and the afterRender sync (#583).
       const host = document.createElement('div');
       host.setAttribute('data-tbw-grid', '');
       Object.assign(host, { __cachedHeaderRowCount: 1 });

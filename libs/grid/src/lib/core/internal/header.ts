@@ -301,6 +301,8 @@ export function renderHeader(grid: GridHost): void {
   // When grid is cleared with 0 columns, the header row should not have role="row"
   if (headerRow.children.length > 0) {
     headerRow.setAttribute('role', 'row');
+    // Provisional: `rows.ts#syncHeaderRowCount` renumbers the header rows after plugin
+    // afterRender hooks, so this becomes 2 when a column-group row sits above (#583).
     headerRow.setAttribute('aria-rowindex', '1');
   } else {
     headerRow.removeAttribute('role');

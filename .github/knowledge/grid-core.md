@@ -119,7 +119,7 @@ Core = `libs/grid/src/lib/core/`. Lifecycle, config precedence, DOM structure, s
 ```
 
 - INVARIANT (#513/#582/#581, nested grids): a `<tbw-grid>` from a MasterDetail `detailRenderer` (`.master-detail-row`, sibling of `.data-grid-row` in `.rows`) or a cell renderer lives INSIDE the parent's `.rows`. Every query from the host or `_bodyEl` MUST be `:scope > .data-grid-row [> .cell…]` (or reject `el.closest('tbw-grid, [data-tbw-grid]') !== host`). Scoped: `virtualization.ts#measureRenderedRowHeights`, `utils.ts#clearCellFocus(body)` (all callers pass `_bodyEl`), `keyboard.ts#ensureCellVisible` `aria-selected` reset + `findFocusedCell` (index into `:scope > .data-grid-row` — unscoped, the index shifts by the child's row count), Selection `#ownScopes`, RowDragDrop `#ownRows`. Default `_focusRow = 0` → every grid renders its own (0,0) `.cell-focus`; a child's marker is its own. Rule → grid-pitfalls #13. Tests: `integration/nested-grid-focus.spec.ts`, `integration/selection-nested-grid.spec.ts`.
-- TENSION (#581 family, unfixed): parent `bodyEl` mousedown/click delegation and host keydown/drag listeners ALSO get bubbled events from a nested grid (`shouldIgnoreKeyDown` only rejects targets outside `.rows-body`; `handleCellMousedown` reads the child cell's `data-row`), so a child interaction moves the parent's `_focusRow`. Query scoping does not cover this.
+- TENSION (#585, open): parent `bodyEl` mousedown/click delegation and host keydown/drag listeners ALSO get bubbled events from a nested grid (`shouldIgnoreKeyDown` only rejects targets outside `.rows-body`; `handleCellMousedown` reads the child cell's `data-row`), so a child interaction moves the parent's `_focusRow`. Query scoping does not cover this.
 
 ## state-ownership matrix
 

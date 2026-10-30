@@ -77,7 +77,7 @@ Locator strategy in priority order:
 'tbw-grid [role="row"][aria-selected="true"]';
 ```
 
-> **`data-row` vs `aria-rowindex`:** `data-row` is the **0-based index** of the row in the current processed data array (attached to each cell). `aria-rowindex` is the **1-based row position** for assistive tech (attached to each row element), with the header counting as row 1. Pick one and be consistent.
+> **`data-row` vs `aria-rowindex`:** `data-row` is the **0-based index** of the row in the current processed data array (attached to each cell). `aria-rowindex` is the **1-based row position** for assistive tech (attached to each row element), with the header counting as row 1 — so the first data row is `2`, or `3` when the [Column Groups](/grid/plugins/grouping-columns/) plugin adds a group header row. Pick one and be consistent.
 
 ## Waiting for the grid
 

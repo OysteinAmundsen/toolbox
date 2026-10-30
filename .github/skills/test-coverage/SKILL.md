@@ -167,12 +167,13 @@ unreachable through the integration suite**. Test it as a unit with a hand-built
 with no useful message, re-run it through the `runTests` VS Code tool to get the real
 expected/received output (caveat: for `grid-angular` the tool executes `bun test`, which has no
 DOM and fails with `document is not defined` — use Nx there, where positional patterns were also
-ignored and the full suite ran). Filtering with `--testPathPattern=` is **not** honoured, and positional
-patterns after a `--` separator (`bun nx test grid -- <pattern>`) were also ignored for `grid` (Oct 2026, #534 —
-the full 144-file suite ran; but in #565 `bun nx test grid --output-style=static -- <pattern>` DID run only the
-matching file — inconsistent, so don't rely on it). `--testFile=` is rejected by Vitest 4 (`Unknown option`). Pass the pattern
-positionally WITHOUT `--`: `bun nx test grid <file-substring>` (verified #547 — ran only the matching
-files), or accept the ~20 s full run.
+ignored and the full suite ran). Filtering with `--testPathPattern=` is **not** honoured and `--testFile=` is
+rejected by Vitest 4 (`Unknown option`). Positional filters are matched against paths relative to the Vitest root
+(`libs/grid`): a workspace-relative `libs/grid/src/...` matches nothing and still exits 0 with `No test files found`
+(`--passWithNoTests`), so always pass `src/lib/core/internal/rows.spec.ts` or a substring such as `rows.spec`.
+Verified #583: `bun nx test grid --output-style=static -- src/lib/core/internal/rows.spec.ts` ran only that file
+(`--output-style=static` is what surfaces the per-file ✓ lines and counts). Earlier reports of the filter being
+ignored and the full suite running (#534) remain unexplained — if it recurs, capture the exact command.
 
 ## Step 4: Verify
 

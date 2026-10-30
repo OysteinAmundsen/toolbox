@@ -13,7 +13,7 @@ vi.mock('./columns', async (importOriginal) => {
 });
 
 import { setCellLoadingState, setRowLoadingState } from './loading';
-import { handleRowClick, renderVisibleRows } from './rows';
+import { handleRowClick, renderVisibleRows, syncHeaderRowCount } from './rows';
 
 /**
  * Creates a minimal InternalGrid mock for row rendering tests.
@@ -322,6 +322,118 @@ describe('renderVisibleRows', () => {
     renderVisibleRows(g, 0, 1, 1);
     expect(capturedGridRefs.length).toBe(1);
     expect(capturedGridRefs[0]).toBe(g);
+  });
+});
+
+describe('syncHeaderRowCount (#583)', () => {
+  /** Attach a `.header > .header-row` to the mock so the probe is scoped to this grid. */
+  function withHeader(g: any) {
+    const header = document.createElement('div');
+    header.className = 'header';
+    const headerRow = document.createElement('div');
+    headerRow.className = 'header-row';
+    headerRow.setAttribute('role', 'row');
+    headerRow.setAttribute('aria-rowindex', '1');
+    header.appendChild(headerRow);
+    g.appendChild(header);
+    g.appendChild(g._bodyEl);
+    g._headerRowEl = headerRow;
+    return header;
+  }
+
+  function addGroupRow(header: HTMLElement) {
+    const groupRow = document.createElement('div');
+    groupRow.className = 'header-group-row';
+    groupRow.setAttribute('role', 'row');
+    header.insertBefore(groupRow, header.firstChild);
+    return groupRow;
+  }
+
+  it('shifts aria-rowindex on pooled rows when a group header row appears after the ROWS pass', () => {
+    const g = makeGrid();
+    const header = withHeader(g);
+    renderVisibleRows(g, 0, 2, 1);
+    const rows = g._bodyEl.querySelectorAll('.data-grid-row');
+    expect(g.__cachedHeaderRowCount).toBe(1);
+    expect(rows[0].getAttribute('aria-rowindex')).toBe('2');
+
+    // GroupingColumnsPlugin.afterRender inserts the row AFTER renderVisibleRows ran.
+    const groupRow = addGroupRow(header);
+    expect(syncHeaderRowCount(g)).toBe(true);
+    expect(g.__cachedHeaderRowCount).toBe(2);
+    expect(rows[0].getAttribute('aria-rowindex')).toBe('3');
+    expect(rows[1].getAttribute('aria-rowindex')).toBe('4');
+    // Header rows are renumbered 1..n in DOM order too.
+    expect(groupRow.getAttribute('aria-rowindex')).toBe('1');
+    expect(g._headerRowEl.getAttribute('aria-rowindex')).toBe('2');
+  });
+
+  it('shifts back when the group header row is removed at runtime', () => {
+    const g = makeGrid();
+    const header = withHeader(g);
+    const groupRow = addGroupRow(header);
+    renderVisibleRows(g, 0, 2, 1);
+    const rows = g._bodyEl.querySelectorAll('.data-grid-row');
+    expect(rows[0].getAttribute('aria-rowindex')).toBe('3');
+
+    groupRow.remove();
+    expect(syncHeaderRowCount(g)).toBe(true);
+    expect(g.__cachedHeaderRowCount).toBe(1);
+    expect(rows[0].getAttribute('aria-rowindex')).toBe('2');
+    expect(g._headerRowEl.getAttribute('aria-rowindex')).toBe('1');
+  });
+
+  it('renumbers the header rows even when the count is unchanged (renderHeader resets .header-row to 1)', () => {
+    const g = makeGrid();
+    const header = withHeader(g);
+    const groupRow = addGroupRow(header);
+    renderVisibleRows(g, 0, 2, 1);
+    syncHeaderRowCount(g);
+    expect(g._headerRowEl.getAttribute('aria-rowindex')).toBe('2');
+
+    // A HEADER-phase render re-stamps .header-row as 1 while the group row persists.
+    g._headerRowEl.setAttribute('aria-rowindex', '1');
+    const rows = g._bodyEl.querySelectorAll('.data-grid-row');
+    expect(syncHeaderRowCount(g)).toBe(false);
+    expect(groupRow.getAttribute('aria-rowindex')).toBe('1');
+    expect(g._headerRowEl.getAttribute('aria-rowindex')).toBe('2');
+    expect(rows[0].getAttribute('aria-rowindex')).toBe('3');
+  });
+
+  it('is a no-op when the header structure is unchanged', () => {
+    const g = makeGrid();
+    const header = withHeader(g);
+    addGroupRow(header);
+    renderVisibleRows(g, 0, 2, 1);
+    const rows = g._bodyEl.querySelectorAll('.data-grid-row');
+    expect(syncHeaderRowCount(g)).toBe(false);
+    expect(rows[0].getAttribute('aria-rowindex')).toBe('3');
+  });
+
+  it('keeps the next render consistent with the re-stamped rows', () => {
+    const g = makeGrid();
+    const header = withHeader(g);
+    renderVisibleRows(g, 0, 2, 1);
+    addGroupRow(header);
+    syncHeaderRowCount(g);
+    // A subsequent ROWS pass reads the updated cache and leaves the rows alone.
+    renderVisibleRows(g, 0, 2, 1);
+    const rows = g._bodyEl.querySelectorAll('.data-grid-row');
+    expect(rows[0].getAttribute('aria-rowindex')).toBe('3');
+    expect(rows[1].getAttribute('aria-rowindex')).toBe('4');
+  });
+
+  it("ignores a nested grid's group header row (probe is scoped to this grid's header)", () => {
+    const g = makeGrid();
+    withHeader(g);
+    renderVisibleRows(g, 0, 2, 1);
+    // A nested grid rendered inside a cell carries its own .header-group-row.
+    const nested = document.createElement('div');
+    nested.innerHTML =
+      '<div class="header"><div class="header-group-row" role="row"></div><div class="header-row" role="row"></div></div>';
+    g._bodyEl.querySelector('.cell').appendChild(nested);
+    expect(syncHeaderRowCount(g)).toBe(false);
+    expect(g.__cachedHeaderRowCount).toBe(1);
   });
 });
 

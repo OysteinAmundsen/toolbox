@@ -76,12 +76,50 @@ The build will hard-fail. Work through the **Over-budget investigation checklist
 
 ### 5. Size Reduction Strategies
 
+Measure first — `attribute-bundle.mjs` (below) tells you which source files own the bytes; the
+minified-output scans in the knowledge file (`build-and-deploy.md` → "bundle budget") tell you
+what has already been ruled out. Then, in order of yield observed on this codebase:
+
+- **CSS pipeline** — the inlined CSS is the single largest core "file" (~22 kB raw, but only
+  ~5 kB gz). Vite runs lightningcss twice (transform + `cssMinify`), so a hand-written vendor
+  prefix is emitted **three** times. Never hand-prefix; keep `cssBrowserTargets` in
+  `libs/grid/vite.config.ts` equal to the documented browser floor so only needed prefixes ship.
 - Move feature code to a plugin (separate entry point)
 - Extract pure functions and ensure tree-shaking works
 - Remove unused exports and dead code
-- Minimize CSS by combining selectors
-- Use `const enum` instead of `enum` where possible
+- Minimize CSS by combining selectors; merge rules that target the same selector
+- Dedupe repeated logic blocks (`updateRow` → `updateRows([…])`, shared affordance helpers)
+- Use `const` objects instead of `enum`
 - Audit `import` statements for unnecessary pulls
+
+### Measuring tools (in this skill folder)
+
+```bash
+# Where do the bytes go? Per-source raw bytes from the sourcemap (top 45 by default).
+bun nx build grid
+node .github/skills/bundle-check/attribute-bundle.mjs dist/libs/grid/index.js [rows]
+
+# Does a CSS pipeline change render identically? Real grid from dist/ in Chromium; every
+# computed property of every element + ::before/::after, stylesheet A vs stylesheet B.
+# Build the baseline in a detached worktree — `git stash` silently stashes nothing once
+# the change is committed, and the compare degrades to A-vs-A.
+bun nx build grid
+node .github/skills/bundle-check/css-parity.mjs --dump=tmp/styles-a.css        # current dist
+$wt = "$env:TEMP\parity-base"; git worktree add --detach $wt <baseline-rev>
+New-Item -ItemType Junction -Path "$wt\node_modules" -Target "$PWD\node_modules" | Out-Null
+Push-Location $wt; bun nx build grid; Pop-Location
+Remove-Item -Recurse -Force dist\libs\grid; Copy-Item -Recurse "$wt\dist\libs\grid" dist\libs\grid
+node .github/skills/bundle-check/css-parity.mjs --compare=tmp/styles-a.css     # exit 1 on any diff
+(Get-Item "$wt\node_modules").Delete(); git worktree remove --force $wt
+bun nx build grid                                                               # restore dist
+```
+
+`css-parity.mjs` exits 2 when the fixture itself is incomplete (no `aria-sort="ascending"`
+header, no `.header-group-row`, no `.cell.selected`, or no rows) or when two snapshots of the
+_same_ stylesheet differ — either would otherwise masquerade as a CSS pass/regression. Check
+the baseline `index.js` size against the known number before trusting a 0-diff result. If
+Playwright's bundled Chromium build is missing, point `CHROME_EXE` at any
+`%LOCALAPPDATA%\ms-playwright\chromium-*\chrome-win64\chrome.exe`.
 
 ## Plugin Bundle Sizes
 

@@ -10,96 +10,60 @@
  *
  * To switch an icon to SVG mask mode: set content var to '' and provide -mask URL.
  *
+ * Vendor prefixes (`-webkit-mask-*`) are NOT written here — lightningcss adds
+ * them from Vite's `build.cssTarget`; a hand-written prefix is emitted a second
+ * time next to the generated one (measured: ~1.3 kB raw in the core bundle).
+ *
  * @layer tbw-base
  */
 @layer tbw-base {
   tbw-grid {
-    /* ========== Icon content (::before content) ========== */
-    [data-icon='expand']:empty::before {
-      content: var(--tbw-icon-expand);
-    }
-    [data-icon='collapse']:empty::before {
-      content: var(--tbw-icon-collapse);
-    }
-    [data-icon='sort-asc']:empty::before {
-      content: var(--tbw-icon-sort-asc);
-    }
-    [data-icon='sort-desc']:empty::before {
-      content: var(--tbw-icon-sort-desc);
-    }
-    [data-icon='sort-none']:empty::before {
-      content: var(--tbw-icon-sort-none);
-    }
-    [data-icon='submenu-arrow']:empty::before {
-      content: var(--tbw-icon-submenu-arrow);
-    }
-    [data-icon='drag-handle']:empty::before {
-      content: var(--tbw-icon-drag-handle);
-    }
-    [data-icon='tool-panel']:empty::before {
-      content: var(--tbw-icon-tool-panel);
-    }
-    [data-icon='print']:empty::before {
-      content: var(--tbw-icon-print);
-    }
-    [data-icon='filter']:empty::before {
-      content: var(--tbw-icon-filter);
-    }
-    [data-icon='filter-active']:empty::before {
-      content: var(--tbw-icon-filter-active);
-    }
-
-    /* Common layout for all icon pseudo-elements */
     /* Common layout for all icon pseudo-elements */
     [data-icon]:empty::before {
       display: inline-block;
       vertical-align: middle;
-      -webkit-mask-size: contain;
       mask-size: contain;
-      -webkit-mask-repeat: no-repeat;
       mask-repeat: no-repeat;
-      -webkit-mask-position: center;
       mask-position: center;
     }
 
-    /* ========== SVG mask-based icons ========== */
-    /* Mask image bindings for all icons. Defaults are `none` (no mask), so text icons
-       render normally. To switch an icon to SVG mask mode: set its content var to '',
-       set its -mask var to a URL, and add `background: currentColor` on that icon. */
+    /* Per-icon content + mask binding. Mask defaults are `none` (no mask), so text
+       icons render normally. To switch an icon to SVG mask mode: set its content var
+       to '', set its -mask var to a URL, and add `background: currentColor` on it. */
     [data-icon='expand']:empty::before {
-      -webkit-mask-image: var(--tbw-icon-expand-mask);
+      content: var(--tbw-icon-expand);
       mask-image: var(--tbw-icon-expand-mask);
     }
     [data-icon='collapse']:empty::before {
-      -webkit-mask-image: var(--tbw-icon-collapse-mask);
+      content: var(--tbw-icon-collapse);
       mask-image: var(--tbw-icon-collapse-mask);
     }
     [data-icon='sort-asc']:empty::before {
-      -webkit-mask-image: var(--tbw-icon-sort-asc-mask);
+      content: var(--tbw-icon-sort-asc);
       mask-image: var(--tbw-icon-sort-asc-mask);
     }
     [data-icon='sort-desc']:empty::before {
-      -webkit-mask-image: var(--tbw-icon-sort-desc-mask);
+      content: var(--tbw-icon-sort-desc);
       mask-image: var(--tbw-icon-sort-desc-mask);
     }
     [data-icon='sort-none']:empty::before {
-      -webkit-mask-image: var(--tbw-icon-sort-none-mask);
+      content: var(--tbw-icon-sort-none);
       mask-image: var(--tbw-icon-sort-none-mask);
     }
     [data-icon='submenu-arrow']:empty::before {
-      -webkit-mask-image: var(--tbw-icon-submenu-arrow-mask);
+      content: var(--tbw-icon-submenu-arrow);
       mask-image: var(--tbw-icon-submenu-arrow-mask);
     }
     [data-icon='drag-handle']:empty::before {
-      -webkit-mask-image: var(--tbw-icon-drag-handle-mask);
+      content: var(--tbw-icon-drag-handle);
       mask-image: var(--tbw-icon-drag-handle-mask);
     }
     [data-icon='tool-panel']:empty::before {
-      -webkit-mask-image: var(--tbw-icon-tool-panel-mask);
+      content: var(--tbw-icon-tool-panel);
       mask-image: var(--tbw-icon-tool-panel-mask);
     }
     [data-icon='print']:empty::before {
-      -webkit-mask-image: var(--tbw-icon-print-mask);
+      content: var(--tbw-icon-print);
       mask-image: var(--tbw-icon-print-mask);
     }
 
@@ -111,11 +75,11 @@
       background: currentColor;
     }
     [data-icon='filter']:empty::before {
-      -webkit-mask-image: var(--tbw-icon-filter-mask);
+      content: var(--tbw-icon-filter);
       mask-image: var(--tbw-icon-filter-mask);
     }
     [data-icon='filter-active']:empty::before {
-      -webkit-mask-image: var(--tbw-icon-filter-active-mask);
+      content: var(--tbw-icon-filter-active);
       mask-image: var(--tbw-icon-filter-active-mask);
     }
   }

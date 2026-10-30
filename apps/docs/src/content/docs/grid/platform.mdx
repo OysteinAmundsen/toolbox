@@ -82,7 +82,10 @@ and no polyfill bundle — the grid ships the same standards-based code it was w
 | Safari (macOS / iOS) | **17.5**  | May 2024    |
 
 Older versions may work for basic rendering but are **not tested and not supported**. Raising
-this baseline is treated as a **breaking change** and lands only in a major.
+this baseline is treated as a **breaking change** and lands only in a major. The shipped CSS is
+compiled against exactly this floor — vendor prefixes are emitted only where one of these
+versions still needs them (for example `-webkit-user-select` for Safari), and authored CSS
+nesting is kept as written.
 
 ### What sets the floor
 

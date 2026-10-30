@@ -314,12 +314,10 @@
     height: 100%;
     background: none;
     pointer-events: none;
-    -webkit-appearance: none;
     appearance: none;
   }
 
   .tbw-filter-range-thumb::-webkit-slider-thumb {
-    -webkit-appearance: none;
     appearance: none;
     width: 16px;
     height: 16px;

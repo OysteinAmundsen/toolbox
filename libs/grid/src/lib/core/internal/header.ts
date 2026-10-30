@@ -10,6 +10,7 @@ import { GridClasses } from '../constants';
 import { toIconAttr } from '../plugin/base-plugin';
 import type { ColumnInternal, GridHost, GridIcons, HeaderCellContext, IconValue, InternalGrid } from '../types';
 import { addPart } from './columns';
+import { columnWidthLabel } from './resize';
 import { sanitizeToFragment, setSanitizedHTML } from './sanitize';
 import { toggleSort } from './sorting';
 
@@ -92,8 +93,7 @@ function createResizeHandle(grid: InternalGrid, colIndex: number, cell: HTMLElem
   handle.className = 'resize-handle';
   handle.setAttribute('role', 'button');
   handle.setAttribute('tabindex', '-1');
-  const col = grid._visibleColumns[colIndex];
-  handle.setAttribute('aria-label', `Width of column ${String(col?.header ?? col?.field ?? colIndex + 1)}`);
+  handle.setAttribute('aria-label', columnWidthLabel(grid, colIndex));
   handle.addEventListener('pointerdown', (e: PointerEvent) => {
     // Only the primary mouse button starts a resize. Without this, a right-click
     // on the handle would preventDefault() and swallow the context menu.
@@ -204,17 +204,6 @@ export function renderHeader(grid: GridHost): void {
 
       const output = col.headerRenderer(ctx);
       appendRendererOutput(cell, output);
-
-      // Setup sort handlers if sortable (user may not have included sort icon but still want click-to-sort)
-      if (isColumnSortable(grid, col)) {
-        setupSortHandlers(grid, col, i, cell);
-      }
-
-      // Always add resize handle if resizable (not user's responsibility)
-      if (isColumnResizable(grid, col)) {
-        cell.classList.add('resizable');
-        cell.appendChild(createResizeHandle(grid, i, cell));
-      }
     }
     // Check for headerLabelRenderer (label-only mode)
     else if (col.headerLabelRenderer) {
@@ -234,30 +223,10 @@ export function renderHeader(grid: GridHost): void {
         span.appendChild(output);
       }
       cell.appendChild(span);
-
-      // Framework handles the rest: sort icon, resize handle
-      if (isColumnSortable(grid, col)) {
-        setupSortHandlers(grid, col, i, cell);
-        cell.appendChild(createSortIndicator(grid, col));
-      }
-      if (isColumnResizable(grid, col)) {
-        cell.classList.add('resizable');
-        cell.appendChild(createResizeHandle(grid, i, cell));
-      }
     }
     // Light DOM template (framework adapter)
     else if (col.__headerTemplate) {
       Array.from(col.__headerTemplate.childNodes).forEach((n) => cell.appendChild(n.cloneNode(true)));
-
-      // Standard affordances
-      if (isColumnSortable(grid, col)) {
-        setupSortHandlers(grid, col, i, cell);
-        cell.appendChild(createSortIndicator(grid, col));
-      }
-      if (isColumnResizable(grid, col)) {
-        cell.classList.add('resizable');
-        cell.appendChild(createResizeHandle(grid, i, cell));
-      }
     }
     // Default: plain text header
     else {
@@ -277,16 +246,19 @@ export function renderHeader(grid: GridHost): void {
       // character the visible text. Only the default branch does this — a
       // consumer-supplied `headerRenderer` owns its own naming.
       cell.setAttribute('aria-label', headerValue);
+    }
 
-      // Standard affordances
-      if (isColumnSortable(grid, col)) {
-        setupSortHandlers(grid, col, i, cell);
-        cell.appendChild(createSortIndicator(grid, col));
-      }
-      if (isColumnResizable(grid, col)) {
-        cell.classList.add('resizable');
-        cell.appendChild(createResizeHandle(grid, i, cell));
-      }
+    // Standard affordances, after the content. Click-to-sort is wired for every
+    // sortable column; the sort icon is the renderer's responsibility only in
+    // full-control `headerRenderer` mode (via `ctx.renderSortIcon()`). The resize
+    // handle is never the renderer's responsibility.
+    if (isColumnSortable(grid, col)) {
+      setupSortHandlers(grid, col, i, cell);
+      if (!col.headerRenderer) cell.appendChild(createSortIndicator(grid, col));
+    }
+    if (isColumnResizable(grid, col)) {
+      cell.classList.add('resizable');
+      cell.appendChild(createResizeHandle(grid, i, cell));
     }
 
     headerRow.appendChild(cell);

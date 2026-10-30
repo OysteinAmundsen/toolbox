@@ -161,39 +161,7 @@ export class RowManager<T = any> {
   }
 
   updateRow(id: string, changes: Partial<T>, source: UpdateSource = 'api'): void {
-    const grid = this.#grid;
-    // Resolve from the full source dataset — not just the visible `_rows` — so a
-    // row that is filtered/paged out of view can still be updated.
-    const entry = grid._getSourceRowEntry(id);
-    if (!entry) {
-      // The row exists in neither the view nor the source data. Warn instead of
-      // throwing so a single stale ID can never crash the grid. Undo/redo replays
-      // ('history') legitimately outlive deleted rows, so they skip silently.
-      if (source !== 'history') {
-        warnDiagnostic(
-          ROW_NOT_FOUND,
-          `Row with ID "${id}" not found. ` + `Ensure the row exists and getRowId is correctly configured.`,
-          grid.id,
-        );
-      }
-      return;
-    }
-
-    const { row, index } = entry;
-    const changedFields = this.#applyRowChanges(id, row, index, changes, source);
-
-    // Schedule re-render if anything changed.
-    // Use VIRTUALIZATION (not ROWS) so the visible cells are re-rendered
-    // without rebuilding the row model. A ROWS-phase rebuild re-applies
-    // sort/filter from #rows, which moves rows inserted via insertRow()
-    // to their sorted position — appearing as "ghost" duplicates.
-    // Since data was already mutated in-place, fastPatchRow will pick up
-    // the new values from the row object directly.
-    if (changedFields.length > 0) {
-      invalidateCellCache(grid);
-      grid._requestSchedulerPhase(RenderPhase.VIRTUALIZATION, 'updateRow');
-      grid._emitDataChange();
-    }
+    this.updateRows([{ id, changes }], source);
   }
 
   updateRows(updates: Array<{ id: string; changes: Partial<T> }>, source: UpdateSource = 'api'): void {
@@ -201,11 +169,13 @@ export class RowManager<T = any> {
     let anyChanged = false;
 
     for (const { id, changes } of updates) {
-      // Resolve from the full source dataset so filtered/paged-out rows update too.
+      // Resolve from the full source dataset — not just the visible `_rows` — so a
+      // row that is filtered/paged out of view can still be updated.
       const entry = grid._getSourceRowEntry(id);
       if (!entry) {
         // Warn and skip this row instead of throwing — the rest of the batch
-        // (and the grid) must survive an unresolvable ID. 'history' skips silently.
+        // (and the grid) must survive an unresolvable ID. Undo/redo replays
+        // ('history') legitimately outlive deleted rows, so they skip silently.
         if (source !== 'history') {
           warnDiagnostic(
             ROW_NOT_FOUND,
@@ -221,8 +191,13 @@ export class RowManager<T = any> {
       if (changedFields.length > 0) anyChanged = true;
     }
 
-    // Schedule single re-render for all changes.
-    // Use VIRTUALIZATION (not ROWS) — see updateRow for rationale.
+    // Schedule a single re-render for all changes.
+    // Use VIRTUALIZATION (not ROWS) so the visible cells are re-rendered
+    // without rebuilding the row model. A ROWS-phase rebuild re-applies
+    // sort/filter from #rows, which moves rows inserted via insertRow()
+    // to their sorted position — appearing as "ghost" duplicates.
+    // Since data was already mutated in-place, fastPatchRow will pick up
+    // the new values from the row object directly.
     if (anyChanged) {
       invalidateCellCache(grid);
       grid._requestSchedulerPhase(RenderPhase.VIRTUALIZATION, 'updateRows');

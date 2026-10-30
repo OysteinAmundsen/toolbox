@@ -83,55 +83,50 @@ function isBlankCell(v: unknown): boolean {
   return v == null || v === '' || (typeof v === 'number' && isNaN(v));
 }
 
+/**
+ * Visit every non-blank, numeric cell in `field`. Blank cells (`isBlankCell`) and
+ * non-numeric strings are skipped — the shared contract of all numeric
+ * aggregators (matches Excel). Callback-based so the per-group hot loop stays
+ * allocation-free.
+ */
+function eachNumber(rows: any[], field: string, column: any, visit: (n: number) => void): void {
+  for (let i = 0; i < rows.length; i++) {
+    const raw = readCell(rows[i], field, column);
+    if (isBlankCell(raw)) continue;
+    const n = Number(raw);
+    if (!isNaN(n)) visit(n);
+  }
+}
+
 /** Built-in aggregator functions */
 const builtInAggregators: Record<string, AggregatorFn> = {
   sum: (rows, field, column) => {
     let sum = 0;
-    for (let i = 0; i < rows.length; i++) {
-      const raw = readCell(rows[i], field, column);
-      if (isBlankCell(raw)) continue;
-      const n = Number(raw);
-      if (!isNaN(n)) sum += n;
-    }
+    eachNumber(rows, field, column, (n) => (sum += n));
     return sum;
   },
   avg: (rows, field, column) => {
-    if (!rows.length) return 0;
     let sum = 0;
     let count = 0;
-    for (let i = 0; i < rows.length; i++) {
-      const raw = readCell(rows[i], field, column);
-      if (isBlankCell(raw)) continue;
-      const n = Number(raw);
-      if (isNaN(n)) continue;
+    eachNumber(rows, field, column, (n) => {
       sum += n;
       count++;
-    }
+    });
     return count > 0 ? sum / count : 0;
   },
   count: (rows) => rows.length,
   min: (rows, field, column) => {
-    if (!rows.length) return 0;
     let min = Infinity;
-    for (let i = 0; i < rows.length; i++) {
-      const raw = readCell(rows[i], field, column);
-      if (isBlankCell(raw)) continue;
-      const v = Number(raw);
-      if (isNaN(v)) continue;
-      if (v < min) min = v;
-    }
+    eachNumber(rows, field, column, (n) => {
+      if (n < min) min = n;
+    });
     return min === Infinity ? 0 : min;
   },
   max: (rows, field, column) => {
-    if (!rows.length) return 0;
     let max = -Infinity;
-    for (let i = 0; i < rows.length; i++) {
-      const raw = readCell(rows[i], field, column);
-      if (isBlankCell(raw)) continue;
-      const v = Number(raw);
-      if (isNaN(v)) continue;
-      if (v > max) max = v;
-    }
+    eachNumber(rows, field, column, (n) => {
+      if (n > max) max = n;
+    });
     return max === -Infinity ? 0 : max;
   },
   first: (rows, field, column) => (rows[0] ? readCell(rows[0], field, column) : undefined),
@@ -198,39 +193,30 @@ export const aggregatorRegistry = {
 
 export type ValueAggregatorFn = (values: number[]) => number;
 
+const sumOf = (vals: number[]): number => {
+  let sum = 0;
+  for (let i = 0; i < vals.length; i++) sum += vals[i];
+  return sum;
+};
+
+/** `vals[0]` or the first value that `better` prefers; 0 for an empty array. */
+const extremeOf = (vals: number[], better: (a: number, b: number) => boolean): number => {
+  if (!vals.length) return 0;
+  let best = vals[0];
+  for (let i = 1; i < vals.length; i++) if (better(vals[i], best)) best = vals[i];
+  return best;
+};
+
 /**
  * Built-in value-based aggregators.
  * These operate on arrays of numbers (unlike row-based aggregators).
  */
 const builtInValueAggregators: Record<string, ValueAggregatorFn> = {
-  sum: (vals) => {
-    let sum = 0;
-    for (let i = 0; i < vals.length; i++) sum += vals[i];
-    return sum;
-  },
-  avg: (vals) => {
-    if (!vals.length) return 0;
-    let sum = 0;
-    for (let i = 0; i < vals.length; i++) sum += vals[i];
-    return sum / vals.length;
-  },
+  sum: sumOf,
+  avg: (vals) => (vals.length ? sumOf(vals) / vals.length : 0),
   count: (vals) => vals.length,
-  min: (vals) => {
-    if (!vals.length) return 0;
-    let min = vals[0];
-    for (let i = 1; i < vals.length; i++) {
-      if (vals[i] < min) min = vals[i];
-    }
-    return min;
-  },
-  max: (vals) => {
-    if (!vals.length) return 0;
-    let max = vals[0];
-    for (let i = 1; i < vals.length; i++) {
-      if (vals[i] > max) max = vals[i];
-    }
-    return max;
-  },
+  min: (vals) => extremeOf(vals, (a, b) => a < b),
+  max: (vals) => extremeOf(vals, (a, b) => a > b),
   first: (vals) => vals[0] ?? 0,
   last: (vals) => vals[vals.length - 1] ?? 0,
 };

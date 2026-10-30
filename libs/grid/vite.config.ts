@@ -1,6 +1,6 @@
 /// <reference types="vitest" />
 import { copyFileSync, mkdirSync, readdirSync, readFileSync } from 'fs';
-import { Features } from 'lightningcss';
+import { browserslistToTargets, Features } from 'lightningcss';
 import { dirname, resolve } from 'path';
 import cleanup from 'rollup-plugin-cleanup';
 import { build, BuildOptions, defineConfig, LibraryOptions, Plugin } from 'vite';
@@ -48,10 +48,39 @@ const gridDefine = { __GRID_VERSION__: JSON.stringify(gridVersion) };
  * browsers that support it natively (it also relies on CSS anchor positioning /
  * `@position-try`, which cannot be polyfilled anyway).
  */
+/**
+ * Browser floor for CSS output — MUST match the "Browser Support" table in
+ * `apps/docs/src/content/docs/grid/platform.mdx` (raising it is a breaking change).
+ *
+ * Vite's default `cssTarget` (Chrome 87 / Safari 14) made lightningcss emit
+ * `-webkit-mask-*` etc. for browsers the grid never supported — and Vite runs
+ * lightningcss twice (transform, then `cssMinify`), so each pass re-prefixed the
+ * previous output (`-webkit-mask-image` ×3 in `index.js`). Declaring the real
+ * floor ships exactly the prefixes the supported browsers need. Both knobs are
+ * required: `css.lightningcss.targets` drives the transform pass and
+ * `build.cssTarget` the minify pass.
+ */
+const cssBrowserTargets = ['chrome123', 'edge123', 'firefox121', 'safari17.5'];
+
 const cssConfig = {
   transformer: 'lightningcss' as const,
-  lightningcss: { exclude: Features.LightDark },
+  lightningcss: {
+    exclude: Features.LightDark,
+    targets: browserslistToTargets(cssBrowserTargets.map((t) => t.replace(/^([a-z]+)/, '$1 '))),
+  },
 };
+
+/**
+ * Shared terser options for the main build AND every nested `build()` below.
+ *
+ * `passes: 3` lets terser re-run its compressor over its own output; the second
+ * and third passes fold inlined constants, collapse the now-single-use
+ * temporaries that pass 1 created, and drop branches that only became dead
+ * after inlining. Measured on core `index.js`: −0.9 kB raw / −0.3 kB gz versus
+ * the default single pass, with no semantic change (no `unsafe_*` flags). Passes
+ * beyond 3 did not move the size.
+ */
+const terserOptions = { compress: { passes: 3 } };
 
 const outDir = resolve(__dirname, '../../dist/libs/grid');
 const pluginsDir = resolve(__dirname, 'src/lib/plugins');
@@ -234,6 +263,8 @@ function buildPluginModules(): Plugin {
               emptyOutDir: false,
               sourcemap: true,
               minify: 'terser',
+              terserOptions,
+              cssTarget: cssBrowserTargets,
               lib: {
                 entry: resolve(pluginsDir, `${name}/index.ts`),
                 formats: ['es'],
@@ -310,6 +341,8 @@ function buildFeatureModules(): Plugin {
           emptyOutDir: false,
           sourcemap: true,
           minify: 'terser',
+          terserOptions,
+          cssTarget: cssBrowserTargets,
           lib: {
             entry: resolve(featuresDir, 'registry.ts'),
             formats: ['es'],
@@ -332,6 +365,8 @@ function buildFeatureModules(): Plugin {
               emptyOutDir: false,
               sourcemap: true,
               minify: 'terser',
+              terserOptions,
+              cssTarget: cssBrowserTargets,
               lib: {
                 entry: resolve(featuresDir, `${name}.ts`),
                 formats: ['es'],
@@ -377,6 +412,8 @@ function buildUmdBundles(): Plugin {
       await libBuild({
         outDir: umd,
         minify: 'terser',
+        terserOptions,
+        cssTarget: cssBrowserTargets,
         entry: '',
         lib: {
           entry: resolve(__dirname, 'src/index.ts'),
@@ -388,6 +425,8 @@ function buildUmdBundles(): Plugin {
       await libBuild({
         outDir: umd,
         minify: 'terser',
+        terserOptions,
+        cssTarget: cssBrowserTargets,
         entry: '',
         lib: {
           entry: resolve(__dirname, 'src/all.ts'),
@@ -416,6 +455,8 @@ function buildUmdBundles(): Plugin {
               emptyOutDir: false,
               sourcemap: true,
               minify: 'terser',
+              terserOptions,
+              cssTarget: cssBrowserTargets,
               lib: {
                 entry: resolve(pluginsDir, `${name}/index.ts`),
                 name: toUmdGlobal(name),
@@ -483,6 +524,8 @@ function buildAllBundle(): Plugin {
           emptyOutDir: false,
           sourcemap: true,
           minify: 'terser',
+          terserOptions,
+          cssTarget: cssBrowserTargets,
           lib: {
             entry: resolve(__dirname, 'src/all.ts'),
             formats: ['es'],
@@ -595,6 +638,8 @@ export default defineConfig(({ command }) => ({
     },
     sourcemap: true,
     minify: 'terser',
+    terserOptions,
+    cssTarget: cssBrowserTargets,
     target: 'es2022',
   },
   test: {

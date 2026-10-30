@@ -85,28 +85,30 @@ function button(className?: string, attrs?: Record<string, string>, content?: st
 // #region Grid Templates
 /**
  * Template for grid content (the core scrollable grid area).
- * Pre-built once, then cloned for each grid instance.
+ * Pre-built once, then cloned for each grid instance. Deliberately not
+ * indented — the literal ships verbatim in the bundle, and terser cannot fold
+ * the indentation away.
  */
 const gridContentTemplate = document.createElement('template');
 gridContentTemplate.innerHTML = `
-  <div class="tbw-scroll-area">
-    <div class="rows-body-wrapper">
-      <div class="rows-body" role="grid">
-        <div class="header" role="rowgroup">
-          <div class="header-row" role="row" part="header-row"></div>
-        </div>
-        <div class="rows-container" role="presentation">
-          <div class="rows-viewport" role="presentation">
-            <div class="rows"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="faux-vscroll">
-    <div class="faux-vscroll-spacer"></div>
-  </div>
-  <div class="tbw-sr-only" aria-live="polite" aria-atomic="true"></div>
+<div class="tbw-scroll-area">
+<div class="rows-body-wrapper">
+<div class="rows-body" role="grid">
+<div class="header" role="rowgroup">
+<div class="header-row" role="row" part="header-row"></div>
+</div>
+<div class="rows-container" role="presentation">
+<div class="rows-viewport" role="presentation">
+<div class="rows"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="faux-vscroll">
+<div class="faux-vscroll-spacer"></div>
+</div>
+<div class="tbw-sr-only" aria-live="polite" aria-atomic="true"></div>
 `;
 
 /**

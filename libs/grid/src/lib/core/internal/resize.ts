@@ -1,4 +1,4 @@
-import type { ColumnInternal, GridHost, ResizeController } from '../types';
+import type { ColumnInternal, GridHost, InternalGrid, ResizeController } from '../types';
 import { startPointerDrag } from './pointer-drag';
 import { createSizePopover, type SizePopover } from './size-popover';
 
@@ -17,6 +17,15 @@ function minWidthFor(col: ColumnInternal | undefined): number {
   return typeof col?.minWidth === 'number' && Number.isFinite(col.minWidth) && col.minWidth > 0
     ? col.minWidth
     : FALLBACK_MIN_WIDTH;
+}
+
+/**
+ * Accessible name shared by a column's resize handle and its width popover, so
+ * assistive tech hears the same label for the drag and the click affordance.
+ */
+export function columnWidthLabel(grid: InternalGrid, colIndex: number): string {
+  const col = grid._visibleColumns[colIndex];
+  return `Width of column ${String(col?.header ?? col?.field ?? colIndex + 1)}`;
 }
 
 /**
@@ -231,10 +240,7 @@ export function createResizeController(grid: GridHost): ResizeController {
         grid.requestStateChange?.();
       },
       reset: resetColumn,
-      getLabel: (index) => {
-        const col = grid._visibleColumns[index];
-        return `Width of column ${String(col?.header ?? col?.field ?? index + 1)}`;
-      },
+      getLabel: (index) => columnWidthLabel(grid, index),
       getHost: () => grid,
     });
     widthPopover.open(colIndex, anchor);

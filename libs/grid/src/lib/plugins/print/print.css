@@ -28,8 +28,7 @@
     /* Force light mode for printing */
     color-scheme: light only;
 
-    /* Ensure colors print */
-    -webkit-print-color-adjust: exact;
+    /* Ensure colors print (lightningcss adds the -webkit- prefix for the browser floor) */
     print-color-adjust: exact;
   }
 

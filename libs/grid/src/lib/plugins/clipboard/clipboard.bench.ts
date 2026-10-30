@@ -1,15 +1,18 @@
 /**
  * Clipboard Copy / Paste Benchmarks
  *
- * `buildClipboardText` runs on every copy; `parseClipboardText` runs on
- * every paste. Big-paste from spreadsheets (10K rows × 10 cols) is a known
- * stress case — the parser is a char-by-char state machine whose cost
- * scales with input size and quote density.
+ * `ClipboardPlugin.getSelectionAsText` is the live copy path (the same
+ * `#buildDisplayGrid` + `#joinDisplayGrid` that `copy()` writes to the
+ * clipboard); `parseClipboardText` runs on every paste. Big-paste from
+ * spreadsheets (10K rows × 10 cols) is a known stress case — the parser is a
+ * char-by-char state machine whose cost scales with input size and quote
+ * density.
  */
 
 import { bench, describe } from 'vitest';
+import type { GridElement } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
-import { buildClipboardText, formatCellValue } from './copy';
+import { ClipboardPlugin } from './clipboard-plugin';
 import { parseClipboardText } from './paste';
 import type { ClipboardConfig } from './types';
 
@@ -60,32 +63,38 @@ function generatePastedText(rowCount: number, withQuotes = true): string {
 
 // #region Copy
 
-describe('formatCellValue', () => {
-  bench('plain string', () => {
-    formatCellValue('hello', 'name', {}, CONFIG);
+/** Attach a plugin to a bare grid stand-in holding `rows` — no DOM, so the display path hits `formatValueAsText`. */
+function attachedPlugin(rows: Row[]): ClipboardPlugin {
+  const plugin = new ClipboardPlugin(CONFIG);
+  const grid: Partial<GridElement> = {
+    rows,
+    sourceRows: rows,
+    columns: COLUMNS,
+    _columns: COLUMNS,
+    _visibleColumns: COLUMNS,
+    gridConfig: {},
+    effectiveConfig: {},
+    getPlugin: () => undefined,
+    query: () => [],
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    dispatchEvent: () => true,
+    requestRender: () => undefined,
+  };
+  plugin.attach(grid as GridElement);
+  return plugin;
+}
+
+describe('getSelectionAsText (live copy path)', () => {
+  const plugin1k = attachedPlugin(generateRows(1_000));
+  const plugin10k = attachedPlugin(generateRows(10_000));
+
+  bench('1K rows × 4 cols (all rows)', () => {
+    plugin1k.getSelectionAsText();
   });
 
-  bench('string with delimiter (quoted)', () => {
-    formatCellValue('hello\tworld', 'name', {}, CONFIG);
-  });
-
-  bench('object → JSON', () => {
-    formatCellValue({ a: 1, b: 2 }, 'data', {}, CONFIG);
-  });
-});
-
-describe('buildClipboardText', () => {
-  const rows1k = generateRows(1_000);
-  const rows10k = generateRows(10_000);
-  const all1k = new Set(rows1k.map((_, i) => i));
-  const all10k = new Set(rows10k.map((_, i) => i));
-
-  bench('1K rows × 4 cols (all selected)', () => {
-    buildClipboardText({ rows: rows1k, columns: COLUMNS, selectedIndices: all1k, config: CONFIG });
-  });
-
-  bench('10K rows × 4 cols (all selected)', () => {
-    buildClipboardText({ rows: rows10k, columns: COLUMNS, selectedIndices: all10k, config: CONFIG });
+  bench('10K rows × 4 cols (all rows)', () => {
+    plugin10k.getSelectionAsText();
   });
 });
 

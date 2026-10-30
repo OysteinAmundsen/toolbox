@@ -1507,9 +1507,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Configure variable row heights based on plugins and user config
     this.#virtManager.configureVariableHeights();
 
-    // Initialize ARIA selection state
-    queueMicrotask(() => this.#updateAriaSelection());
-
     // Request initial render through the scheduler.
     // The scheduler resolves ready() after the render cycle completes.
     // Framework adapters (React/Angular) will request COLUMNS phase via refreshColumns(),
@@ -1807,19 +1804,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Internal sort/filter/edit emits leave sourceRowCount unchanged, so this stays quiet
     // and doesn't conflict with sortApplied/filterApplied announcements.
     announceDataLoaded(this, this.#ariaState, this.#rows.length);
-  }
-
-  /** Update ARIA selection attributes on rendered rows/cells */
-  #updateAriaSelection(): void {
-    // Mark active row and cell with aria-selected
-    const rows = this._bodyEl?.querySelectorAll('.data-grid-row');
-    rows?.forEach((row, rowIdx) => {
-      const isActiveRow = rowIdx === this._focusRow;
-      row.setAttribute('aria-selected', String(isActiveRow));
-      row.querySelectorAll('.cell').forEach((cell, colIdx) => {
-        (cell as HTMLElement).setAttribute('aria-selected', String(isActiveRow && colIdx === this._focusCol));
-      });
-    });
   }
   // #endregion
 

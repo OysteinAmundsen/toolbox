@@ -76,13 +76,21 @@ export interface ClipboardConfig {
   delimiter?: string;
   /** Row delimiter/newline character (default: '\n') */
   newline?: string;
-  /** Wrap string values with quotes (default: false) */
+  /**
+   * Wrap every string value in double quotes (default: `false`). When off, a
+   * string is quoted only when it contains the delimiter, a newline or a quote.
+   * Non-string values (numbers, dates, objects) are never quoted. Affects the
+   * `text/plain` representation only.
+   */
   quoteStrings?: boolean;
   /**
    * Neutralize spreadsheet formula injection (CWE-1236) by prefixing string
    * values that start with `=`, `+`, `-`, `@`, TAB or CR with a single quote,
    * so a paste into Excel / LibreOffice / Sheets renders them as text instead
    * of evaluating them (default: `true`).
+   *
+   * Only STRING cell values are escaped — a number formatted as `"-5"` stays
+   * numeric — and a `processCell` callback's output is used verbatim.
    *
    * Grid-to-grid paste is unaffected — that path uses the structured
    * `text/html` payload, not the plain-text representation.

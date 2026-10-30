@@ -93,6 +93,82 @@ describe('utils', () => {
       el.setAttribute('data-row', '0');
       expect(getRowIndexFromCell(el)).toBe(0);
     });
+
+    it('falls back to a sibling cell data-row, never to the DOM position', () => {
+      // Virtualized window starting at row 40: DOM position 0 must not read as index 0.
+      const body = document.createElement('div');
+      const row = document.createElement('div');
+      row.className = 'data-grid-row';
+      const first = document.createElement('div');
+      first.className = 'cell';
+      first.setAttribute('data-row', '40');
+      const custom = document.createElement('div');
+      custom.className = 'cell';
+      row.append(first, custom);
+      body.appendChild(row);
+
+      expect(getRowIndexFromCell(custom)).toBe(40);
+    });
+
+    it('returns -1 when no cell in the row carries data-row', () => {
+      const row = document.createElement('div');
+      row.className = 'data-grid-row';
+      const custom = document.createElement('div');
+      custom.className = 'cell';
+      row.appendChild(custom);
+      expect(getRowIndexFromCell(custom)).toBe(-1);
+    });
+
+    it('falls back to the row aria-rowindex for plugin-rendered rows (group headers)', () => {
+      // `renderVisibleRows` writes aria-rowindex = rowIndex + headerRowCount + 1
+      // before the renderRow hook, so a group row's cells (data-col only) resolve.
+      const rowsBody = document.createElement('div');
+      rowsBody.className = 'rows-body';
+      const header = document.createElement('div');
+      header.className = 'header';
+      rowsBody.appendChild(header);
+      const row = document.createElement('div');
+      row.className = 'data-grid-row group-row';
+      row.setAttribute('aria-rowindex', '42'); // data index 40 with one header row
+      const groupCell = document.createElement('div');
+      groupCell.className = 'cell group-full';
+      groupCell.setAttribute('data-col', '0');
+      row.appendChild(groupCell);
+      rowsBody.appendChild(row);
+      expect(getRowIndexFromCell(groupCell)).toBe(40);
+
+      // A column-group header row adds a second header row.
+      const groupHeaderRow = document.createElement('div');
+      groupHeaderRow.className = 'header-group-row';
+      header.appendChild(groupHeaderRow);
+      expect(getRowIndexFromCell(groupCell)).toBe(39);
+    });
+
+    it('decodes aria-rowindex with the host cached header count, not a fresh DOM count', () => {
+      // rows.ts caches __cachedHeaderRowCount once, BEFORE GroupingColumns inserts its
+      // header row, so the stamped aria-rowindex is offset by the cached value (1) even
+      // though the DOM now shows two header rows.
+      const host = document.createElement('div');
+      host.setAttribute('data-tbw-grid', '');
+      Object.assign(host, { __cachedHeaderRowCount: 1 });
+      const rowsBody = document.createElement('div');
+      rowsBody.className = 'rows-body';
+      const header = document.createElement('div');
+      header.className = 'header';
+      header.innerHTML = '<div class="header-group-row"></div>';
+      rowsBody.appendChild(header);
+      const row = document.createElement('div');
+      row.className = 'data-grid-row group-row';
+      row.setAttribute('aria-rowindex', '5'); // data index 3 with the cached count of 1
+      const groupCell = document.createElement('div');
+      groupCell.className = 'cell group-full';
+      groupCell.setAttribute('data-col', '0');
+      row.appendChild(groupCell);
+      rowsBody.appendChild(row);
+      host.appendChild(rowsBody);
+
+      expect(getRowIndexFromCell(groupCell)).toBe(3);
+    });
   });
 
   describe('getColIndexFromCell', () => {

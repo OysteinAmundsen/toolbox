@@ -1412,6 +1412,191 @@ describe('SelectionPlugin', () => {
       expect(mockGrid.setAttribute).toHaveBeenCalledWith('data-selection-mode', 'row');
     });
 
+    describe('paint scope (PR #582 review)', () => {
+      /** Real render-tree shape: `.rows-viewport > .tbw-sticky-rows + .rows`, rows holding `.cell[data-row][data-col]`. */
+      function buildRenderTree(mockGrid: any, rowIndices: number[], stickyIndices: number[] = []) {
+        const root = mockGrid.querySelector('.tbw-grid-root') as HTMLElement;
+        const viewport = document.createElement('div');
+        viewport.className = 'rows-viewport';
+        const sticky = document.createElement('div');
+        sticky.className = 'tbw-sticky-rows';
+        const rows = document.createElement('div');
+        rows.className = 'rows';
+        viewport.append(sticky, rows);
+        root.appendChild(viewport);
+        const makeRow = (index: number, extraClass = '') => {
+          const row = document.createElement('div');
+          row.className = `data-grid-row ${extraClass}`.trim();
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          cell.setAttribute('data-row', String(index));
+          cell.setAttribute('data-col', '0');
+          row.appendChild(cell);
+          return row;
+        };
+        for (const i of rowIndices) rows.appendChild(makeRow(i));
+        for (const i of stickyIndices) sticky.appendChild(makeRow(i, 'tbw-sticky-row'));
+        mockGrid._bodyEl = rows;
+        return { rows, sticky };
+      }
+
+      it('keeps a retained sticky clone in sync when its source row is out of the window', () => {
+        const mockGrid = createMockGrid(
+          Array.from({ length: 10 }, (_, id) => ({ id })),
+          [{ field: 'id' }],
+        );
+        // Row 0 is stuck (clone displayed) while the pool shows rows 5–7.
+        const { sticky } = buildRenderTree(mockGrid, [5, 6, 7], [0]);
+        const clone = sticky.firstElementChild as HTMLElement;
+        const plugin = new SelectionPlugin({ mode: 'row' });
+        plugin.attach(mockGrid);
+
+        plugin['selected'].add(0);
+        plugin.afterRender();
+        expect(clone.classList.contains('selected')).toBe(true);
+
+        plugin['selected'].clear();
+        plugin.afterRender();
+        expect(clone.classList.contains('selected')).toBe(false);
+        expect(clone.classList.contains('row-focus')).toBe(false);
+      });
+
+      it('does not drive a nested grid checkbox rendered inside a parent cell', () => {
+        const mockGrid = createMockGrid([{ id: 0 }, { id: 1 }], [{ field: 'id' }]);
+        const { rows } = buildRenderTree(mockGrid, [0, 1]);
+        const parentCell = rows.querySelector('.cell[data-row="1"]') as HTMLElement;
+        const ownCheckbox = document.createElement('input');
+        ownCheckbox.type = 'checkbox';
+        ownCheckbox.className = 'tbw-select-row-checkbox';
+        parentCell.appendChild(ownCheckbox);
+        // A nested grid inside the SAME parent cell, with its own row 1 checked.
+        const nested = document.createElement('div');
+        nested.className = 'rows';
+        nested.innerHTML =
+          '<div class="data-grid-row"><div class="cell" data-row="1" data-col="0">' +
+          '<input type="checkbox" class="tbw-select-row-checkbox" checked></div></div>';
+        parentCell.appendChild(nested);
+        const nestedCheckbox = nested.querySelector('input') as HTMLInputElement;
+
+        const plugin = new SelectionPlugin({ mode: 'row', checkbox: true });
+        plugin.attach(mockGrid);
+        plugin['selected'].add(0); // parent selects row 0 only
+        plugin.afterRender();
+
+        expect(ownCheckbox.checked).toBe(false);
+        expect(nestedCheckbox.checked).toBe(true);
+      });
+
+      it('never hands a group-header row to isSelectable nor paints it in a range', () => {
+        const rows = [{ __isGroupRow: true }, { id: 1, status: 'ok' }, { id: 2, status: 'ok' }];
+        const mockGrid = createMockGrid(rows, [{ field: 'id' }]);
+        const { rows: body } = buildRenderTree(mockGrid, [1, 2]);
+        // Group header the way GroupingRows renders it: aria-rowindex, data-col, NO data-row.
+        const groupRow = document.createElement('div');
+        groupRow.className = 'data-grid-row group-row';
+        groupRow.setAttribute('aria-rowindex', '2'); // data index 0
+        const groupCell = document.createElement('div');
+        groupCell.className = 'cell group-full';
+        groupCell.setAttribute('data-col', '0');
+        groupRow.appendChild(groupCell);
+        body.prepend(groupRow);
+
+        const isSelectable = vi.fn((row: any) => row.status.toLowerCase() === 'ok');
+        const plugin = new SelectionPlugin({ mode: 'range', isSelectable });
+        plugin.attach(mockGrid);
+        plugin['ranges'].push({ startRow: 0, startCol: 0, endRow: 2, endCol: 0 });
+
+        expect(() => plugin.afterRender()).not.toThrow();
+        expect(isSelectable.mock.calls.every(([row]) => row !== rows[0])).toBe(true);
+        expect(groupCell.classList.contains('selected')).toBe(false);
+        expect(body.querySelector('.cell[data-row="1"]')!.classList.contains('selected')).toBe(true);
+      });
+
+      it('wipes markers inherited from a previous plugin instance on its first pass', () => {
+        const mockGrid = createMockGrid([{ id: 0 }, { id: 1 }], [{ field: 'id' }]);
+        const { rows: body } = buildRenderTree(mockGrid, [0, 1]);
+        const stale = body.firstElementChild as HTMLElement;
+        stale.classList.add('selected', 'row-focus');
+        stale.firstElementChild!.classList.add('selected', 'top', 'bottom');
+
+        const plugin = new SelectionPlugin({ mode: 'cell' });
+        plugin.attach(mockGrid);
+        plugin.afterRender();
+
+        expect(stale.classList.contains('selected')).toBe(false);
+        expect(stale.classList.contains('row-focus')).toBe(false);
+        expect(stale.firstElementChild!.classList.contains('selected')).toBe(false);
+      });
+
+      it('wipes a re-attached sticky clone even after a pass that painted nothing', () => {
+        const mockGrid = createMockGrid(
+          Array.from({ length: 10 }, (_, id) => ({ id })),
+          [{ field: 'id' }],
+        );
+        const { sticky } = buildRenderTree(mockGrid, [5, 6, 7]);
+        const plugin = new SelectionPlugin({ mode: 'row' });
+        plugin.attach(mockGrid);
+        plugin.afterRender(); // nothing selected → #paintedMarks false
+
+        // StickyRows re-attaches a cached clone of row 0 that was captured while selected.
+        const clone = document.createElement('div');
+        clone.className = 'data-grid-row tbw-sticky-row selected row-focus';
+        const cell = document.createElement('div');
+        cell.className = 'cell selected';
+        cell.setAttribute('data-row', '0');
+        cell.setAttribute('data-col', '0');
+        clone.appendChild(cell);
+        sticky.appendChild(clone);
+
+        plugin.afterRender();
+        expect(clone.classList.contains('selected')).toBe(false);
+        expect(cell.classList.contains('selected')).toBe(false);
+      });
+
+      it('wipes markers painted by another instance while this one was detached (re-attach)', () => {
+        const mockGrid = createMockGrid([{ id: 0 }, { id: 1 }], [{ field: 'id' }]);
+        const { rows: body } = buildRenderTree(mockGrid, [0, 1]);
+        const cellPlugin = new SelectionPlugin({ mode: 'cell' });
+        cellPlugin.attach(mockGrid);
+        cellPlugin.afterRender(); // empty paint → flag false
+        cellPlugin.detach();
+
+        const rowPlugin = new SelectionPlugin({ mode: 'row' });
+        rowPlugin.attach(mockGrid);
+        rowPlugin['selected'].add(0);
+        rowPlugin.afterRender();
+        rowPlugin.detach();
+        const row0 = body.firstElementChild as HTMLElement;
+        expect(row0.classList.contains('selected')).toBe(true);
+
+        cellPlugin.attach(mockGrid);
+        cellPlugin.afterRender();
+        expect(row0.classList.contains('selected')).toBe(false);
+        expect(row0.classList.contains('row-focus')).toBe(false);
+      });
+
+      it('does not flag cells as unselectable in column-only mode', () => {
+        const rows = [
+          { id: 0, locked: true },
+          { id: 1, locked: false },
+        ];
+        const mockGrid = createMockGrid(rows, [{ field: 'id' }]);
+        const { rows: body } = buildRenderTree(mockGrid, [0, 1]);
+        const plugin = new SelectionPlugin({ mode: 'column', isSelectable: (row: any) => !row.locked });
+        plugin.attach(mockGrid);
+        plugin.afterRender();
+
+        expect(body.querySelector('[data-selectable]')).toBeNull();
+
+        // Cell mode with the same callback does flag the rejected row's cells.
+        const cellPlugin = new SelectionPlugin({ mode: 'cell', isSelectable: (row: any) => !row.locked });
+        cellPlugin.attach(mockGrid);
+        cellPlugin.afterRender();
+        expect(body.querySelector('.cell[data-row="0"]')!.getAttribute('data-selectable')).toBe('false');
+        expect(body.querySelector('.cell[data-row="1"]')!.hasAttribute('data-selectable')).toBe(false);
+      });
+    });
+
     it('should toggle selecting class during drag', () => {
       const mockGrid = createMockGrid([{ id: 1 }], [{ field: 'name' }]);
       const plugin = new SelectionPlugin({ mode: 'range' });

@@ -59,6 +59,10 @@ dead-code hits, and non-test clone groups. Caveats the script cannot resolve for
 - `unused_class_members` / `unused_exports` are syntactic. In this repo they are almost
   always documented plugin/adapter public API or members reached via `this.#manager.x()`.
   Verify against `apps/docs/src/content/docs/grid/**` and a `grep -rn '\bname\b'` before deleting.
+  But DO check what a genuinely dead export was supposed to do before removing it: `copy.ts`'s
+  dead `buildClipboardText` (Oct 2026) was the only implementation of the documented
+  `quoteStrings` / `escapeFormulas` options and of the clipboard CWE-1236 guard — the live
+  path had silently stopped calling it, so the fix was to re-wire, not just delete.
   A plugin's `static manifest`/`dependencies` (read via `p.constructor` in `plugin-manager.ts`) is
   always a false positive; a NEW one shows as `introduced` — clear it by referencing it directly in a
   spec (`FooPlugin.manifest?.hookPriority…`), not through a loop variable (#565).

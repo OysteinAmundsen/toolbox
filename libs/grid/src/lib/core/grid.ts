@@ -31,7 +31,7 @@ import { createResizeController } from './internal/resize';
 import { animateRow, animateRowById, animateRows } from './internal/row-animation';
 import { resolveRowIdOrThrow, RowManager, tryResolveRowId } from './internal/row-manager';
 import { releasePooledRow } from './internal/row-teardown';
-import { invalidateCellCache, renderVisibleRows } from './internal/rows';
+import { invalidateCellCache, renderVisibleRows, syncHeaderRowCount } from './internal/rows';
 import { applySort, reapplyCoreSort, toggleSort } from './internal/sorting';
 import { addPluginStyles, injectStyles } from './internal/style-injector';
 import { getActiveGridTag, GRID_TAG_NAME, setActiveGridTag } from './internal/tag-registry';
@@ -2165,6 +2165,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /** @internal Run plugin afterRender hooks. */
   _afterPluginRender(): void {
     this.#pluginManager?.afterRender();
+    // Plugins (GroupingColumns) insert/remove header rows in afterRender, AFTER
+    // the rows were stamped — re-sync the header-row offset of aria-rowindex (#583).
+    syncHeaderRowCount(this);
   }
 
   /** @internal Emit a plugin event through the plugin manager. */
@@ -2208,7 +2211,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   /** @internal Run afterRender hooks and post-render bookkeeping (STYLE phase). */
   _schedulerAfterRender(): void {
-    this.#pluginManager?.afterRender();
+    this._afterPluginRender();
 
     // Recompute the empty-state overlay AFTER plugin afterRender so plugins
     // that mutate `_rows` or row visibility (server-side, tree, grouping,

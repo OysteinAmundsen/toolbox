@@ -217,16 +217,75 @@ function emitAfterCellRender(
 }
 
 /**
- * Number of header rows above the data rows (1, or 2 when a column-group header
- * row is present). Cached on the grid — used to offset `aria-rowindex`.
+ * This grid's header rows (`role="row"` children of its `.header`), in DOM order.
+ * Scoped to `_headerRowEl`'s parent so a nested grid (detail panel, cell renderer)
+ * with its own header rows is never counted. `null` when the host has no cached
+ * header ref (test mocks).
+ */
+function ownHeaderRows(grid: GridHost): NodeListOf<Element> | null {
+  const header = grid._headerRowEl?.parentElement;
+  return header ? header.querySelectorAll(':scope > [role="row"]') : null;
+}
+
+/**
+ * Probe the DOM for the number of header rows above the data rows (1, or 2 when
+ * a column-group header row is present). Hosts without a header ref (test mocks)
+ * count as a single header row.
+ */
+function probeHeaderRowCount(grid: GridHost): number {
+  return Math.max(1, ownHeaderRows(grid)?.length ?? 1);
+}
+
+/**
+ * Number of header rows above the data rows, cached on the grid and used to
+ * offset `aria-rowindex`. The cache is refreshed by {@link syncHeaderRowCount}
+ * after plugin `afterRender` hooks — the only place header structure changes.
  */
 function resolveHeaderRowCount(grid: GridHost): number {
   let headerRowCount = grid.__cachedHeaderRowCount;
   if (headerRowCount === undefined) {
-    headerRowCount = grid.querySelector('.header-group-row') ? 2 : 1;
+    headerRowCount = probeHeaderRowCount(grid);
     grid.__cachedHeaderRowCount = headerRowCount;
   }
   return headerRowCount;
+}
+
+/**
+ * Re-sync `aria-rowindex` with the header structure after plugins have mutated
+ * the header DOM (#583).
+ *
+ * `GroupingColumnsPlugin.afterRender()` inserts/removes `.header-group-row`
+ * AFTER `renderHeader` stamped `.header-row` as row 1 and `renderVisibleRows`
+ * stamped the data rows with the then-current header count, so both can be
+ * stale by one. This numbers the header rows 1..n in DOM order and, when the
+ * count changed, shifts every pooled data row by the delta — in the same frame,
+ * without requesting another ROWS render. The per-row `__ariaRowIndex` guard
+ * keeps subsequent renders consistent with the shifted values.
+ *
+ * @returns true when the header row count changed and data rows were re-stamped
+ */
+export function syncHeaderRowCount(grid: GridHost): boolean {
+  const headerRows = ownHeaderRows(grid);
+  if (headerRows) {
+    for (let i = 0; i < headerRows.length; i++) {
+      const index = String(i + 1);
+      if (headerRows[i].getAttribute('aria-rowindex') !== index) headerRows[i].setAttribute('aria-rowindex', index);
+    }
+  }
+
+  const previous = grid.__cachedHeaderRowCount;
+  const current = Math.max(1, headerRows?.length ?? 1);
+  if (previous === current) return false;
+  grid.__cachedHeaderRowCount = current;
+  if (previous === undefined) return false;
+
+  const delta = current - previous;
+  for (const rowEl of grid._rowPool) {
+    if (rowEl.__ariaRowIndex === undefined) continue;
+    rowEl.__ariaRowIndex += delta;
+    rowEl.setAttribute('aria-rowindex', String(rowEl.__ariaRowIndex));
+  }
+  return true;
 }
 
 /**

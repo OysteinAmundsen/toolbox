@@ -72,9 +72,9 @@ export function getRowIndexFromCell(cell: Element | null): number {
 
   // aria-rowindex is 1-based and offset by the header-row count `renderVisibleRows`
   // used when it stamped the attribute. Decode with the SAME cached value
-  // (`__cachedHeaderRowCount` on the host): it is computed once, before
-  // GroupingColumns inserts its `.header-group-row`, so a fresh DOM count can
-  // disagree with it by one. The DOM derivation is only a fallback for hosts
+  // (`__cachedHeaderRowCount` on the host) — `syncHeaderRowCount` keeps it and
+  // the stamped rows in lockstep after GroupingColumns inserts/removes its
+  // `.header-group-row` (#583). The DOM derivation is only a fallback for hosts
   // that never rendered (test mocks).
   const ariaIndex = rowEl.getAttribute('aria-rowindex');
   if (!ariaIndex) return -1;

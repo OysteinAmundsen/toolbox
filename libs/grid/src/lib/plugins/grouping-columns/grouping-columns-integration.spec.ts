@@ -6,7 +6,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { nextFrame } from '../../../../test/helpers';
 import '../../../index';
-import type { GridElement } from '../../../public';
+import type { ColumnConfig, GridElement } from '../../../public';
+import type { InternalGrid } from '../../core/types';
 import { GroupingColumnsPlugin } from './grouping-columns-plugin';
 
 describe('GroupingColumnsPlugin with gridConfig.columnGroups', () => {
@@ -376,5 +377,96 @@ describe('GroupingColumnsPlugin with plugin config columnGroups', () => {
     const plugin = grid.getPluginByName('groupingColumns');
     const groups = plugin!.getGroups();
     expect(groups[0].id).toBe('my-group');
+  });
+});
+
+describe('GroupingColumnsPlugin aria-rowindex header offset (#583)', () => {
+  let grid: GridElement;
+
+  beforeEach(() => {
+    grid = document.createElement('tbw-grid') as GridElement;
+    document.body.appendChild(grid);
+  });
+
+  afterEach(() => {
+    grid.remove();
+  });
+
+  const groupedColumns = [
+    { field: 'a', header: 'A', group: 'g1' },
+    { field: 'b', header: 'B', group: 'g1' },
+    { field: 'c', header: 'C' },
+  ];
+  const flatColumns = [
+    { field: 'a', header: 'A' },
+    { field: 'b', header: 'B' },
+    { field: 'c', header: 'C' },
+  ];
+  const rows = [
+    { a: 1, b: 2, c: 3 },
+    { a: 4, b: 5, c: 6 },
+    { a: 7, b: 8, c: 9 },
+  ];
+
+  function dataRows(): HTMLElement[] {
+    return Array.from(grid.querySelectorAll<HTMLElement>('.rows > .data-grid-row'));
+  }
+  function dataRowIndices(): (string | null)[] {
+    return dataRows().map((r) => r.getAttribute('aria-rowindex'));
+  }
+  function headerRowIndices(): (string | null)[] {
+    return Array.from(grid.querySelectorAll('.header > [role="row"]')).map((r) => r.getAttribute('aria-rowindex'));
+  }
+  function cachedHeaderRowCount(): number | undefined {
+    return (grid as InternalGrid).__cachedHeaderRowCount;
+  }
+
+  async function mount(columns: ColumnConfig[]): Promise<void> {
+    grid.gridConfig = { columns, plugins: [new GroupingColumnsPlugin()] };
+    grid.rows = rows;
+    await customElements.whenDefined('tbw-grid');
+    await grid.ready?.();
+    await nextFrame();
+  }
+
+  /** Group row, then column header row, then data — one contiguous 1-based sequence. */
+  function expectTwoHeaderRows(): void {
+    expect(grid.querySelector('.header-group-row')).not.toBeNull();
+    expect(cachedHeaderRowCount()).toBe(2);
+    expect(headerRowIndices()).toEqual(['1', '2']);
+    expect(dataRowIndices()).toEqual(['3', '4', '5']);
+  }
+
+  function expectOneHeaderRow(): void {
+    expect(grid.querySelector('.header-group-row')).toBeNull();
+    expect(cachedHeaderRowCount()).toBe(1);
+    expect(headerRowIndices()).toEqual(['1']);
+    expect(dataRowIndices()).toEqual(['2', '3', '4']);
+  }
+
+  it('offsets aria-rowindex by two header rows on the initial render', async () => {
+    await mount(groupedColumns);
+    expect(dataRows().length).toBe(3);
+    expectTwoHeaderRows();
+  });
+
+  it('drops back to one header row when groups are removed at runtime', async () => {
+    await mount(groupedColumns);
+    expectTwoHeaderRows();
+
+    grid.columns = flatColumns;
+    await nextFrame();
+    await nextFrame();
+    expectOneHeaderRow();
+  });
+
+  it('picks up a second header row when groups are added at runtime', async () => {
+    await mount(flatColumns);
+    expectOneHeaderRow();
+
+    grid.columns = groupedColumns;
+    await nextFrame();
+    await nextFrame();
+    expectTwoHeaderRows();
   });
 });

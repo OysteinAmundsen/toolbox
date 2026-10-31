@@ -436,6 +436,12 @@ This CSS-only approach means:
 - Smooth transitions between modes
 - Works with all other plugins (selection, editing, etc.)
 
+### Accessibility in card mode
+
+The column header is hidden in card mode, so it leaves the accessibility tree. The plugin writes two attributes on its own header together: `data-responsive-header-hidden`, which the hide rule is keyed on, and `aria-hidden="true"`, so the grid stops counting it — `aria-rowcount` equals the number of rows in the processed row model (group rows and loading placeholders included) and the first processed row — a group row when rows are grouped, otherwise the first card — is `aria-rowindex="1"`. Leaving card mode removes the marker and restores the header's previous `aria-hidden` (one you set yourself is left alone). A nested grid inside a card (a detail panel or cell renderer) keeps its own header visible and counted unless it runs its own Responsive plugin. The two are separate: the parent's hide rule keys only on its own marker, so marking a nested header `aria-hidden="true"` yourself leaves it visually visible — but that nested grid treats the attribute as "not in the accessibility tree" and drops the header from its own `aria-rowcount` and row offsets on its next render. The nested grid's rows and cells do still pick up the parent's card styling, which is tracked in [#591](https://github.com/OysteinAmundsen/toolbox/issues/591).
+
+In the default stacked layout each cell's field label comes from the `::before` pseudo-element, so screen readers that expose generated content hear the column name with each value. There is no label when `hideHeader: true` is set or the column is configured as `{ field, showValue: true }` in `hiddenColumns`, and a custom `cardRenderer` supplies its own markup and labels.
+
 ## Styling
 
 The responsive plugin uses the grid's existing CSS custom properties for theming.

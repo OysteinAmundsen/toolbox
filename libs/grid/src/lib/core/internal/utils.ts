@@ -66,10 +66,30 @@ export function getRowIndexFromCell(cell: Element | null): number {
   if (attr) return parseInt(attr, 10);
 
   const rowEl = cell.closest('.data-grid-row');
-  if (!rowEl) return -1;
+  return rowEl ? getRowIndexFromRow(rowEl) : -1;
+}
+
+/**
+ * Get the data row index of a rendered `.data-grid-row` element.
+ *
+ * Reads the first cell's `data-row`, else decodes the row's `aria-rowindex`
+ * (see {@link getRowIndexFromCell} for the precedence and the caveats).
+ * Stable across a header-row count change, unlike `aria-rowindex` itself.
+ * Returns -1 if no valid row index is found.
+ */
+export function getRowIndexFromRow(rowEl: Element): number {
   const sibling = rowEl.querySelector(':scope > .cell[data-row]');
   if (sibling) return parseInt(sibling.getAttribute('data-row') ?? '-1', 10);
+  return decodeAriaRowIndex(rowEl);
+}
 
+/**
+ * Decode the data row index from the `aria-rowindex` the grid stamped on a row,
+ * ignoring any `data-row` in the row's content. Use this when the content is
+ * consumer-authored (Responsive `cardRenderer` cards) and a `data-row` there
+ * belongs to the renderer, not the grid. Returns -1 without `aria-rowindex`.
+ */
+export function decodeAriaRowIndex(rowEl: Element): number {
   // aria-rowindex is 1-based and offset by the header-row count `renderVisibleRows`
   // used when it stamped the attribute. Decode with the SAME cached value
   // (`__cachedHeaderRowCount` on the host) — `syncHeaderRowCount` keeps it and
@@ -109,7 +129,9 @@ export function getColIndexFromCell(cell: Element | null): number {
  */
 export function clearCellFocus(body: Element | null): void {
   if (!body) return;
-  body.querySelectorAll(':scope > .data-grid-row > .cell.cell-focus').forEach((el) => el.classList.remove('cell-focus'));
+  body
+    .querySelectorAll(':scope > .data-grid-row > .cell.cell-focus')
+    .forEach((el) => el.classList.remove('cell-focus'));
 }
 // #endregion
 
@@ -143,7 +165,10 @@ export const GRID_HOST_SELECTOR = 'tbw-grid, [data-tbw-grid]';
  * also crosses shadow roots, where `closest()` stops. The element form keeps
  * the ancestry walk (through shadow hosts) for subjects that have no event.
  */
-export function isOwnTarget(host: Element | null | undefined, subject: EventTarget | Event | null | undefined): boolean {
+export function isOwnTarget(
+  host: Element | null | undefined,
+  subject: EventTarget | Event | null | undefined,
+): boolean {
   if (!subject || subject === host) return true;
 
   if (typeof (subject as Event).composedPath === 'function') {

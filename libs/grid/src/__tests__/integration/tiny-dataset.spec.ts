@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { DataGridElement } from '../../lib/core/grid';
 import { nextFrame } from '../../../test/helpers';
+import { DataGridElement } from '../../lib/core/grid';
 
 describe('tiny dataset virtualization bypass', () => {
   beforeEach(() => {
@@ -43,9 +43,10 @@ describe('tiny dataset virtualization bypass', () => {
     const transform = rowsContainer.style.transform || '';
     expect(transform === '' || transform === 'translateY(0px)').toBe(true);
 
-    // aria-rowcount/colcount are on inner .rows-body (role=grid), not host element
+    // aria-rowcount/colcount are on inner .rows-body (role=grid), not host element.
+    // aria-rowcount includes the header row (#586).
     const innerGrid = shadow.querySelector('.rows-body');
-    expect(innerGrid?.getAttribute('aria-rowcount')).toBe(String(rows.length));
+    expect(innerGrid?.getAttribute('aria-rowcount')).toBe(String(rows.length + 1));
     expect(innerGrid?.getAttribute('aria-colcount')).toBe('2');
   });
 

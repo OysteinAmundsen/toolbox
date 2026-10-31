@@ -51,6 +51,14 @@ describe('ResponsivePlugin', () => {
     container.className = 'tbw-grid-root';
     grid.appendChild(container);
 
+    // The grid's own header; `_headerRowEl` is how the plugin finds it.
+    const header = document.createElement('div');
+    header.className = 'header';
+    const headerRow = document.createElement('div');
+    headerRow.className = 'header-row';
+    header.appendChild(headerRow);
+    grid.appendChild(header);
+
     // Add row and cell elements
     const row = document.createElement('div');
     row.className = 'data-grid-row';
@@ -73,6 +81,9 @@ describe('ResponsivePlugin', () => {
       getPlugin: vi.fn(),
       getPluginByName: vi.fn(),
       _hostElement: grid,
+      // Morph naming is scoped to the grid's own row container.
+      _bodyEl: container,
+      _headerRowEl: headerRow,
     });
 
     grid.dispatchEvent = vi.fn();
@@ -1403,22 +1414,302 @@ describe('ResponsivePlugin', () => {
       expect(mockGrid.hasAttribute('data-responsive-animate')).toBe(false);
     });
 
+    it('should mark the header aria-hidden only once data-responsive is applied, not when the flag flips', async () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, debounceMs: 0 });
+      const mockGrid = createMockGrid();
+      const header = mockGrid.querySelector('.header');
+      plugin.attach(mockGrid as never);
+      const transition = stubViewTransition(mockGrid);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      expect(plugin.isResponsive()).toBe(true);
+      // A render lands before the update callback: the DOM is still table mode,
+      // so the header must stay in the accessibility tree.
+      plugin.afterRender();
+      expect(header?.hasAttribute('aria-hidden')).toBe(false);
+      expect(header?.hasAttribute('data-responsive-header-hidden')).toBe(false);
+
+      await transition.update?.();
+      expect(mockGrid.hasAttribute('data-responsive')).toBe(true);
+      expect(header?.getAttribute('aria-hidden')).toBe('true');
+      expect(header?.hasAttribute('data-responsive-header-hidden')).toBe(true);
+      transition.finish(0);
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Exit: the flag flips back while the card snapshot is still applied, so
+      // the header must not reappear in the accessibility tree yet.
+      resizeObserverInstance?.callback([{ contentRect: { width: 800 } }]);
+      expect(plugin.isResponsive()).toBe(false);
+      plugin.afterRender();
+      expect(header?.getAttribute('aria-hidden')).toBe('true');
+      expect(header?.hasAttribute('data-responsive-header-hidden')).toBe(true);
+
+      await transition.update?.();
+      expect(mockGrid.hasAttribute('data-responsive')).toBe(false);
+      expect(header?.hasAttribute('aria-hidden')).toBe(false);
+      expect(header?.hasAttribute('data-responsive-header-hidden')).toBe(false);
+    });
+
+    it('should not re-apply the card layout when detached before the pending update callback runs', async () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, debounceMs: 0 });
+      const mockGrid = createMockGrid();
+      const header = mockGrid.querySelector('.header') as HTMLElement;
+      plugin.attach(mockGrid as never);
+      const transition = stubViewTransition(mockGrid);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      expect(transition.calls).toBe(1);
+      expect(plugin.isResponsive()).toBe(true);
+      expect(mockGrid.hasAttribute('data-responsive')).toBe(false);
+
+      // Removed while the UA is still capturing the old-state snapshot.
+      plugin.detach();
+      await transition.update?.();
+
+      // Nothing is left to undo these, so the stale callback must not write them.
+      expect(mockGrid.hasAttribute('data-responsive')).toBe(false);
+      expect(mockGrid.hasAttribute('data-responsive-transition')).toBe(false);
+      expect(header.hasAttribute('aria-hidden')).toBe(false);
+      expect(header.hasAttribute('data-responsive-header-hidden')).toBe(false);
+
+      transition.finish();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(mockGrid.hasAttribute('data-responsive')).toBe(false);
+    });
+
+    it('should not re-apply morph names when detached while the update callback awaits forceLayout', async () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, debounceMs: 0, animation: 'morph-rows' });
+      const mockGrid = createMockGrid();
+      const row = mockGrid.querySelector<HTMLElement>('.data-grid-row');
+      row?.setAttribute('aria-rowindex', '2');
+      let settleLayout = (): void => undefined;
+      const forceLayout = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            settleLayout = resolve;
+          }),
+      );
+      Object.assign(mockGrid, { forceLayout });
+      plugin.attach(mockGrid as never);
+      const transition = stubViewTransition(mockGrid);
+      const name = () => row?.style.getPropertyValue('view-transition-name');
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      expect(name()).toMatch(/^tbw-responsive-row-\d+-\d+$/);
+
+      const updated = transition.update?.();
+      expect(mockGrid.hasAttribute('data-responsive')).toBe(true);
+      expect(forceLayout).toHaveBeenCalledTimes(1);
+
+      // Removed mid-render: detach strips the layout and the names...
+      plugin.detach();
+      expect(mockGrid.hasAttribute('data-responsive')).toBe(false);
+      expect(name()).toBe('');
+
+      // ...and the callback resuming after the await must not put the names back.
+      settleLayout();
+      await updated;
+      expect(name()).toBe('');
+      expect(mockGrid.hasAttribute('data-responsive')).toBe(false);
+    });
+
+    it('leaves a header aria-hidden marker it did not write alone on exit and on detach, but still hides the header', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, animate: false, debounceMs: 0 });
+      const mockGrid = createMockGrid();
+      const header = mockGrid.querySelector('.header') as HTMLElement;
+      // A consumer (or another plugin on the same contract) hid the header first.
+      header.setAttribute('aria-hidden', 'true');
+      plugin.attach(mockGrid as never);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      expect(mockGrid.hasAttribute('data-responsive')).toBe(true);
+      expect(header.getAttribute('aria-hidden')).toBe('true');
+      // The CSS hide rule keys on this marker, which is always ours to write.
+      expect(header.hasAttribute('data-responsive-header-hidden')).toBe(true);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 800 } }]);
+      plugin.afterRender();
+      expect(mockGrid.hasAttribute('data-responsive')).toBe(false);
+      expect(header.getAttribute('aria-hidden')).toBe('true');
+      expect(header.hasAttribute('data-responsive-header-hidden')).toBe(false);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      expect(header.hasAttribute('data-responsive-header-hidden')).toBe(true);
+      plugin.detach();
+      expect(header.getAttribute('aria-hidden')).toBe('true');
+      expect(header.hasAttribute('data-responsive-header-hidden')).toBe(false);
+    });
+
+    it('takes over aria-hidden when the other owner withdraws theirs mid card mode, and restores on exit', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, animate: false, debounceMs: 0 });
+      const mockGrid = createMockGrid();
+      const header = mockGrid.querySelector('.header') as HTMLElement;
+      header.setAttribute('aria-hidden', 'true');
+      plugin.attach(mockGrid as never);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      expect(header.hasAttribute('data-responsive-header-hidden')).toBe(true);
+
+      // The other owner removes its marker while the header is still display:none.
+      header.removeAttribute('aria-hidden');
+      plugin.afterRender();
+      // Core must keep excluding the header, so Responsive re-asserts and now owns it.
+      expect(header.getAttribute('aria-hidden')).toBe('true');
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 800 } }]);
+      // Restored to what the other owner left behind: nothing.
+      expect(header.hasAttribute('aria-hidden')).toBe(false);
+    });
+
+    it('restores the value the other owner changed to, not the original "true"', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, animate: false, debounceMs: 0 });
+      const mockGrid = createMockGrid();
+      const header = mockGrid.querySelector('.header') as HTMLElement;
+      header.setAttribute('aria-hidden', 'true');
+      plugin.attach(mockGrid as never);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      header.setAttribute('aria-hidden', 'false');
+      plugin.afterRender();
+      expect(header.getAttribute('aria-hidden')).toBe('true');
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 800 } }]);
+      expect(header.getAttribute('aria-hidden')).toBe('false');
+    });
+
+    it('removes the header aria-hidden marker it wrote on detach', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, animate: false });
+      const mockGrid = createMockGrid();
+      const header = mockGrid.querySelector('.header') as HTMLElement;
+      plugin.attach(mockGrid as never);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      expect(header.getAttribute('aria-hidden')).toBe('true');
+      expect(header.hasAttribute('data-responsive-header-hidden')).toBe(true);
+
+      plugin.detach();
+      expect(header.hasAttribute('aria-hidden')).toBe(false);
+      expect(header.hasAttribute('data-responsive-header-hidden')).toBe(false);
+    });
+
+    it('restores a pre-existing aria-hidden="false" on the header instead of removing it', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, animate: false, debounceMs: 0 });
+      const mockGrid = createMockGrid();
+      const header = mockGrid.querySelector('.header') as HTMLElement;
+      header.setAttribute('aria-hidden', 'false');
+      plugin.attach(mockGrid as never);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      expect(header.getAttribute('aria-hidden')).toBe('true');
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 800 } }]);
+      expect(header.getAttribute('aria-hidden')).toBe('false');
+    });
+
+    it('does not strip a replacement header marked by someone else after a DOM rebuild', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, animate: false, debounceMs: 0 });
+      const mockGrid = createMockGrid();
+      const oldHeader = mockGrid.querySelector('.header') as HTMLElement;
+      plugin.attach(mockGrid as never);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      expect(oldHeader.getAttribute('aria-hidden')).toBe('true');
+
+      // Structural rebuild: a new header element, already hidden by another plugin.
+      const newHeader = document.createElement('div');
+      newHeader.className = 'header';
+      const newHeaderRow = document.createElement('div');
+      newHeaderRow.className = 'header-row';
+      newHeader.appendChild(newHeaderRow);
+      newHeader.setAttribute('aria-hidden', 'true');
+      oldHeader.replaceWith(newHeader);
+      Object.assign(mockGrid, { _headerRowEl: newHeaderRow });
+      plugin.afterRender();
+      // The old element is released (it is detached), the new one is not ours.
+      expect(oldHeader.hasAttribute('aria-hidden')).toBe(false);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 800 } }]);
+      plugin.afterRender();
+      expect(newHeader.getAttribute('aria-hidden')).toBe('true');
+
+      plugin.detach();
+      expect(newHeader.getAttribute('aria-hidden')).toBe('true');
+    });
+
     it("should name rows for morphing only when animation is 'morph-rows'", async () => {
       const plugin = new ResponsivePlugin({ breakpoint: 500, animation: 'morph-rows' });
       const mockGrid = createMockGrid();
       const row = mockGrid.querySelector<HTMLElement>('.data-grid-row');
-      row?.setAttribute('aria-rowindex', '2');
+      // Names key on the DATA index decoded from the grid-stamped aria-rowindex
+      // (one header row in the mock → aria 9 is data row 7); it shifts when the
+      // header leaves the row count on the switch into card mode.
+      row?.setAttribute('aria-rowindex', '9');
       plugin.attach(mockGrid as never);
       const transition = stubViewTransition(mockGrid);
 
       resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
 
-      expect(row?.style.getPropertyValue('view-transition-name')).toMatch(/^tbw-responsive-row-\d+-2$/);
+      expect(row?.style.getPropertyValue('view-transition-name')).toMatch(/^tbw-responsive-row-\d+-7$/);
 
       await transition.update?.();
       transition.finish();
       await vi.advanceTimersByTimeAsync(0);
       expect(row?.style.getPropertyValue('view-transition-name')).toBe('');
+    });
+
+    it("should ignore a custom card's own data-row and decode the grid-stamped aria-rowindex", () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, animation: 'morph-rows' });
+      const mockGrid = createMockGrid();
+      const row = mockGrid.querySelector<HTMLElement>('.data-grid-row');
+      // A cardRenderer may return `.cell[data-row="0"]` on every card — that
+      // attribute belongs to the renderer, so it must not drive the name.
+      row?.setAttribute('aria-rowindex', '2');
+      row?.querySelector('.cell')?.setAttribute('data-row', '0');
+      const sibling = row?.cloneNode(true) as HTMLElement;
+      sibling.setAttribute('aria-rowindex', '3');
+      row?.parentElement?.appendChild(sibling);
+      plugin.attach(mockGrid as never);
+      stubViewTransition(mockGrid);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+
+      expect(row?.style.getPropertyValue('view-transition-name')).toMatch(/^tbw-responsive-row-\d+-0$/);
+      expect(sibling.style.getPropertyValue('view-transition-name')).toMatch(/^tbw-responsive-row-\d+-1$/);
+    });
+
+    it('should decode the data index from aria-rowindex when no cell carries data-row', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, animation: 'morph-rows' });
+      const mockGrid = createMockGrid();
+      const row = mockGrid.querySelector<HTMLElement>('.data-grid-row');
+      // Custom card renderers drop `data-row`; one header row → aria 2 is data row 0.
+      row?.setAttribute('aria-rowindex', '2');
+      plugin.attach(mockGrid as never);
+      stubViewTransition(mockGrid);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+
+      expect(row?.style.getPropertyValue('view-transition-name')).toMatch(/^tbw-responsive-row-\d+-0$/);
+    });
+
+    it("should not name a nested grid's rows (their data indices restart at 0 and would collide)", () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, animation: 'morph-rows' });
+      const mockGrid = createMockGrid();
+      const row = mockGrid.querySelector<HTMLElement>('.data-grid-row');
+      row?.setAttribute('aria-rowindex', '2');
+      row?.querySelector('.cell')?.setAttribute('data-row', '0');
+      // A nested grid rendered inside the cell carries its own rows.
+      const nestedRow = document.createElement('div');
+      nestedRow.className = 'data-grid-row';
+      nestedRow.setAttribute('aria-rowindex', '2');
+      nestedRow.innerHTML = '<div class="cell" data-row="0"></div>';
+      row?.querySelector('.cell')?.appendChild(nestedRow);
+      plugin.attach(mockGrid as never);
+      stubViewTransition(mockGrid);
+
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+
+      expect(row?.style.getPropertyValue('view-transition-name')).toMatch(/^tbw-responsive-row-\d+-0$/);
+      expect(nestedRow.style.getPropertyValue('view-transition-name')).toBe('');
     });
 
     it('should leave rows unnamed by default', () => {
@@ -1439,14 +1730,14 @@ describe('ResponsivePlugin', () => {
       const mockGrid = createMockGrid();
       const row = mockGrid.querySelector<HTMLElement>('.data-grid-row');
       const cell = mockGrid.querySelector<HTMLElement>('.data-grid-row > .cell');
-      row?.setAttribute('aria-rowindex', '2');
+      row?.setAttribute('aria-rowindex', '9');
       cell?.setAttribute('aria-colindex', '3');
       plugin.attach(mockGrid as never);
       const transition = stubViewTransition(mockGrid);
 
       resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
 
-      expect(cell?.style.getPropertyValue('view-transition-name')).toMatch(/^tbw-responsive-cell-\d+-2-3$/);
+      expect(cell?.style.getPropertyValue('view-transition-name')).toMatch(/^tbw-responsive-cell-\d+-7-3$/);
       // Naming the row too would lift the cell out of the row's own snapshot.
       expect(row?.style.getPropertyValue('view-transition-name')).toBe('');
 
@@ -1460,7 +1751,7 @@ describe('ResponsivePlugin', () => {
       const plugin = new ResponsivePlugin({ breakpoint: 500, animation: 'morph-cells' });
       const mockGrid = createMockGrid();
       const row = mockGrid.querySelector<HTMLElement>('.data-grid-row');
-      row?.setAttribute('aria-rowindex', '2');
+      row?.setAttribute('aria-rowindex', '9');
       for (let i = 0; i < 151; i++) {
         const cell = document.createElement('div');
         cell.className = 'cell';
@@ -1472,7 +1763,7 @@ describe('ResponsivePlugin', () => {
 
       resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
 
-      expect(row?.style.getPropertyValue('view-transition-name')).toMatch(/^tbw-responsive-row-\d+-2$/);
+      expect(row?.style.getPropertyValue('view-transition-name')).toMatch(/^tbw-responsive-row-\d+-7$/);
       const cells = row?.querySelectorAll<HTMLElement>('.cell[aria-colindex]') ?? [];
       for (const cell of cells) {
         expect(cell.style.getPropertyValue('view-transition-name')).toBe('');
@@ -1483,7 +1774,7 @@ describe('ResponsivePlugin', () => {
       const plugin = new ResponsivePlugin({ breakpoint: 500, debounceMs: 0, animation: 'morph-cells' });
       const mockGrid = createMockGrid();
       const row = mockGrid.querySelector<HTMLElement>('.data-grid-row');
-      row?.setAttribute('aria-rowindex', '2');
+      row?.setAttribute('aria-rowindex', '9');
       row?.querySelector('.cell')?.setAttribute('aria-colindex', '3');
       plugin.attach(mockGrid as never);
       const transition = stubViewTransition(mockGrid);
@@ -1499,7 +1790,7 @@ describe('ResponsivePlugin', () => {
 
       const cell = row?.querySelector<HTMLElement>('.cell[aria-colindex]');
       expect(mockGrid.hasAttribute('data-responsive-transition')).toBe(true);
-      expect(cell?.style.getPropertyValue('view-transition-name')).toMatch(/^tbw-responsive-cell-\d+-2-3$/);
+      expect(cell?.style.getPropertyValue('view-transition-name')).toMatch(/^tbw-responsive-cell-\d+-7-3$/);
 
       transition.finish(1);
       await vi.advanceTimersByTimeAsync(0);

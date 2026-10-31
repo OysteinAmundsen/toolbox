@@ -45,7 +45,7 @@ The grid applies the following ARIA roles and attributes automatically:
 
 | Element | Role | Attributes |
 |---------|------|-----------|
-| `<tbw-grid>` | `grid` (or `treegrid` when [Tree](/grid/plugins/tree/) or [Row Grouping](/grid/plugins/grouping-rows/) is active) | `aria-rowcount`, `aria-colcount`, `aria-multiselectable` |
+| `<tbw-grid>` (inner `.rows-body` element) | `grid` (or `treegrid` when [Tree](/grid/plugins/tree/) or [Row Grouping](/grid/plugins/grouping-rows/) is active) | `aria-rowcount` (header rows + data rows), `aria-colcount`, `aria-multiselectable` |
 | Header container | `rowgroup` | — |
 | Column-group header row ([Column Groups](/grid/plugins/grouping-columns/) only) | `row` | `aria-rowindex="1"` |
 | Header row | `row` | `aria-rowindex="1"` (`"2"` when a column-group row sits above it) |
@@ -70,7 +70,8 @@ The grid applies the following ARIA roles and attributes automatically:
 | `aria-posinset` | [Tree](/grid/plugins/tree/) or [Row Grouping](/grid/plugins/grouping-rows/) plugin is active (1-based position among siblings) | integer |
 | `aria-multiselectable` | Selection plugin allows multi-select | `true` |
 | `aria-readonly` | Cell is not editable | `true` |
-| `aria-rowindex` | Always (1-based) | Row position in full dataset, counting header rows — the first data row is `2`, or `3` when a column-group header row is present |
+| `aria-rowindex` | Always (1-based) | Position in the **processed row model** (the rows after filtering, sorting, grouping and tree expansion — group rows and loading placeholders included), offset by the number of **exposed header rows** _H_: the first processed row is _H_ + 1. _H_ is `1` for a plain header, `2` with a column-group header row, and `0` when the header is not exposed — no visible columns (the header is not a row), or [Responsive](/grid/plugins/responsive/) card mode (the header is hidden). So the first processed row is `2`, `3`, or `1` respectively (a group row when rows are grouped) |
+| `aria-rowcount` | Always | _H_ exposed header rows **plus** the processed row model, so the last `aria-rowindex` never exceeds it (3 rows → `4` with a plain header, `5` with a column-group header row, `3` with no exposed header). The model is what counts: group rows and loading placeholders are rows, a [Server-Side](/grid/plugins/server-side/) infinite-scroll source contributes a growing estimate until the end is known, and [Master Detail](/grid/plugins/master-detail/) panels — exposed as `role="row"` next to their master row — live outside the processed model and are therefore **not** counted (a known limitation). With no rows it equals _H_ alone: `1` for a plain header, `2` with a column-group header row, `0` with no visible columns |
 | `aria-colindex` | Always (1-based) | Column position |
 
 ## Keyboard Navigation

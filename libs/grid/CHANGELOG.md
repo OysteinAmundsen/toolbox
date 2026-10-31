@@ -1,5 +1,22 @@
 # Changelog
 
+## [3.10.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.10.3...grid-3.10.4) (2026-10-31)
+
+
+### Bug Fixes
+
+* **editing:** route template editors through the shared host keydown path and seed via setInputValue ([#578](https://github.com/OysteinAmundsen/toolbox/issues/578)) ([4c4d0a0](https://github.com/OysteinAmundsen/toolbox/commit/4c4d0a0ea07c037292e0f0b9a44725498b56859b))
+* **grid/clipboard/selection:** scope selection paint to own rows, honor quoteStrings/escapeFormulas on copy ([#581](https://github.com/OysteinAmundsen/toolbox/issues/581)) ([#582](https://github.com/OysteinAmundsen/toolbox/issues/582)) ([3531022](https://github.com/OysteinAmundsen/toolbox/commit/3531022ac2a27ec94ad0cf8855978ed671ecc23a))
+* **grid/context-menu/row-drag-drop/tooltip:** ignore delegated events that originate in a nested grid ([#585](https://github.com/OysteinAmundsen/toolbox/issues/585)) ([#589](https://github.com/OysteinAmundsen/toolbox/issues/589)) ([fe14ac4](https://github.com/OysteinAmundsen/toolbox/commit/fe14ac4059fd7e967b993f8facdae3d5f04aed8e))
+* **grid/row-drag-drop:** scope focus and row queries to own rows so nested grids are untouched ([#581](https://github.com/OysteinAmundsen/toolbox/issues/581)) ([#584](https://github.com/OysteinAmundsen/toolbox/issues/584)) ([3787a04](https://github.com/OysteinAmundsen/toolbox/commit/3787a04da4087bd6f7be4f0b23b90d5aee2bcc70))
+* **grid:** keep aria-rowindex in sync with column-group header rows ([#583](https://github.com/OysteinAmundsen/toolbox/issues/583)) ([#587](https://github.com/OysteinAmundsen/toolbox/issues/587)) ([5ae8d04](https://github.com/OysteinAmundsen/toolbox/commit/5ae8d04d5101a3ae484049b48dcb59417eda3432))
+* **server-side:** gate loading idle on in-flight blocks, clear debounce on purge, dedupe fetch/discard paths ([#579](https://github.com/OysteinAmundsen/toolbox/issues/579)) ([fcd606f](https://github.com/OysteinAmundsen/toolbox/commit/fcd606fa2e87a8315e568fd27a400c279579e384))
+
+
+### Performance Improvements
+
+* **grid:** trim core bundle - real browser floor for CSS, terser passes, dedupes ([2205030](https://github.com/OysteinAmundsen/toolbox/commit/22050307b09e2c1a946eb49a2767543d38a5ad87)), closes [#588](https://github.com/OysteinAmundsen/toolbox/issues/588)
+
 ## [3.10.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.10.2...grid-3.10.3) (2026-10-28)
 
 

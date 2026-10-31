@@ -16,10 +16,12 @@ import type { A11yMessages, GridConfig } from '../types';
  * State for caching ARIA attributes to avoid redundant DOM writes.
  */
 export interface AriaState {
-  /** Last set row count */
+  /** Last set data row count (excludes header rows) */
   rowCount: number;
   /** Last set column count */
   colCount: number;
+  /** Last set header row count folded into `aria-rowcount` */
+  headerRowCount: number;
   /** Last set aria-label */
   ariaLabel: string | undefined;
   /** Last set aria-labelledby */
@@ -39,6 +41,7 @@ export function createAriaState(): AriaState {
   return {
     rowCount: -1,
     colCount: -1,
+    headerRowCount: -1,
     ariaLabel: undefined,
     ariaLabelledBy: undefined,
     ariaDescribedBy: undefined,
@@ -55,11 +58,16 @@ export function createAriaState(): AriaState {
  * Update ARIA row and column counts on grid elements.
  * Uses caching to avoid redundant DOM writes on every scroll frame.
  *
+ * `aria-rowcount` is the total number of rows in the full table — header rows
+ * included — so that the last data row's `aria-rowindex` (which counts header
+ * rows, see `rows.ts`) never exceeds it (#586).
+ *
  * @param state - ARIA state for caching
  * @param rowsBodyEl - Element to set aria-rowcount/aria-colcount on
  * @param bodyEl - Element to set role="rowgroup" on
- * @param rowCount - Current row count
+ * @param rowCount - Current data row count (header rows excluded)
  * @param colCount - Current column count
+ * @param headerRowCount - Header rows above the data rows, added to `aria-rowcount`
  * @returns true if anything was updated
  */
 export function updateAriaCounts(
@@ -68,19 +76,21 @@ export function updateAriaCounts(
   bodyEl: HTMLElement | null,
   rowCount: number,
   colCount: number,
+  headerRowCount: number,
 ): boolean {
   // Skip if nothing changed (hot path optimization for scroll)
-  if (rowCount === state.rowCount && colCount === state.colCount) {
+  if (rowCount === state.rowCount && colCount === state.colCount && headerRowCount === state.headerRowCount) {
     return false;
   }
 
   const prevRowCount = state.rowCount;
   state.rowCount = rowCount;
   state.colCount = colCount;
+  state.headerRowCount = headerRowCount;
 
   // Update ARIA counts on inner grid element
   if (rowsBodyEl) {
-    rowsBodyEl.setAttribute('aria-rowcount', String(rowCount));
+    rowsBodyEl.setAttribute('aria-rowcount', String(rowCount + headerRowCount));
     rowsBodyEl.setAttribute('aria-colcount', String(colCount));
   }
 

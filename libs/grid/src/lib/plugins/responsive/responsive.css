@@ -94,8 +94,13 @@ tbw-grid[data-responsive][data-responsive-animate] {
    ============================================ */
 
 tbw-grid[data-responsive] {
-  /* Hide entire header section in card mode */
-  .header {
+  /* Hide the header section in card mode. Keyed on the Responsive-owned marker
+     the plugin writes on ITS OWN header, never on bare `.header` or on
+     `aria-hidden`: a nested grid's header must not vanish with the parent, even
+     one a consumer marked `aria-hidden` for its own reasons. The plugin writes
+     this marker and `aria-hidden="true"` together, so display and the
+     accessibility tree stay in lockstep. */
+  .header[data-responsive-header-hidden] {
     display: none !important;
   }
 

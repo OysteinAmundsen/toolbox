@@ -89,7 +89,7 @@ OWNS: active tooltip + positioning, shared `#tbw-tooltip-popover`. HOOKS: afterC
 
 OWNS: `.tbw-sticky-rows` overlay container, clone cache by row index, displayed indices, push displacement. HOOKS: afterRender, onScrollRender, onScroll. READS: `grid.rows`, `grid._virtualization.{container,positionCache,rowHeight}`. CONFIG: `isSticky` (field name or `(row,index)=>unknown`), `mode:'push'|'stack'` (default push), `maxStacked`, `className`.
 
-- INVARIANT: clones are decorative — `aria-hidden="true"`, no `tabindex`, focus classes stripped. The live row stays in the pool for keyboard + AT.
+- INVARIANT: clones are decorative — `aria-hidden="true"`, no `tabindex`, focus classes stripped, and (PR #590 review) inline `view-transition-name` removed from the clone and every `[style]` descendant. WHY: `cloneNode(true)` copies inline styles, a Responsive morph names live rows/cells mid-switch (`forceLayout()` can build a clone then), and the name is document-unique — a duplicate makes the UA skip the transition, and a cached/`templateClone` copy keeps colliding on every later morph. The live row stays in the pool for keyboard + AT.
 - INVARIANT: the container is `position:absolute; top:0` INSIDE `.rows-viewport`, NOT a flex child of `.rows-body` (a flex child pushes the viewport down → duplicate during push). Viewport `overflow: clip` hides the live row underneath.
 - INVARIANT: `getCurrentScrollTop()` MUST read `_virtualization.container.scrollTop`, never derive from `start * rowHeight` (lags up to `rowHeight - 1` px → "invisible until row #3").
 - INVARIANT: the clone cache MUST be primed while the row is live (`findRenderedRow` returns null once scrolled out).

@@ -433,6 +433,27 @@ describe('StickyRowsPlugin', () => {
       expect(clone.hasAttribute('tabindex')).toBe(false);
     });
 
+    it('strips view-transition-name from clones so they never collide with the live row (PR #590)', () => {
+      const plugin = new StickyRowsPlugin({ isSticky: 'flag' });
+      const grid = createMockGrid({ rows: [{ flag: true }, { flag: false }], renderedIndices: [0, 1] });
+      // A Responsive morph names the live row and its cells inline mid-transition.
+      const liveRow = grid.querySelector('.rows .data-grid-row') as HTMLElement;
+      liveRow.style.setProperty('view-transition-name', 'tbw-responsive-row-1-0');
+      liveRow.style.setProperty('opacity', '0.5');
+      const liveCell = liveRow.querySelector('.cell') as HTMLElement;
+      liveCell.style.setProperty('view-transition-name', 'tbw-responsive-cell-1-0-1');
+
+      plugin.attach(grid);
+      plugin.afterRender();
+      plugin.onScroll(scrollEvent(28));
+
+      const clone = grid.querySelector('.tbw-sticky-rows .tbw-sticky-row') as HTMLElement;
+      expect(clone.style.getPropertyValue('view-transition-name')).toBe('');
+      expect((clone.querySelector('.cell') as HTMLElement).style.getPropertyValue('view-transition-name')).toBe('');
+      // Other inline styles are still copied.
+      expect(clone.style.getPropertyValue('opacity')).toBe('0.5');
+    });
+
     it('keeps cached clones when the underlying row leaves the rendered window', () => {
       const plugin = new StickyRowsPlugin({ isSticky: 'flag' });
       // Initially row 0 is rendered.

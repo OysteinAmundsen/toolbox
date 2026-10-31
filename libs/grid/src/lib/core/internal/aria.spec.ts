@@ -52,7 +52,7 @@ describe('ARIA Helpers', () => {
     });
 
     it('should update aria-rowcount and aria-colcount', () => {
-      const updated = updateAriaCounts(state, rowsBodyEl, bodyEl, 100, 5);
+      const updated = updateAriaCounts(state, rowsBodyEl, bodyEl, 100, 5, 0);
 
       expect(updated).toBe(true);
       expect(rowsBodyEl.getAttribute('aria-rowcount')).toBe('100');
@@ -60,8 +60,8 @@ describe('ARIA Helpers', () => {
     });
 
     it('should cache values and skip redundant updates', () => {
-      updateAriaCounts(state, rowsBodyEl, bodyEl, 100, 5);
-      const updated = updateAriaCounts(state, rowsBodyEl, bodyEl, 100, 5);
+      updateAriaCounts(state, rowsBodyEl, bodyEl, 100, 5, 0);
+      const updated = updateAriaCounts(state, rowsBodyEl, bodyEl, 100, 5, 0);
 
       expect(updated).toBe(false);
       expect(state.rowCount).toBe(100);
@@ -69,8 +69,8 @@ describe('ARIA Helpers', () => {
     });
 
     it('should update when row count changes', () => {
-      updateAriaCounts(state, rowsBodyEl, bodyEl, 100, 5);
-      const updated = updateAriaCounts(state, rowsBodyEl, bodyEl, 150, 5);
+      updateAriaCounts(state, rowsBodyEl, bodyEl, 100, 5, 0);
+      const updated = updateAriaCounts(state, rowsBodyEl, bodyEl, 150, 5, 0);
 
       expect(updated).toBe(true);
       expect(rowsBodyEl.getAttribute('aria-rowcount')).toBe('150');
@@ -78,8 +78,8 @@ describe('ARIA Helpers', () => {
     });
 
     it('should update when column count changes', () => {
-      updateAriaCounts(state, rowsBodyEl, bodyEl, 100, 5);
-      const updated = updateAriaCounts(state, rowsBodyEl, bodyEl, 100, 10);
+      updateAriaCounts(state, rowsBodyEl, bodyEl, 100, 5, 0);
+      const updated = updateAriaCounts(state, rowsBodyEl, bodyEl, 100, 10, 0);
 
       expect(updated).toBe(true);
       expect(rowsBodyEl.getAttribute('aria-colcount')).toBe('10');
@@ -87,30 +87,62 @@ describe('ARIA Helpers', () => {
     });
 
     it('should set role="rowgroup" when rows exist', () => {
-      updateAriaCounts(state, rowsBodyEl, bodyEl, 10, 5);
+      updateAriaCounts(state, rowsBodyEl, bodyEl, 10, 5, 0);
 
       expect(bodyEl.getAttribute('role')).toBe('rowgroup');
     });
 
     it('should remove role when row count becomes 0', () => {
-      updateAriaCounts(state, rowsBodyEl, bodyEl, 10, 5);
-      updateAriaCounts(state, rowsBodyEl, bodyEl, 0, 5);
+      updateAriaCounts(state, rowsBodyEl, bodyEl, 10, 5, 0);
+      updateAriaCounts(state, rowsBodyEl, bodyEl, 0, 5, 0);
 
       expect(bodyEl.getAttribute('role')).toBeNull();
     });
 
     it('should handle null rowsBodyEl', () => {
-      const updated = updateAriaCounts(state, null, bodyEl, 100, 5);
+      const updated = updateAriaCounts(state, null, bodyEl, 100, 5, 0);
 
       expect(updated).toBe(true);
       expect(state.rowCount).toBe(100);
     });
 
     it('should handle null bodyEl', () => {
-      const updated = updateAriaCounts(state, rowsBodyEl, null, 100, 5);
+      const updated = updateAriaCounts(state, rowsBodyEl, null, 100, 5, 0);
 
       expect(updated).toBe(true);
       expect(rowsBodyEl.getAttribute('aria-rowcount')).toBe('100');
+    });
+
+    describe('header row offset (#586)', () => {
+      it('should add header rows to aria-rowcount', () => {
+        updateAriaCounts(state, rowsBodyEl, bodyEl, 3, 5, 1);
+
+        expect(rowsBodyEl.getAttribute('aria-rowcount')).toBe('4');
+        expect(state.rowCount).toBe(3);
+        expect(state.headerRowCount).toBe(1);
+      });
+
+      it('should rewrite aria-rowcount when only the header row count changes', () => {
+        updateAriaCounts(state, rowsBodyEl, bodyEl, 3, 5, 1);
+        const updated = updateAriaCounts(state, rowsBodyEl, bodyEl, 3, 5, 2);
+
+        expect(updated).toBe(true);
+        expect(rowsBodyEl.getAttribute('aria-rowcount')).toBe('5');
+      });
+
+      it('should skip when data, column and header counts are unchanged', () => {
+        updateAriaCounts(state, rowsBodyEl, bodyEl, 3, 5, 2);
+        const updated = updateAriaCounts(state, rowsBodyEl, bodyEl, 3, 5, 2);
+
+        expect(updated).toBe(false);
+      });
+
+      it('should base role="rowgroup" on the data row count, not the total', () => {
+        updateAriaCounts(state, rowsBodyEl, bodyEl, 0, 5, 1);
+
+        expect(rowsBodyEl.getAttribute('aria-rowcount')).toBe('1');
+        expect(bodyEl.getAttribute('role')).toBeNull();
+      });
     });
   });
 

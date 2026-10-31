@@ -420,6 +420,9 @@ describe('GroupingColumnsPlugin aria-rowindex header offset (#583)', () => {
   function cachedHeaderRowCount(): number | undefined {
     return (grid as InternalGrid).__cachedHeaderRowCount;
   }
+  function ariaRowCount(): string | null {
+    return grid.querySelector('.rows-body')?.getAttribute('aria-rowcount') ?? null;
+  }
 
   async function mount(columns: ColumnConfig[]): Promise<void> {
     grid.gridConfig = { columns, plugins: [new GroupingColumnsPlugin()] };
@@ -435,6 +438,8 @@ describe('GroupingColumnsPlugin aria-rowindex header offset (#583)', () => {
     expect(cachedHeaderRowCount()).toBe(2);
     expect(headerRowIndices()).toEqual(['1', '2']);
     expect(dataRowIndices()).toEqual(['3', '4', '5']);
+    // aria-rowcount covers header + data rows (#586)
+    expect(ariaRowCount()).toBe('5');
   }
 
   function expectOneHeaderRow(): void {
@@ -442,6 +447,7 @@ describe('GroupingColumnsPlugin aria-rowindex header offset (#583)', () => {
     expect(cachedHeaderRowCount()).toBe(1);
     expect(headerRowIndices()).toEqual(['1']);
     expect(dataRowIndices()).toEqual(['2', '3', '4']);
+    expect(ariaRowCount()).toBe('4');
   }
 
   it('offsets aria-rowindex by two header rows on the initial render', async () => {

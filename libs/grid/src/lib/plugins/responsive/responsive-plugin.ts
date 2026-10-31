@@ -28,6 +28,7 @@
 import { MISSING_BREAKPOINT } from '../../core/internal/diagnostics';
 import { ensureCellVisible } from '../../core/internal/keyboard';
 import { evalTemplateString, setSanitizedHTML } from '../../core/internal/sanitize';
+import { decodeAriaRowIndex } from '../../core/internal/utils';
 import { BaseGridPlugin, type GridElement, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import type { GridHost } from '../../core/types';
 import { PLACEHOLDER_ROW_CLASS } from '../shared/loading-placeholder';
@@ -74,6 +75,9 @@ const COLUMN_FADE_ID = 'tbw-responsive-column-fade';
 
 /** Present only while columns are collapsing, so column resizing stays instant. */
 const COLUMN_FADE_ATTR = 'data-responsive-column-fade';
+
+/** Responsive-owned marker on the grid's own `.header` in card mode; the CSS hide rule keys on it. */
+const HEADER_HIDDEN_ATTR = 'data-responsive-header-hidden';
 
 /**
  * Cancel this plugin's fades on `cell` and nothing else. Cancelling REJECTS
@@ -609,6 +613,10 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     this.#debounceTimer = undefined;
     this.#lastCheckedWidth = undefined;
     this.#lastSwitchAt = Number.NEGATIVE_INFINITY;
+    // A view transition still in flight would otherwise run its update callback
+    // after this teardown and re-apply the card layout (and the header's
+    // aria-hidden) to a grid nothing is left to restore.
+    this.#transitionToken++;
 
     // Every attribute `#syncLayoutAttributes()` writes styles the grid on its own
     // — `[data-responsive-animate]` transitions rows even in table mode — so a
@@ -618,6 +626,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
       this.gridElement.removeAttribute('data-responsive-animate');
       this.gridElement.removeAttribute('data-responsive-hide-header');
       this.gridElement.removeAttribute('data-responsive-transition');
+      this.#releaseHiddenHeader();
       for (const cell of this.gridElement.querySelectorAll(
         '.cell[data-responsive-hidden], .cell[data-responsive-value-only]',
       )) {
@@ -652,6 +661,8 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
   override afterRender(): void {
     // Measure card height for virtualization calculations
     this.#measureCardHeightFromDOM();
+    // Before core's header-row sync, so the row indices settle in this frame.
+    this.#syncHeaderAccessibility();
 
     // In single breakpoint mode, only apply when responsive
     // In multi-breakpoint mode, apply when there's an active breakpoint
@@ -842,10 +853,15 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     host.setAttribute('data-responsive-transition', '');
 
     const transition = startViewTransition(async () => {
+      // Superseded or detached while the snapshot was being taken: applying
+      // the layout now would write to a grid this switch no longer owns.
+      if (token !== this.#transitionToken) return;
       this.#applyResponsiveState();
       // The render scheduler batches into rAF, which still runs inside the
       // update callback — so awaiting here captures the finished new layout.
       await this.#internalGrid.forceLayout?.();
+      // `detach()` may have cleared the names during the await.
+      if (token !== this.#transitionToken) return;
       if (morph !== 'none') this.#setMorphNames(morph);
     });
 
@@ -904,13 +920,27 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
   }
 
   /**
+   * This grid's own rendered rows. Scoped to `_bodyEl` because a nested grid
+   * (detail panel, cell renderer) restarts its data indices at 0 — host-wide,
+   * its rows would take the same morph names and the UA skips the transition.
+   */
+  #ownRows(): HTMLElement[] {
+    const body = this.#internalGrid._bodyEl;
+    return body ? Array.from(body.querySelectorAll<HTMLElement>(':scope > .data-grid-row')) : [];
+  }
+
+  /**
    * Give every rendered row a stable `view-transition-name` so the compositor
    * animates each row from its table position to its card position.
    */
   #setMorphNames(granularity: MorphGranularity): void {
-    const rows = this.gridElement.querySelectorAll<HTMLElement>('.data-grid-row[aria-rowindex]');
-    for (const row of rows) {
-      const rowIndex = row.getAttribute('aria-rowindex');
+    for (const row of this.#ownRows()) {
+      // Data index decoded from the GRID-stamped aria-rowindex, never from content:
+      // the header leaves the row count on the switch into card mode, so the raw
+      // ARIA index shifts mid-transition, and a custom card's own `data-row`
+      // belongs to the renderer (every card could say 0).
+      const rowIndex = decodeAriaRowIndex(row);
+      if (rowIndex < 0) continue;
       if (granularity === 'rows') {
         row.style.setProperty('view-transition-name', `${this.#morphPrefix}${rowIndex}`);
         continue;
@@ -934,7 +964,8 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
   #resolveMorphGranularity(): MorphGranularity {
     const animation = this.#animation;
     if (animation === 'morph-cells') {
-      const cells = this.gridElement.querySelectorAll('.data-grid-row > .cell[aria-colindex]').length;
+      let cells = 0;
+      for (const row of this.#ownRows()) cells += row.querySelectorAll(':scope > .cell[aria-colindex]').length;
       if (cells > 0 && cells <= MAX_MORPH_CELLS) return 'cells';
       return 'rows';
     }
@@ -943,9 +974,11 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
 
   /** Remove morph names so recycled rows and cells do not carry stale identities. */
   #clearMorphNames(): void {
-    const named = this.gridElement.querySelectorAll<HTMLElement>('.data-grid-row, .data-grid-row > .cell');
-    for (const el of named) {
-      el.style.removeProperty('view-transition-name');
+    for (const row of this.#ownRows()) {
+      row.style.removeProperty('view-transition-name');
+      for (const cell of row.querySelectorAll<HTMLElement>(':scope > .cell')) {
+        cell.style.removeProperty('view-transition-name');
+      }
     }
   }
 
@@ -955,6 +988,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
   /** The host attributes every responsive CSS rule keys off. */
   #syncLayoutAttributes(): void {
     this.gridElement.toggleAttribute('data-responsive', this.#isResponsive);
+    this.#syncHeaderAccessibility();
 
     // The keyframe fade is the no-view-transition path only. Leaving it on
     // would replay the card-enter animation the moment the transition ends.
@@ -969,6 +1003,79 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
       'data-responsive-hide-header',
       this.#isResponsive && this.config.hideHeader === true,
     );
+  }
+
+  /** This grid's own `.header` (not a nested grid's); `undefined` before the DOM is built. */
+  get #ownHeader(): HTMLElement | undefined {
+    return this.#internalGrid._headerRowEl?.parentElement ?? undefined;
+  }
+
+  /**
+   * The header this plugin hid in card mode: the `aria-hidden` it had before
+   * (`null` = absent) and whether the `"true"` now on it is ours to undo.
+   */
+  #hiddenHeader?: { el: HTMLElement; previousAriaHidden: string | null; ownsAriaHidden: boolean };
+
+  /**
+   * Card mode hides the whole header, which removes it from the accessibility
+   * tree. Two attributes go on the grid's OWN header, written together:
+   * `data-responsive-header-hidden` — the Responsive-owned marker the CSS hide
+   * rule keys on (so a nested grid's header is never hidden by this grid, even
+   * one a consumer marked `aria-hidden`) — and `aria-hidden="true"`, so core
+   * stops counting its rows in `aria-rowcount` / the `aria-rowindex` offset
+   * (PR #590 review).
+   *
+   * Follows the APPLIED `data-responsive` attribute, not `#isResponsive`: during a
+   * view transition the flag flips synchronously while the DOM change waits for
+   * the update callback, and a render in between must not hide a header that is
+   * still visibly in table mode (or un-hide one still in the card snapshot).
+   *
+   * `aria-hidden` ownership is per ELEMENT with the prior value remembered: a
+   * `"true"` that was already there (consumer or another plugin on the same
+   * contract) is left alone; a rebuilt header is a new element, so the old one is
+   * released first and the new one is judged on its own attribute; on release the
+   * previous value (including an explicit `"false"`) is restored, not just removed.
+   */
+  #syncHeaderAccessibility(): void {
+    const header = this.#ownHeader;
+    if (!header) return;
+    if (!this.gridElement.hasAttribute('data-responsive')) {
+      this.#releaseHiddenHeader();
+      return;
+    }
+    const hidden = this.#hiddenHeader;
+    if (hidden && hidden.el !== header) this.#releaseHiddenHeader();
+    if (hidden?.el === header) {
+      header.setAttribute(HEADER_HIDDEN_ATTR, '');
+      const current = header.getAttribute('aria-hidden');
+      if (current !== 'true') {
+        // Either ours was stripped, or the other owner withdrew theirs. The header
+        // is still display:none, so it must stay out of the accessibility tree —
+        // take ownership now and remember what to restore on exit.
+        if (!hidden.ownsAriaHidden) {
+          hidden.ownsAriaHidden = true;
+          hidden.previousAriaHidden = current;
+        }
+        header.setAttribute('aria-hidden', 'true');
+      }
+      return;
+    }
+    const previousAriaHidden = header.getAttribute('aria-hidden');
+    const ownsAriaHidden = previousAriaHidden !== 'true';
+    this.#hiddenHeader = { el: header, previousAriaHidden, ownsAriaHidden };
+    header.setAttribute(HEADER_HIDDEN_ATTR, '');
+    if (ownsAriaHidden) header.setAttribute('aria-hidden', 'true');
+  }
+
+  /** Drop the hide marker and restore the header's previous `aria-hidden` if ours; no-op unless one is hidden. */
+  #releaseHiddenHeader(): void {
+    const hidden = this.#hiddenHeader;
+    if (!hidden) return;
+    this.#hiddenHeader = undefined;
+    hidden.el.removeAttribute(HEADER_HIDDEN_ATTR);
+    if (!hidden.ownsAriaHidden) return;
+    if (hidden.previousAriaHidden === null) hidden.el.removeAttribute('aria-hidden');
+    else hidden.el.setAttribute('aria-hidden', hidden.previousAriaHidden);
   }
 
   /**

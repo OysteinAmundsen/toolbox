@@ -196,7 +196,7 @@ clause 9, so only the software-specific additions are listed.
 | Clause | Status | Notes |
 |---|---|---|
 | 11.1–11.4 (Perceivable, Operable, Understandable, Robust) | Supports | Mirror the WCAG criteria; see the tables above. |
-| 11.5.2.3 Row, column and headers | Supports | `aria-rowindex`, `aria-colindex`, `aria-rowcount` and `aria-colcount` are set on virtualized rows, so a screen reader reports the true position in the dataset rather than the position in the recycled DOM window. |
+| 11.5.2.3 Row, column and headers | Supports | `aria-rowindex`, `aria-colindex`, `aria-rowcount` and `aria-colcount` are set on virtualized rows, so a screen reader reports the true position in the dataset rather than the position in the recycled DOM window. `aria-rowcount` counts header rows plus the processed row model (group rows and loading placeholders included; a growing estimate for infinite-scroll server-side sources), so the last row is announced as "row N of N". |
 | 11.5.2.5 Modification of focus and selection attributes | Supports | Focus and selection are programmatically settable through the public API, not only by pointer or keyboard. |
 | 11.5.2.6 Label relationships | Supports | Header-to-cell relationships come from the ARIA grid pattern; editors take their accessible name from their column header. |
 | 11.5.2.7 Parent-child relationships | Supports | Grouped rows, tree rows and master-detail rows upgrade the rows body to `role="treegrid"` and carry `aria-level`, `aria-setsize`, `aria-posinset` and `aria-expanded`, so hierarchical position is exposed even though the DOM is flat. |

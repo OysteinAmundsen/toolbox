@@ -469,6 +469,11 @@ export class StickyRowsPlugin extends BaseGridPlugin<StickyRowsConfig> {
     // Strip tabindex on cells so the clone isn't a tab target.
     clone.removeAttribute('tabindex');
     clone.querySelectorAll('[tabindex]').forEach((el) => el.removeAttribute('tabindex'));
+    // `view-transition-name` is document-unique identity. A row captured mid-morph
+    // (Responsive layout switch) carries one inline; a clone sharing it makes the
+    // UA skip the whole transition, and a cached clone would keep colliding later.
+    clone.style.removeProperty('view-transition-name');
+    clone.querySelectorAll<HTMLElement>('[style]').forEach((el) => el.style.removeProperty('view-transition-name'));
 
     // Keep a detached copy as the structural template for synthesized
     // stand-ins. Captured post-sanitisation so a synthetic inherits the same

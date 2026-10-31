@@ -72,6 +72,67 @@ test.describe('Responsive Demos', () => {
       await expect(grid(page)).not.toHaveAttribute('data-responsive-animate', '');
       await expect(grid(page)).not.toHaveAttribute('data-responsive-transition', '');
     });
+
+    test("card mode hides only the owning grid's header, not a nested grid's (#586)", async ({ page }) => {
+      // The demo page has the grid element and the responsive feature registered;
+      // build a parent grid with TWO nested grids in a cell renderer on top of it:
+      // one plain, one whose header a consumer marked `aria-hidden` for its own
+      // reasons. Neither may be hidden by the parent's card mode. The unit suite
+      // cannot cover this: the plugin's `?inline` CSS is empty under Vitest, so
+      // only a real browser proves the `.header[data-responsive-header-hidden]`
+      // selector (and that it is not keyed on bare `.header` or `aria-hidden`).
+      await openDemo(page, 'responsive/ResponsiveDefaultDemo');
+      await page.evaluate(() => {
+        type GridEl = HTMLElement & { gridConfig: unknown; rows: unknown[]; ready?: () => Promise<void> };
+        const makeChild = (className: string, markAriaHidden: boolean): GridEl => {
+          const child = document.createElement('tbw-grid') as GridEl;
+          child.className = className;
+          child.style.cssText = 'display:block;width:300px;height:160px;';
+          child.gridConfig = { columns: [{ field: 'x', header: 'X' }] };
+          child.rows = [{ x: 1 }, { x: 2 }];
+          if (markAriaHidden) {
+            // A consumer-owned marker on the nested header, applied once it exists.
+            child.ready?.().then(() => {
+              child.querySelector('.rows-body > .header')?.setAttribute('aria-hidden', 'true');
+            });
+          }
+          return child;
+        };
+        const parent = document.createElement('tbw-grid') as GridEl;
+        parent.id = 'e2e-nested-parent';
+        parent.style.cssText = 'display:block;width:400px;height:800px;';
+        parent.gridConfig = {
+          columns: [
+            { field: 'a', header: 'A' },
+            { field: 'nested', header: 'Nested', renderer: () => makeChild('e2e-nested-child', false) },
+            { field: 'marked', header: 'Marked', renderer: () => makeChild('e2e-nested-marked', true) },
+          ],
+          features: { responsive: { breakpoint: 500, animation: false } },
+        };
+        parent.rows = [{ a: 1 }];
+        document.body.appendChild(parent);
+      });
+
+      const parent = page.locator('#e2e-nested-parent');
+      await expect(parent).toHaveAttribute('data-responsive', '');
+
+      const parentHeader = parent.locator('.rows-body > .header').first();
+      const childHeader = page.locator('.e2e-nested-child .rows-body > .header').first();
+      const markedHeader = page.locator('.e2e-nested-marked .rows-body > .header').first();
+
+      await expect(parentHeader).toHaveAttribute('aria-hidden', 'true');
+      await expect(parentHeader).toHaveAttribute('data-responsive-header-hidden', '');
+      await expect(parentHeader).toBeHidden();
+
+      await expect(childHeader).not.toHaveAttribute('aria-hidden', 'true');
+      await expect(childHeader).toBeVisible();
+      await expect(childHeader.locator('[role="columnheader"]').first()).toHaveText('X');
+
+      // The consumer's aria-hidden is not the parent's hide signal.
+      await expect(markedHeader).toHaveAttribute('aria-hidden', 'true');
+      await expect(markedHeader).not.toHaveAttribute('data-responsive-header-hidden', '');
+      await expect(markedHeader).toBeVisible();
+    });
   });
 
   test('ResponsiveCustomCardRendererDemo — cardRowHeight switches between auto and fixed', async ({ page }) => {

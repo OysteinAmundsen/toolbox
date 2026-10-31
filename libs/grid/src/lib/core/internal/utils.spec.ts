@@ -3,10 +3,12 @@ import { rafDebounce, withDispatchPath } from '../../../../test/helpers';
 import {
   booleanCellHTML,
   clearCellFocus,
+  decodeAriaRowIndex,
   formatDateValue,
   getColIndexFromCell,
   getDirection,
   getRowIndexFromCell,
+  getRowIndexFromRow,
   isDevelopment,
   isOwnTarget,
   isRTL,
@@ -300,6 +302,50 @@ describe('utils', () => {
       host.appendChild(rowsBody);
 
       expect(getRowIndexFromCell(groupCell)).toBe(3);
+    });
+  });
+
+  describe('getRowIndexFromRow', () => {
+    it('reads the first cell data-row', () => {
+      const row = document.createElement('div');
+      row.className = 'data-grid-row';
+      row.setAttribute('aria-rowindex', '99');
+      row.innerHTML = '<div class="cell"></div><div class="cell" data-row="7"></div>';
+      expect(getRowIndexFromRow(row)).toBe(7);
+    });
+
+    it('decodes aria-rowindex with the host cached header count when no cell has data-row', () => {
+      const host = document.createElement('div');
+      host.setAttribute('data-tbw-grid', '');
+      // Responsive card mode: header hidden, zero header rows counted.
+      Object.assign(host, { __cachedHeaderRowCount: 0 });
+      const row = document.createElement('div');
+      row.className = 'data-grid-row';
+      row.setAttribute('aria-rowindex', '4');
+      host.appendChild(row);
+      expect(getRowIndexFromRow(row)).toBe(3);
+    });
+
+    it('returns -1 without data-row or aria-rowindex', () => {
+      const row = document.createElement('div');
+      row.className = 'data-grid-row';
+      expect(getRowIndexFromRow(row)).toBe(-1);
+    });
+  });
+
+  describe('decodeAriaRowIndex', () => {
+    it('ignores content data-row and decodes the grid-stamped aria-rowindex', () => {
+      const host = document.createElement('div');
+      host.setAttribute('data-tbw-grid', '');
+      Object.assign(host, { __cachedHeaderRowCount: 1 });
+      const row = document.createElement('div');
+      row.className = 'data-grid-row';
+      row.setAttribute('aria-rowindex', '4'); // data index 2
+      // A custom card root claiming data-row="0" belongs to the renderer.
+      row.innerHTML = '<div class="cell" data-row="0"></div>';
+      host.appendChild(row);
+      expect(decodeAriaRowIndex(row)).toBe(2);
+      expect(getRowIndexFromRow(row)).toBe(0);
     });
   });
 

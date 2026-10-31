@@ -219,21 +219,25 @@ function emitAfterCellRender(
 /**
  * This grid's header rows (`role="row"` children of its `.header`), in DOM order.
  * Scoped to `_headerRowEl`'s parent so a nested grid (detail panel, cell renderer)
- * with its own header rows is never counted. `null` when the host has no cached
- * header ref (test mocks).
+ * with its own header rows is never counted. A header taken out of the
+ * accessibility tree (`aria-hidden="true"` — the Responsive plugin in card mode,
+ * where it is also `display: none`) contributes no rows. `null` when the host has
+ * no cached header ref (test mocks).
  */
 function ownHeaderRows(grid: GridHost): NodeListOf<Element> | null {
   const header = grid._headerRowEl?.parentElement;
-  return header ? header.querySelectorAll(':scope > [role="row"]') : null;
+  return header ? header.querySelectorAll(':scope:not([aria-hidden="true"]) > [role="row"]') : null;
 }
 
 /**
  * Probe the DOM for the number of header rows above the data rows (1, or 2 when
- * a column-group header row is present). Hosts without a header ref (test mocks)
+ * a column-group header row is present). Zero is legitimate: `renderHeader`
+ * drops `role="row"` from a header with no columns, so nothing is advertised
+ * that a screen reader cannot reach. Hosts without a header ref (test mocks)
  * count as a single header row.
  */
 function probeHeaderRowCount(grid: GridHost): number {
-  return Math.max(1, ownHeaderRows(grid)?.length ?? 1);
+  return ownHeaderRows(grid)?.length ?? 1;
 }
 
 /**
@@ -274,7 +278,7 @@ export function syncHeaderRowCount(grid: GridHost): boolean {
   }
 
   const previous = grid.__cachedHeaderRowCount;
-  const current = Math.max(1, headerRows?.length ?? 1);
+  const current = headerRows?.length ?? 1;
   if (previous === current) return false;
   grid.__cachedHeaderRowCount = current;
   if (previous === undefined) return false;

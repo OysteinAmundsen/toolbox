@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { nextFrame } from '../../../test/helpers';
 import '../../lib/core/grid';
 import { EditingPlugin } from '../../lib/plugins/editing';
-import { nextFrame } from '../../../test/helpers';
+import { ResponsivePlugin } from '../../lib/plugins/responsive';
 
 describe('tbw-grid accessibility', () => {
   it('sets grid role and aria counts on inner grid element', async () => {
@@ -18,8 +19,101 @@ describe('tbw-grid accessibility', () => {
     expect(innerGrid?.getAttribute('role')).toBe('grid');
     // virtualization may update counts after frame
     await nextFrame();
-    expect(Number(innerGrid?.getAttribute('aria-rowcount'))).toBe(2);
+    // aria-rowcount counts the header row too (#586): 1 header + 2 data rows
+    expect(Number(innerGrid?.getAttribute('aria-rowcount'))).toBe(3);
     expect(Number(innerGrid?.getAttribute('aria-colcount'))).toBe(2);
+  });
+
+  it('aria-rowcount is never below the last aria-rowindex (#586)', async () => {
+    const grid = document.createElement('tbw-grid') as any;
+    grid.gridConfig = { columns: [{ field: 'a' }] };
+    grid.rows = [{ a: 1 }, { a: 2 }, { a: 3 }];
+    document.body.appendChild(grid);
+    await grid.ready?.();
+    await nextFrame();
+    const innerGrid = grid.querySelector('.rows-body');
+    const lastRow = Array.from(grid.querySelectorAll('.data-grid-row')).at(-1) as HTMLElement;
+    expect(innerGrid?.getAttribute('aria-rowcount')).toBe('4');
+    expect(lastRow.getAttribute('aria-rowindex')).toBe('4');
+  });
+
+  it('drops the hidden header from aria-rowcount and aria-rowindex in Responsive card mode', async () => {
+    const grid = document.createElement('tbw-grid') as any;
+    const plugin = new ResponsivePlugin({ breakpoint: 500, animation: false });
+    grid.gridConfig = { columns: [{ field: 'a' }, { field: 'b' }], plugins: [plugin] };
+    grid.rows = [
+      { a: 1, b: 1 },
+      { a: 2, b: 2 },
+      { a: 3, b: 3 },
+    ];
+    document.body.appendChild(grid);
+    await grid.ready?.();
+    await nextFrame();
+    const innerGrid = grid.querySelector('.rows-body');
+    const header = grid.querySelector('.rows-body > .header');
+    const rowIndices = () =>
+      Array.from(grid.querySelectorAll('.rows > .data-grid-row')).map((r: any) => r.getAttribute('aria-rowindex'));
+    expect(innerGrid?.getAttribute('aria-rowcount')).toBe('4');
+    expect(rowIndices()).toEqual(['2', '3', '4']);
+
+    // Card mode: `.header` is display:none, so it leaves the accessibility tree.
+    plugin.setResponsive(true);
+    await nextFrame();
+    await nextFrame();
+    expect(header?.getAttribute('aria-hidden')).toBe('true');
+    expect(innerGrid?.getAttribute('aria-rowcount')).toBe('3');
+    expect(rowIndices()).toEqual(['1', '2', '3']);
+
+    plugin.setResponsive(false);
+    await nextFrame();
+    await nextFrame();
+    expect(header?.hasAttribute('aria-hidden')).toBe(false);
+    expect(innerGrid?.getAttribute('aria-rowcount')).toBe('4');
+    expect(rowIndices()).toEqual(['2', '3', '4']);
+  });
+
+  it('leaves a nested grid inside a card-mode parent with its header counted and unmarked', async () => {
+    const parent = document.createElement('tbw-grid') as any;
+    const plugin = new ResponsivePlugin({ breakpoint: 500, animation: false });
+    parent.gridConfig = {
+      columns: [
+        { field: 'a' },
+        {
+          field: 'nested',
+          renderer: () => {
+            const child = document.createElement('tbw-grid') as any;
+            child.className = 'nested-grid';
+            child.gridConfig = { columns: [{ field: 'x' }] };
+            child.rows = [{ x: 1 }, { x: 2 }];
+            return child;
+          },
+        },
+      ],
+      plugins: [plugin],
+    };
+    parent.rows = [{ a: 1 }, { a: 2 }, { a: 3 }];
+    document.body.appendChild(parent);
+    await parent.ready?.();
+    await nextFrame();
+
+    plugin.setResponsive(true);
+    await nextFrame();
+    await nextFrame();
+    const child = parent.querySelector('.nested-grid') as any;
+    await child.ready?.();
+    await nextFrame();
+
+    // The parent's own header is hidden and dropped from its counts...
+    expect(parent.querySelector(':scope > .tbw-grid-root .rows-body > .header')?.getAttribute('aria-hidden')).toBe(
+      'true',
+    );
+    expect(parent.querySelector('.rows-body')?.getAttribute('aria-rowcount')).toBe('3');
+    // ...while the nested grid (no Responsive plugin of its own) keeps a visible,
+    // counted header: 1 header row + 2 data rows, first data row at index 2.
+    const childHeader = child.querySelector('.rows-body > .header');
+    expect(childHeader?.hasAttribute('aria-hidden')).toBe(false);
+    expect(child.querySelector('.rows-body')?.getAttribute('aria-rowcount')).toBe('3');
+    expect(child.querySelector('.rows > .data-grid-row')?.getAttribute('aria-rowindex')).toBe('2');
   });
 
   it('header cells have columnheader role', async () => {
@@ -135,7 +229,7 @@ describe('tbw-grid accessibility', () => {
     const innerGrid = grid.querySelector('.rows-body');
     // Static role from template is always present
     expect(innerGrid?.getAttribute('role')).toBe('grid');
-    // Counts are 0 for empty grid
+    // No columns → the header is not a row (header.ts drops role="row"), so nothing counts (#586)
     expect(innerGrid?.getAttribute('aria-rowcount')).toBe('0');
     expect(innerGrid?.getAttribute('aria-colcount')).toBe('0');
   });
@@ -150,15 +244,16 @@ describe('tbw-grid accessibility', () => {
     const innerGrid = grid.querySelector('.rows-body');
     // Static role always present
     expect(innerGrid?.getAttribute('role')).toBe('grid');
-    expect(innerGrid?.getAttribute('aria-rowcount')).toBe('1');
+    // 1 header row + 1 data row (#586)
+    expect(innerGrid?.getAttribute('aria-rowcount')).toBe('2');
 
     // Clear data
     grid.rows = [];
     await nextFrame();
     await nextFrame();
-    // Role stays, count updates to 0
+    // Role stays, count drops to the header row alone
     expect(innerGrid?.getAttribute('role')).toBe('grid');
-    expect(innerGrid?.getAttribute('aria-rowcount')).toBe('0');
+    expect(innerGrid?.getAttribute('aria-rowcount')).toBe('1');
   });
 
   it('gridAriaLabel sets aria-label on inner grid element', async () => {

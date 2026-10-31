@@ -468,6 +468,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   // Cached DOM refs for hot path (refreshVirtualWindow) - avoid querySelector per scroll
   __rowsBodyEl: HTMLElement | null = null;
+  /** Header rows above the data rows; stamped by `rows.ts` (#583), read for aria-rowcount (#586). */
+  __cachedHeaderRowCount?: number;
   // #endregion
 
   // #region Public API Props (getters/setters)
@@ -2142,7 +2144,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   /** Updates ARIA row/col counts. Delegates to aria.ts module. */
   _updateAriaCounts(rowCount: number, colCount: number): void {
-    updateAriaCounts(this.#ariaState, this.__rowsBodyEl, this._bodyEl, rowCount, colCount);
+    // aria-rowcount includes the header rows so it is never below the last
+    // data row's aria-rowindex (#586).
+    const headerRowCount = this.__cachedHeaderRowCount ?? 1;
+    updateAriaCounts(this.#ariaState, this.__rowsBodyEl, this._bodyEl, rowCount, colCount, headerRowCount);
   }
 
   // --- Methods exposed for extracted managers ---
@@ -2166,8 +2171,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   _afterPluginRender(): void {
     this.#pluginManager?.afterRender();
     // Plugins (GroupingColumns) insert/remove header rows in afterRender, AFTER
-    // the rows were stamped — re-sync the header-row offset of aria-rowindex (#583).
+    // the rows were stamped — re-sync the header-row offset of aria-rowindex (#583)
+    // and the header share of aria-rowcount (#586). The counts call is cached, so
+    // it is a no-op unless the header count actually moved.
     syncHeaderRowCount(this);
+    this._updateAriaCounts(this._rows.length, this._visibleColumns.length);
   }
 
   /** @internal Emit a plugin event through the plugin manager. */

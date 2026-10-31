@@ -435,6 +435,44 @@ describe('syncHeaderRowCount (#583)', () => {
     expect(syncHeaderRowCount(g)).toBe(false);
     expect(g.__cachedHeaderRowCount).toBe(1);
   });
+
+  it('counts zero header rows when the header has no role="row" (no columns, #586)', () => {
+    const g = makeGrid();
+    withHeader(g);
+    // renderHeader strips role="row" from a header without columnheader children.
+    g._headerRowEl.removeAttribute('role');
+    renderVisibleRows(g, 0, 2, 1);
+    expect(g.__cachedHeaderRowCount).toBe(0);
+    const rows = g._bodyEl.querySelectorAll('.data-grid-row');
+    expect(rows[0].getAttribute('aria-rowindex')).toBe('1');
+
+    // Columns arrive: the header becomes a row again and the data rows shift down.
+    g._headerRowEl.setAttribute('role', 'row');
+    expect(syncHeaderRowCount(g)).toBe(true);
+    expect(g.__cachedHeaderRowCount).toBe(1);
+    expect(rows[0].getAttribute('aria-rowindex')).toBe('2');
+  });
+
+  it('excludes a header the Responsive plugin hid from the accessibility tree (card mode)', () => {
+    const g = makeGrid();
+    const header = withHeader(g);
+    addGroupRow(header);
+    renderVisibleRows(g, 0, 2, 1);
+    const rows = g._bodyEl.querySelectorAll('.data-grid-row');
+    expect(rows[0].getAttribute('aria-rowindex')).toBe('3');
+
+    // Card mode: `.header` is display:none, declared via aria-hidden on the container.
+    header.setAttribute('aria-hidden', 'true');
+    expect(syncHeaderRowCount(g)).toBe(true);
+    expect(g.__cachedHeaderRowCount).toBe(0);
+    expect(rows[0].getAttribute('aria-rowindex')).toBe('1');
+    expect(rows[1].getAttribute('aria-rowindex')).toBe('2');
+
+    header.removeAttribute('aria-hidden');
+    expect(syncHeaderRowCount(g)).toBe(true);
+    expect(g.__cachedHeaderRowCount).toBe(2);
+    expect(rows[0].getAttribute('aria-rowindex')).toBe('3');
+  });
 });
 
 describe('handleRowClick', () => {

@@ -878,9 +878,10 @@ describe('tbw-grid integration: aria row/col indices', () => {
       const cells = Array.from(r.querySelectorAll('.cell[data-col]')) as HTMLElement[];
       cells.forEach((c, ci) => expect(c.getAttribute('aria-colindex')).toBe(String(ci + 1)));
     });
-    // aria-rowcount/colcount are on inner .rows-body (role=grid), not host element
+    // aria-rowcount/colcount are on inner .rows-body (role=grid), not host element.
+    // aria-rowcount includes the header row (#586).
     const innerGrid = shadow.querySelector('.rows-body');
-    expect(innerGrid?.getAttribute('aria-rowcount')).toBe(String(grid.rows.length));
+    expect(innerGrid?.getAttribute('aria-rowcount')).toBe(String(grid.rows.length + 1));
     expect(innerGrid?.getAttribute('aria-colcount')).toBe(String(grid.columns.length));
   });
 });

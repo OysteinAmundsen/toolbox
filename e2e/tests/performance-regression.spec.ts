@@ -909,6 +909,34 @@ async function runComparison(
 // ═══════════════════════════════════════════════════════════════════════════
 
 test.describe('Performance: Self-Comparison', () => {
+  test('bundled styles lower CSS nesting', async ({ page }) => {
+    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
+
+    expect(await loadGridScript(page, 'local'), 'Local UMD failed to register <tbw-grid>').toBe(true);
+    await warmUpGrid(page);
+    const styles = await page.evaluate(() => {
+      const element = document.getElementById('tbw-grid-styles');
+      if (!(element instanceof HTMLStyleElement) || !element.sheet) {
+        throw new Error('Grid stylesheet was not injected');
+      }
+      const nested: string[] = [];
+      const inspect = (rules: CSSRuleList): void => {
+        for (const rule of rules) {
+          if (rule instanceof CSSStyleRule && rule.cssRules.length > 0) {
+            nested.push(rule.selectorText);
+          } else if (rule instanceof CSSGroupingRule) {
+            inspect(rule.cssRules);
+          }
+        }
+      };
+      inspect(element.sheet.cssRules);
+      return { ruleCount: element.sheet.cssRules.length, nested };
+    });
+
+    expect(styles.ruleCount).toBeGreaterThan(0);
+    expect(styles.nested, 'Native nesting increases wide-grid style recalculation cost').toEqual([]);
+  });
+
   test('render 500 rows', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 

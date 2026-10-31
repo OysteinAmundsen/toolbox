@@ -73,14 +73,13 @@ test.describe('Responsive Demos', () => {
       await expect(grid(page)).not.toHaveAttribute('data-responsive-transition', '');
     });
 
-    test("card mode hides only the owning grid's header, not a nested grid's (#586)", async ({ page }) => {
+    test('card mode styles only the owning grid, not nested grids (#591)', async ({ page }) => {
       // The demo page has the grid element and the responsive feature registered;
       // build a parent grid with TWO nested grids in a cell renderer on top of it:
       // one plain, one whose header a consumer marked `aria-hidden` for its own
-      // reasons. Neither may be hidden by the parent's card mode. The unit suite
-      // cannot cover this: the plugin's `?inline` CSS is empty under Vitest, so
-      // only a real browser proves the `.header[data-responsive-header-hidden]`
-      // selector (and that it is not keyed on bare `.header` or `aria-hidden`).
+      // reasons. Their table layout and chrome must not inherit the parent's card
+      // styles. The unit suite cannot cover the CSS: the plugin's `?inline` import
+      // is empty under Vitest.
       await openDemo(page, 'responsive/ResponsiveDefaultDemo');
       await page.evaluate(() => {
         type GridEl = HTMLElement & { gridConfig: unknown; rows: unknown[]; ready?: () => Promise<void> };
@@ -88,8 +87,17 @@ test.describe('Responsive Demos', () => {
           const child = document.createElement('tbw-grid') as GridEl;
           child.className = className;
           child.style.cssText = 'display:block;width:300px;height:160px;';
-          child.gridConfig = { columns: [{ field: 'x', header: 'X' }] };
-          child.rows = [{ x: 1 }, { x: 2 }];
+          child.gridConfig = {
+            columns: [
+              { field: 'x', header: 'X' },
+              { field: 'y', header: 'Y' },
+              { field: 'z', header: 'Z' },
+            ],
+          };
+          child.rows = [
+            { x: 1, y: 2, z: 3 },
+            { x: 4, y: 5, z: 6 },
+          ];
           if (markAriaHidden) {
             // A consumer-owned marker on the nested header, applied once it exists.
             // Only here to prove the parent's hide rule is not keyed on aria-hidden;
@@ -109,7 +117,7 @@ test.describe('Responsive Demos', () => {
             { field: 'nested', header: 'Nested', renderer: () => makeChild('e2e-nested-child', false) },
             { field: 'marked', header: 'Marked', renderer: () => makeChild('e2e-nested-marked', true) },
           ],
-          features: { responsive: { breakpoint: 500, animation: false } },
+          features: { responsive: { breakpoint: 500, animation: false, hideHeader: true } },
         };
         parent.rows = [{ a: 1 }];
         document.body.appendChild(parent);
@@ -134,7 +142,227 @@ test.describe('Responsive Demos', () => {
       await expect(markedHeader).toHaveAttribute('aria-hidden', 'true');
       await expect(markedHeader).not.toHaveAttribute('data-responsive-header-hidden', '');
       await expect(markedHeader).toBeVisible();
+
+      const parentRow = parent.locator('.rows').first().locator(':scope > .data-grid-row').first();
+      const childRow = page.locator('.e2e-nested-child .rows > .data-grid-row').first();
+      const childScrollArea = page.locator('.e2e-nested-child .tbw-scroll-area');
+      const childRowsWrapper = page.locator('.e2e-nested-child .rows-body-wrapper');
+
+      await expect(parentRow).toHaveCSS('display', 'block');
+      await expect(childRow).toHaveCSS('display', 'grid');
+      await expect(childScrollArea).toHaveCSS('overflow-x', 'auto');
+      await expect(childRowsWrapper).toHaveCSS('min-width', 'fit-content');
+
+      await page.evaluate(() => {
+        const child = document.querySelector<HTMLElement>('.e2e-nested-child')!;
+        const root = child.querySelector('.tbw-grid-root')!;
+        const cells = child.querySelectorAll('.data-grid-row > .cell');
+        cells[0]?.setAttribute('data-utility', '');
+        cells[1]?.setAttribute('data-responsive-hidden', '');
+        cells[2]?.setAttribute('data-responsive-value-only', '');
+
+        for (const className of [
+          'footer-row',
+          'tbw-footer',
+          'tbw-header-pinned',
+          'tbw-pinned-rows',
+          'tbw-aggregation-rows',
+        ]) {
+          const target = document.createElement('div');
+          target.className = className;
+          root.appendChild(target);
+        }
+      });
+
+      const childCells = childRow.locator(':scope > .cell');
+      await expect(childCells.nth(0)).toHaveCSS('display', 'block');
+      await expect(childCells.nth(1)).toHaveCSS('display', 'block');
+      await expect(childCells.nth(2)).toHaveCSS('display', 'block');
+      await expect
+        .poll(() => childCells.nth(2).evaluate((cell) => getComputedStyle(cell, '::before').display))
+        .not.toBe('none');
+
+      for (const className of [
+        'footer-row',
+        'tbw-footer',
+        'tbw-header-pinned',
+        'tbw-pinned-rows',
+        'tbw-aggregation-rows',
+      ]) {
+        const target = page.locator(`.e2e-nested-child .${className}`).last();
+        await expect.poll(() => target.evaluate((el) => getComputedStyle(el).display)).not.toBe('none');
+      }
     });
+
+    test('custom card styling preserves nested responsive field labels', async ({ page }) => {
+      await openDemo(page, 'responsive/ResponsiveDefaultDemo');
+      await page.evaluate(async () => {
+        type GridEl = HTMLElement & { gridConfig: unknown; rows: unknown[]; ready?: () => Promise<void> };
+        const parent = document.createElement('tbw-grid') as GridEl;
+        parent.id = 'e2e-custom-card-parent';
+        parent.style.cssText = 'display:block;width:400px;height:500px;';
+        parent.gridConfig = {
+          columns: [{ field: 'name', header: 'Name' }],
+          features: {
+            responsive: {
+              breakpoint: 500,
+              animation: false,
+              hideHeader: true,
+              cardRenderer: () => {
+                const wrapper = document.createElement('div');
+                const child = document.createElement('tbw-grid') as GridEl;
+                child.className = 'e2e-nested-responsive';
+                child.style.cssText = 'display:block;width:300px;height:180px;';
+                child.gridConfig = {
+                  columns: [{ field: 'value', header: 'Nested label' }],
+                  features: { responsive: { breakpoint: 500, animation: false, hideHeader: false } },
+                };
+                child.rows = [{ value: 'Nested value' }];
+                wrapper.appendChild(child);
+                return wrapper;
+              },
+            },
+          },
+        };
+        parent.rows = [{ name: 'Parent row' }];
+        document.body.appendChild(parent);
+        await parent.ready?.();
+      });
+
+      const child = page.locator('#e2e-custom-card-parent .e2e-nested-responsive');
+      await expect(child).toHaveAttribute('data-responsive', '');
+      const row = child.locator('.data-grid-row').first();
+      await expect(row).not.toHaveAttribute('data-responsive-card-hide-header', '');
+      const cell = row.locator(':scope > .cell').first();
+      await expect.poll(() => cell.evaluate((el) => getComputedStyle(el, '::before').display)).not.toBe('none');
+    });
+  });
+
+  test('newly virtualized rows keep card styling during keyboard focus navigation', async ({ page }) => {
+    await openDemo(page, 'responsive/ResponsiveDefaultDemo');
+    await page.evaluate(async () => {
+      type GridEl = HTMLElement & {
+        gridConfig: unknown;
+        rows: unknown[];
+        ready?: () => Promise<void>;
+        focusCell: (rowIndex: number, column: string) => void;
+      };
+      const grid = document.createElement('tbw-grid') as GridEl;
+      grid.id = 'e2e-responsive-virtualized';
+      grid.style.cssText = 'display:block;width:400px;height:220px;';
+      grid.gridConfig = {
+        columns: [
+          { field: 'name', header: 'Name' },
+          { field: 'value', header: 'Value' },
+        ],
+        features: { responsive: { breakpoint: 500, hideHeader: true, animation: false } },
+      };
+      grid.rows = Array.from({ length: 100 }, (_, index) => ({
+        name: `Record ${index}`,
+        value: index,
+      }));
+      document.body.appendChild(grid);
+      await grid.ready?.();
+    });
+
+    const virtualGrid = page.locator('#e2e-responsive-virtualized');
+    await expect(virtualGrid).toHaveAttribute('data-responsive', '');
+
+    const rowByName = (name: string) => virtualGrid.locator('.data-grid-row').filter({ hasText: name }).first();
+    const lastRow = rowByName('Record 99');
+    await virtualGrid.evaluate((el) =>
+      (el as HTMLElement & { focusCell(rowIndex: number, column: string): void }).focusCell(99, 'name'),
+    );
+    await expect(lastRow).toBeVisible();
+    await expect(lastRow).toHaveAttribute('data-responsive-card', '');
+    await expect(lastRow).toHaveAttribute('data-responsive-card-hide-header', '');
+    await expect(lastRow).toHaveCSS('display', 'block');
+    await expect
+      .poll(() =>
+        lastRow
+          .locator('.cell')
+          .first()
+          .evaluate((el) => getComputedStyle(el, '::before').display),
+      )
+      .toBe('none');
+
+    const firstRow = rowByName('Record 0');
+    await virtualGrid.evaluate((el) =>
+      (el as HTMLElement & { focusCell(rowIndex: number, column: string): void }).focusCell(0, 'name'),
+    );
+    await expect(firstRow).toBeVisible();
+    await expect(firstRow).toHaveAttribute('data-responsive-card', '');
+    await expect(firstRow).toHaveAttribute('data-responsive-card-hide-header', '');
+    await expect(firstRow).toHaveCSS('display', 'block');
+  });
+
+  test('card-height measurement marks rows added by its direct virtualization refresh', async ({ page }) => {
+    await openDemo(page, 'responsive/ResponsiveDefaultDemo');
+    await page.evaluate(async () => {
+      type GridEl = HTMLElement & {
+        gridConfig: unknown;
+        rows: unknown[];
+        ready?: () => Promise<void>;
+        refreshVirtualWindow: (force?: boolean, skipAfterRender?: boolean) => boolean;
+      };
+      const grid = document.createElement('tbw-grid') as GridEl;
+      grid.id = 'e2e-responsive-measured-refresh';
+      grid.style.cssText = 'display:block;width:1000px;height:220px;';
+      grid.gridConfig = {
+        rowHeight: 120,
+        columns: [{ field: 'name', header: 'Name' }],
+        features: {
+          responsive: {
+            breakpoint: 500,
+            hideHeader: true,
+            animation: false,
+            cardRowHeight: 'auto',
+            cardRenderer: (row: { name: string }) => {
+              const content = document.createElement('div');
+              content.style.height = '40px';
+              content.textContent = row.name;
+              return content;
+            },
+          },
+        },
+      };
+      grid.rows = Array.from({ length: 100 }, (_, index) => ({ name: `Measured ${index}` }));
+      document.body.appendChild(grid);
+      await grid.ready?.();
+    });
+
+    const measuredGrid = page.locator('#e2e-responsive-measured-refresh');
+    await expect(measuredGrid).not.toHaveAttribute('data-responsive', '');
+    await expect(measuredGrid.locator('.rows > .data-grid-row').first()).toHaveCSS('height', '120px');
+
+    await measuredGrid.evaluate((el) => {
+      const grid = el as HTMLElement & {
+        refreshVirtualWindow: (force?: boolean, skipAfterRender?: boolean) => boolean;
+      };
+      const rowsContainer = grid.querySelector('.rows')!;
+      const refresh = grid.refreshVirtualWindow.bind(grid);
+      grid.refreshVirtualWindow = (force, skipAfterRender) => {
+        const before = new Set(rowsContainer.querySelectorAll(':scope > .data-grid-row'));
+        const result = refresh(force, skipAfterRender);
+        if (force && skipAfterRender) {
+          const added = Array.from(rowsContainer.querySelectorAll(':scope > .data-grid-row')).filter(
+            (row) => !before.has(row),
+          );
+          if (added.length === 0) return result;
+          const marked = added.every(
+            (row) => row.hasAttribute('data-responsive-card') && row.hasAttribute('data-responsive-card-hide-header'),
+          );
+          grid.setAttribute('data-measured-refresh-grew', '');
+          grid.toggleAttribute('data-measured-refresh-marked', marked);
+        }
+        return result;
+      };
+      grid.style.width = '400px';
+    });
+
+    await expect(measuredGrid).toHaveAttribute('data-responsive', '');
+    await expect(measuredGrid).toHaveAttribute('data-measured-refresh-grew', '');
+    await expect(measuredGrid).toHaveAttribute('data-measured-refresh-marked', '');
   });
 
   test('ResponsiveCustomCardRendererDemo — cardRowHeight switches between auto and fixed', async ({ page }) => {

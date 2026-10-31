@@ -33,6 +33,7 @@ test.describe('Cross-Framework Calendar Parity', () => {
 
   for (const [demoName, url] of Object.entries(CALENDAR_DEMOS)) {
     test(`${demoName}: calendar renders with shared structure`, async ({ page }, testInfo) => {
+      await page.clock.setFixedTime(new Date('2026-10-31T12:00:00Z'));
       await page.goto(url);
       await waitForGridReady(page);
 

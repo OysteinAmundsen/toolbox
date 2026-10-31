@@ -66,6 +66,8 @@ const cssConfig = {
   transformer: 'lightningcss' as const,
   lightningcss: {
     exclude: Features.LightDark,
+    // Native nesting increases style recalculation cost for wide grids.
+    include: Features.Nesting,
     targets: browserslistToTargets(cssBrowserTargets.map((t) => t.replace(/^([a-z]+)/, '$1 '))),
   },
 };

@@ -4,7 +4,7 @@
  */
 import { FOCUSABLE_EDITOR_SELECTOR, GridClasses } from '../constants';
 import type { GridHost } from '../types';
-import { clearCellFocus, isRTL } from './utils';
+import { clearCellFocus, isOwnTarget, isRTL } from './utils';
 import { readCellField } from './value-accessor';
 import { fromVirtualScrollTop, getRowIndexAtOffset, toVirtualScrollTop } from './virtualization';
 
@@ -173,11 +173,19 @@ function emitCellActivate(grid: GridHost, e: KeyboardEvent): boolean {
 }
 
 export function handleGridKeyDown(grid: GridHost, e: KeyboardEvent): void {
+  const path = e.composedPath?.() ?? [];
+  const target = (path.length ? path[0] : e.target) as HTMLElement | null;
+
+  // A key pressed inside a nested grid (its host, or any cell/editor within it)
+  // bubbles up here through the light DOM; it belongs to that grid and its
+  // plugins, so neither our plugins nor our navigation may act on it (#585).
+  // Resolved from the EVENT (dispatch-time path): the child's own handler ran
+  // first and may already have torn the target out of the DOM.
+  if (!isOwnTarget(grid._hostElement, e)) return;
+
   // Dispatch to plugin system first - if any plugin handles it, stop here
   if (grid._dispatchKeyDown?.(e)) return;
 
-  const path = e.composedPath?.() ?? [];
-  const target = (path.length ? path[0] : e.target) as HTMLElement | null;
   if (shouldIgnoreKeyDown(grid, e, target)) return;
 
   const maxRow = grid._rows.length - 1;

@@ -266,6 +266,8 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private lastFocusCol = 0;
   private autoScroller: AutoScroller | null = null;
+  /** Whether the most recent press inside the host landed in a nested grid (#585). */
+  private pressInsideChild = false;
   /** Stable id for this grid instance (used as `sourceGridId` in payloads). */
   private gridId = '';
 
@@ -476,6 +478,17 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     if (!gridEl) return;
     const signal = this.disconnectSignal;
 
+    // Native DnD fires `dragstart` at the nearest `draggable` ancestor, so when
+    // a nested grid is rendered INSIDE a row-draggable parent row (cell
+    // renderer), a press on a child cell surfaces as a dragstart on the PARENT
+    // row. Decide ownership at press time (`composedPath()` is empty once the
+    // event has finished dispatching) so onDragStart can tell (#585). Capture
+    // phase: the child grid's own listeners must not matter.
+    gridEl.addEventListener('pointerdown', (e) => (this.pressInsideChild = !this.isOwnTarget(e)), {
+      capture: true,
+      signal,
+    });
+
     gridEl.addEventListener('dragstart', (e) => this.onDragStart(e as DragEvent), { signal });
     gridEl.addEventListener('dragend', () => this.onDragEnd(), { signal });
     gridEl.addEventListener('dragover', (e) => this.onDragOver(e as DragEvent), { signal });
@@ -485,7 +498,18 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
 
   private onDragStart(de: DragEvent): void {
     const target = de.target as HTMLElement | null;
-    if (!target) return;
+    // A drag picked up inside a nested grid belongs to that grid (#585).
+    if (!target || !this.isOwnTarget(de)) return;
+
+    // …including when the browser retargeted it to our draggable row because
+    // the press landed in a non-draggable child grid inside that row. The
+    // row is still `draggable`, so the drag must be cancelled, not ignored.
+    const pressInsideChild = this.pressInsideChild;
+    this.pressInsideChild = false;
+    if (pressInsideChild) {
+      de.preventDefault();
+      return;
+    }
 
     // Resolve the row element being picked up. Order matters: a click on the
     // grip column inside a row-draggable grid should still go through the
@@ -652,6 +676,16 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     const types = dt.types ? Array.from(dt.types) : [];
     if (!hasAnyRowDragMime(types) && !this.isDragging) return;
 
+    // Over a nested grid the child owns the drop target (#585). Stand down
+    // explicitly: the auto-scroll loop keeps ticking on its last own pointerY
+    // and the last own row keeps its indicator until told otherwise.
+    if (!this.isOwnTarget(de)) {
+      this.gridElement.classList.remove('tbw-grid--drop-target-active', 'tbw-grid--drop-target-rejected');
+      this.clearDropTargetClasses();
+      this.autoScroller?.stop();
+      return;
+    }
+
     const dropZone = this.config.dropZone ?? '';
     const session = getCurrentDragSession<T>();
 
@@ -702,8 +736,12 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
   }
 
   private onDragLeave(de: DragEvent): void {
-    const rowEl = (de.target as HTMLElement).closest('.data-grid-row') as HTMLElement | null;
-    if (rowEl) rowEl.classList.remove('drop-target', 'drop-before', 'drop-after');
+    // A nested grid's row keeps its own classes (#585); the grid-level
+    // teardown below still applies because the child sits inside this host.
+    if (this.isOwnTarget(de)) {
+      const rowEl = (de.target as HTMLElement).closest('.data-grid-row') as HTMLElement | null;
+      if (rowEl) rowEl.classList.remove('drop-target', 'drop-before', 'drop-after');
+    }
     // Tear down grid-level state when the cursor leaves the grid entirely
     if (de.currentTarget && !this.gridElement.contains(de.relatedTarget as Node)) {
       this.gridElement.classList.remove('tbw-grid--drop-target-active', 'tbw-grid--drop-target-rejected');
@@ -712,6 +750,7 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
   }
 
   private onDrop(de: DragEvent): void {
+    if (!this.isOwnTarget(de)) return;
     de.preventDefault();
     this.autoScroller?.stop();
     this.gridElement.classList.remove('tbw-grid--drop-target-active', 'tbw-grid--drop-target-rejected');
@@ -1125,7 +1164,14 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     this.pendingMove = null;
   }
 
+  /**
+   * Data index of a row element, or -1 when it is not one of this grid's rows.
+   * The single chokepoint every drag handler and the move menu resolve through,
+   * so a nested grid's row (same class, own `data-row`) is rejected here once.
+   * StickyRows clones stay valid: their nearest grid is still this one.
+   */
   private getRowIndex(rowEl: HTMLElement): number {
+    if (!this.isOwnTarget(rowEl)) return -1;
     const cell = rowEl.querySelector(':scope > .cell[data-row]');
     return cell ? parseInt(cell.getAttribute('data-row') ?? '-1', 10) : -1;
   }

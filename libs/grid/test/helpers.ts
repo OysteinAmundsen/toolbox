@@ -47,3 +47,25 @@ export function rafDebounce<T extends (...args: unknown[]) => void>(fn: T) {
   };
   return wrapped as T & { cancel: () => void };
 }
+
+/**
+ * Give `event` a spec-accurate `composedPath()`: the path from `target` up to
+ * `window`, snapshotted NOW (before dispatch) and frozen for the event's life.
+ *
+ * happy-dom rebuilds `composedPath()` from the target's CURRENT ancestry on
+ * every call, so a listener that detaches the target mid-bubble makes later
+ * listeners see a one-node path — real browsers return the path as it was when
+ * dispatch began (and `[]` once dispatch is over). Use this whenever a test
+ * relies on the path surviving DOM mutation during dispatch.
+ */
+export function withDispatchPath<E extends Event>(event: E, target: EventTarget): E {
+  const path: EventTarget[] = [];
+  let node: Node | null = target as Node;
+  while (node) {
+    path.push(node);
+    node = node.parentNode ?? ('host' in node ? (node as ShadowRoot).host : null);
+  }
+  if (typeof window !== 'undefined') path.push(window);
+  Object.defineProperty(event, 'composedPath', { value: () => path.slice(), configurable: true });
+  return event;
+}

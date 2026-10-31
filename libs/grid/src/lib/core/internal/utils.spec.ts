@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { rafDebounce } from '../../../../test/helpers';
+import { rafDebounce, withDispatchPath } from '../../../../test/helpers';
 import {
   booleanCellHTML,
   clearCellFocus,
@@ -8,11 +8,143 @@ import {
   getDirection,
   getRowIndexFromCell,
   isDevelopment,
+  isOwnTarget,
   isRTL,
   resolveInlinePosition,
 } from './utils';
 
 describe('utils', () => {
+  describe('isOwnTarget (#585)', () => {
+    function nestedFixture() {
+      const parent = document.createElement('tbw-grid');
+      const parentCell = document.createElement('div');
+      parentCell.className = 'cell';
+      const child = document.createElement('div');
+      child.setAttribute('data-tbw-grid', '');
+      const childCell = document.createElement('div');
+      childCell.className = 'cell';
+      child.appendChild(childCell);
+      parent.append(parentCell, child);
+      return { parent, parentCell, child, childCell };
+    }
+
+    it('accepts the host itself and elements whose nearest grid is the host', () => {
+      const { parent, parentCell } = nestedFixture();
+      expect(isOwnTarget(parent, parent)).toBe(true);
+      expect(isOwnTarget(parent, parentCell)).toBe(true);
+    });
+
+    it('rejects a nested grid host and anything inside it', () => {
+      const { parent, child, childCell } = nestedFixture();
+      expect(isOwnTarget(parent, child)).toBe(false);
+      expect(isOwnTarget(parent, childCell)).toBe(false);
+      // From the child's perspective its own cell is own.
+      expect(isOwnTarget(child, childCell)).toBe(true);
+    });
+
+    it('rejects an element in an unrelated grid', () => {
+      const { parent } = nestedFixture();
+      const other = document.createElement('tbw-grid');
+      const otherCell = document.createElement('div');
+      other.appendChild(otherCell);
+      expect(isOwnTarget(parent, otherCell)).toBe(false);
+    });
+
+    it('walks through shadow roots: a control inside a nested grid shadow-DOM editor is the child’s', () => {
+      // `closest()` stops at the shadow boundary; `composedPath()[0]` is the
+      // inner input, so without the walk the input has "no grid ancestor" and
+      // would be accepted by the parent.
+      const { parent, child, childCell, parentCell } = nestedFixture();
+      const makeShadowInput = (slot: HTMLElement) => {
+        const editorHost = document.createElement('div');
+        slot.appendChild(editorHost);
+        const input = document.createElement('input');
+        editorHost.attachShadow({ mode: 'open' }).appendChild(input);
+        return input;
+      };
+      const childInput = makeShadowInput(childCell);
+      const parentInput = makeShadowInput(parentCell);
+
+      expect(childInput.closest('tbw-grid, [data-tbw-grid]')).toBeNull();
+      expect(isOwnTarget(parent, childInput)).toBe(false);
+      expect(isOwnTarget(child, childInput)).toBe(true);
+      expect(isOwnTarget(parent, parentInput)).toBe(true);
+    });
+
+    it('accepts targets with no grid ancestor, missing targets and non-element targets', () => {
+      const { parent } = nestedFixture();
+      expect(isOwnTarget(parent, document.createElement('div'))).toBe(true);
+      expect(isOwnTarget(parent, null)).toBe(true);
+      expect(isOwnTarget(parent, undefined)).toBe(true);
+      expect(isOwnTarget(parent, document)).toBe(true);
+      expect(isOwnTarget(undefined, document.createElement('div'))).toBe(true);
+    });
+
+    describe('event form (composedPath)', () => {
+      /** Dispatch `type` from `from` and capture `isOwnTarget(host, e)` as seen by a listener on `host`. */
+      function ownershipSeenBy(host: Element, from: Element, type = 'keydown', detachFirstOn?: Element): boolean {
+        let seen = false;
+        let called = false;
+        const ac = new AbortController();
+        if (detachFirstOn) {
+          // The nested grid's own handler runs before the parent's and tears the target out.
+          detachFirstOn.addEventListener(type, (e) => (e.target as Element).remove(), { signal: ac.signal });
+        }
+        host.addEventListener(
+          type,
+          (e) => {
+            called = true;
+            seen = isOwnTarget(host, e);
+          },
+          { signal: ac.signal },
+        );
+        from.dispatchEvent(withDispatchPath(new Event(type, { bubbles: true, composed: true }), from));
+        ac.abort();
+        expect(called).toBe(true);
+        return seen;
+      }
+
+      it('resolves ownership from the dispatch-time path', () => {
+        const { parent, parentCell, child, childCell } = nestedFixture();
+        document.body.appendChild(parent);
+        expect(ownershipSeenBy(parent, parentCell)).toBe(true);
+        expect(ownershipSeenBy(parent, childCell)).toBe(false);
+        expect(ownershipSeenBy(child, childCell)).toBe(true);
+        parent.remove();
+      });
+
+      it('still rejects a child event whose target an earlier listener detached', () => {
+        const { parent, child, childCell } = nestedFixture();
+        document.body.appendChild(parent);
+        expect(ownershipSeenBy(parent, childCell, 'keydown', child)).toBe(false);
+        // The element form cannot know any more — this is why handlers pass the event.
+        expect(childCell.isConnected).toBe(false);
+        expect(isOwnTarget(parent, childCell)).toBe(true);
+        parent.remove();
+      });
+
+      it('crosses shadow roots without an explicit host walk', () => {
+        const { parent, childCell } = nestedFixture();
+        document.body.appendChild(parent);
+        const editorHost = document.createElement('div');
+        childCell.appendChild(editorHost);
+        const input = document.createElement('input');
+        editorHost.attachShadow({ mode: 'open' }).appendChild(input);
+        expect(ownershipSeenBy(parent, input)).toBe(false);
+        parent.remove();
+      });
+
+      it('accepts an event that has not been dispatched or whose path holds no grid', () => {
+        const { parent } = nestedFixture();
+        expect(isOwnTarget(parent, new Event('keydown'))).toBe(true);
+        const bare = document.createElement('div');
+        document.body.appendChild(bare);
+        expect(ownershipSeenBy(bare, bare)).toBe(true);
+        bare.remove();
+      });
+    });
+  });
+
   it('rafDebounce executes last call and supports cancel', async () => {
     const calls: number[] = [];
     const fn = rafDebounce((v: number) => calls.push(v));

@@ -334,6 +334,8 @@ features: {
 },
 ```
 
+The child grid is a fully independent instance: the parent ignores clicks, keyboard navigation, drags, right-clicks, and editor focus changes that happen inside it — including when the parent uses `EditingPlugin({ mode: 'grid' })` — and never touches its focus or selection markers. Events the child emits (`row-click`, `cell-click`, …) still bubble through the parent host in the DOM — filter on `event.target` if you listen on the parent for both.
+
 ## Programmatic API
 
 See [`MasterDetailPlugin`](./classes/masterdetailplugin/) for the full list of methods.

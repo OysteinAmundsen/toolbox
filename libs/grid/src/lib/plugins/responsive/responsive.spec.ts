@@ -70,7 +70,7 @@ describe('ResponsivePlugin', () => {
 
     document.body.appendChild(grid);
 
-    Object.assign(grid, {
+    const mockGrid = Object.assign(grid, {
       rows,
       columns,
       gridConfig: {},
@@ -78,24 +78,17 @@ describe('ResponsivePlugin', () => {
       requestRender: vi.fn(),
       requestAfterRender: vi.fn(),
       forceLayout: vi.fn().mockResolvedValue(undefined),
+      refreshVirtualWindow: vi.fn(),
       getPlugin: vi.fn(),
       getPluginByName: vi.fn(),
+      dispatchEvent: vi.fn(),
       _hostElement: grid,
       // Morph naming is scoped to the grid's own row container.
       _bodyEl: container,
       _headerRowEl: headerRow,
     });
 
-    grid.dispatchEvent = vi.fn();
-
-    return grid as unknown as HTMLElement & {
-      rows: unknown[];
-      columns: unknown[];
-      gridConfig: object;
-      disconnectSignal: AbortSignal;
-      requestRender: ReturnType<typeof vi.fn>;
-      dispatchEvent: ReturnType<typeof vi.fn>;
-    };
+    return mockGrid;
   };
 
   describe('lifecycle', () => {
@@ -166,6 +159,211 @@ describe('ResponsivePlugin', () => {
       expect(mockGrid.hasAttribute('data-responsive-hide-header')).toBe(false);
       expect(mockGrid.hasAttribute('data-responsive-transition')).toBe(false);
       expect(mockGrid.querySelector('[data-responsive-hidden], [data-responsive-value-only]')).toBeNull();
+    });
+
+    it('should mark only its own card-layout targets and clear them when card mode ends', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, hideHeader: true });
+      const mockGrid = createMockGrid();
+      const ownRow = mockGrid.querySelector('.data-grid-row')!;
+      const ownScrollArea = document.createElement('div');
+      ownScrollArea.className = 'tbw-scroll-area';
+      mockGrid.appendChild(ownScrollArea);
+      const ownFooter = document.createElement('div');
+      ownFooter.className = 'tbw-footer';
+      mockGrid.appendChild(ownFooter);
+
+      const nestedGrid = document.createElement('tbw-grid');
+      const nestedRow = document.createElement('div');
+      nestedRow.className = 'data-grid-row';
+      nestedGrid.appendChild(nestedRow);
+      const nestedScrollArea = document.createElement('div');
+      nestedScrollArea.className = 'tbw-scroll-area';
+      nestedGrid.appendChild(nestedScrollArea);
+      const nestedFooter = document.createElement('div');
+      nestedFooter.className = 'tbw-footer';
+      nestedGrid.appendChild(nestedFooter);
+      ownRow.querySelector('.cell')!.appendChild(nestedGrid);
+
+      plugin.attach(mockGrid as never);
+      mockGrid.setAttribute('data-responsive', '');
+      mockGrid.setAttribute('data-responsive-hide-header', '');
+      plugin.afterRender();
+
+      expect(ownRow.hasAttribute('data-responsive-card')).toBe(true);
+      expect(ownRow.hasAttribute('data-responsive-card-hide-header')).toBe(true);
+      expect(ownScrollArea.hasAttribute('data-responsive-card')).toBe(true);
+      expect(ownFooter.hasAttribute('data-responsive-card')).toBe(true);
+      expect(nestedRow.hasAttribute('data-responsive-card')).toBe(false);
+      expect(nestedScrollArea.hasAttribute('data-responsive-card')).toBe(false);
+      expect(nestedFooter.hasAttribute('data-responsive-card')).toBe(false);
+
+      mockGrid.removeAttribute('data-responsive');
+      mockGrid.removeAttribute('data-responsive-hide-header');
+      plugin.afterRender();
+
+      expect(ownRow.hasAttribute('data-responsive-card')).toBe(false);
+      expect(ownRow.hasAttribute('data-responsive-card-hide-header')).toBe(false);
+      expect(ownScrollArea.hasAttribute('data-responsive-card')).toBe(false);
+      expect(ownFooter.hasAttribute('data-responsive-card')).toBe(false);
+      plugin.detach();
+    });
+
+    it('should mark rows created by virtualized scroll rendering', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, hideHeader: true });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+      plugin.setResponsive(true);
+
+      const scrolledRow = document.createElement('div');
+      scrolledRow.className = 'data-grid-row';
+      scrolledRow.innerHTML = '<div class="cell"></div>';
+      mockGrid.querySelector('.tbw-grid-root')!.appendChild(scrolledRow);
+
+      plugin.onScrollRender();
+
+      expect(scrolledRow.hasAttribute('data-responsive-card')).toBe(true);
+      expect(scrolledRow.hasAttribute('data-responsive-card-hide-header')).toBe(true);
+      expect(scrolledRow.querySelector('.cell')?.hasAttribute('data-responsive-animate')).toBe(true);
+    });
+
+    it('should mark newly rendered rows and cells without lifecycle render hooks', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, hideHeader: true });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+      plugin.setResponsive(true);
+      mockGrid.setAttribute('data-responsive-transition', '');
+
+      const row = document.createElement('div');
+      row.className = 'data-grid-row';
+      expect(plugin.renderRow({ id: 1 }, row, 1)).toBeUndefined();
+      expect(row.hasAttribute('data-responsive-card')).toBe(true);
+      expect(row.hasAttribute('data-responsive-card-hide-header')).toBe(true);
+
+      const cell = document.createElement('div');
+      plugin.afterCellRender({
+        row: { id: 1 },
+        rowIndex: 1,
+        column: { field: 'name' },
+        colIndex: 0,
+        value: 'Ada',
+        cellElement: cell,
+        rowElement: row,
+      });
+
+      expect(cell.hasAttribute('data-responsive-animate')).toBe(true);
+      expect(cell.hasAttribute('data-responsive-transition-cell')).toBe(true);
+    });
+
+    it('should leave unchanged sticky clones alone during scroll rendering', async () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, hideHeader: true });
+      const mockGrid = createMockGrid();
+      mockGrid.getPluginByName.mockImplementation((name: string) => (name === 'stickyRows' ? {} : undefined));
+      const overlay = document.createElement('div');
+      overlay.className = 'tbw-sticky-rows';
+      const clone = document.createElement('div');
+      clone.className = 'tbw-sticky-row';
+      clone.innerHTML = '<div class="cell"></div>';
+      overlay.appendChild(clone);
+      mockGrid.appendChild(overlay);
+      plugin.attach(mockGrid as never);
+      plugin.setResponsive(true);
+      plugin.afterRender();
+      await Promise.resolve();
+
+      expect(clone.hasAttribute('data-responsive-card')).toBe(true);
+      const cloneWrites = vi.spyOn(clone, 'toggleAttribute');
+      const cellWrites = vi.spyOn(clone.firstElementChild!, 'toggleAttribute');
+      const row = mockGrid.querySelector('.data-grid-row')!;
+      row.removeAttribute('data-responsive-card');
+      plugin.onScrollRender();
+      await Promise.resolve();
+
+      expect(row.hasAttribute('data-responsive-card')).toBe(true);
+      expect(cloneWrites).not.toHaveBeenCalled();
+      expect(cellWrites).not.toHaveBeenCalled();
+      plugin.detach();
+      expect(clone.hasAttribute('data-responsive-card')).toBe(false);
+    });
+
+    it('should mark rows created by a card-height refresh before skipped afterRender hooks', async () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, hideHeader: true });
+      const mockGrid = createMockGrid();
+      const measuredRow = mockGrid.querySelector('.data-grid-row') as HTMLElement;
+      measuredRow.getBoundingClientRect = vi.fn(() => ({ height: 80 }) as DOMRect);
+      const refreshedRow = document.createElement('div');
+      refreshedRow.className = 'data-grid-row';
+      mockGrid.refreshVirtualWindow.mockImplementation((_force: boolean, _skipAfterRender: boolean) => {
+        plugin.renderRow({ id: 2 }, refreshedRow, 1);
+        return true;
+      });
+      plugin.attach(mockGrid as never);
+      plugin.setResponsive(true);
+
+      plugin.afterRender();
+      await Promise.resolve();
+
+      expect(mockGrid.refreshVirtualWindow).toHaveBeenCalledWith(true, true);
+      expect(refreshedRow.hasAttribute('data-responsive-card')).toBe(true);
+      expect(refreshedRow.hasAttribute('data-responsive-card-hide-header')).toBe(true);
+    });
+
+    it('should synchronize row markers before measuring card height', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500 });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+      plugin.setResponsive(true);
+
+      const row = mockGrid.querySelector('.data-grid-row') as HTMLElement;
+      row.removeAttribute('data-responsive-card');
+      row.getBoundingClientRect = vi.fn(() => {
+        expect(row.hasAttribute('data-responsive-card')).toBe(true);
+        return { height: 80 } as DOMRect;
+      });
+
+      plugin.afterRender();
+
+      expect(row.getBoundingClientRect).toHaveBeenCalled();
+    });
+
+    it('should resync chrome created after the pinnedRows afterRender hook', async () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500 });
+      const mockGrid = createMockGrid();
+      mockGrid.getPluginByName.mockImplementation((name: string) => (name === 'pinnedRows' ? {} : undefined));
+      plugin.attach(mockGrid as never);
+      plugin.setResponsive(true);
+      plugin.afterRender();
+
+      const footer = document.createElement('div');
+      footer.className = 'tbw-footer';
+      mockGrid.appendChild(footer);
+
+      expect(footer.hasAttribute('data-responsive-card')).toBe(false);
+      await Promise.resolve();
+      expect(mockGrid.getPluginByName).toHaveBeenCalledWith('pinnedRows');
+      expect(footer.hasAttribute('data-responsive-card')).toBe(true);
+    });
+
+    it('should sync owned sticky-row overlay markers and clear them on detach', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, hideHeader: true });
+      const mockGrid = createMockGrid();
+      const overlay = document.createElement('div');
+      overlay.className = 'tbw-sticky-rows';
+      const clone = document.createElement('div');
+      clone.className = 'tbw-sticky-row';
+      clone.innerHTML = '<div class="cell"></div>';
+      overlay.appendChild(clone);
+      mockGrid.appendChild(overlay);
+      plugin.attach(mockGrid as never);
+      plugin.setResponsive(true);
+      plugin.afterRender();
+
+      expect(clone.hasAttribute('data-responsive-card')).toBe(true);
+      expect(clone.hasAttribute('data-responsive-card-hide-header')).toBe(true);
+
+      plugin.detach();
+
+      expect(clone.hasAttribute('data-responsive-card')).toBe(false);
+      expect(clone.hasAttribute('data-responsive-card-hide-header')).toBe(false);
     });
   });
 

@@ -111,6 +111,8 @@ test('SelectionDemo — drag selects a range of cells', async ({ page }) => {
 
 Use ARIA roles and data attributes for robustness:
 
+- Own body rows are direct children of `.rows`, not `.rows-body`; for nested-grid fixtures, scope to the first owning `.rows` before selecting `:scope > .data-grid-row`.
+- Measurement regressions must assert that new row elements were created during the measured refresh before checking their styles; latch that observation so a later no-op refresh cannot erase it.
 - Rows: `[role="row"]` via `dataRows()`
 - Cells: `[role="gridcell"]` via `cell()`
 - Headers: `[role="columnheader"]` via `headerCell()`
@@ -140,6 +142,7 @@ These verify visual and functional parity across framework demos (vanilla as bas
 - **No retries** — deterministic tests; retrying masks real bugs
 - **Serial mode** — tests within a describe block run sequentially
 - **Masking** — shell titles masked via `getMaskLocators()` to hide framework names
+- **Date-dependent snapshots** — call `page.clock.setFixedTime()` before navigation; the calendar baseline uses `2026-10-31T12:00:00Z`. Keep animation timers running.
 - **ARIA selectors** — same `SELECTORS` object shared across all frameworks
 - **Vanilla = baseline** — visual comparisons use vanilla screenshots as reference
 - **Demo servers must be running** — tests don't auto-start servers

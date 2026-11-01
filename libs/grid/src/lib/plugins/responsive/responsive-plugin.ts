@@ -29,9 +29,21 @@ import { MISSING_BREAKPOINT } from '../../core/internal/diagnostics';
 import { ensureCellVisible } from '../../core/internal/keyboard';
 import { evalTemplateString, setSanitizedHTML } from '../../core/internal/sanitize';
 import { decodeAriaRowIndex } from '../../core/internal/utils';
-import { BaseGridPlugin, type GridElement, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
+import {
+  BaseGridPlugin,
+  type AfterCellRenderContext,
+  type GridElement,
+  type PluginManifest,
+  type PluginQuery,
+} from '../../core/plugin/base-plugin';
 import type { GridHost } from '../../core/types';
 import { PLACEHOLDER_ROW_CLASS } from '../shared/loading-placeholder';
+import {
+  getResponsiveStyleMarkerState,
+  syncResponsiveCellStyleMarkers,
+  syncResponsiveRowStyleMarkers,
+  syncResponsiveStyleMarkers,
+} from '../shared/responsive-style-markers';
 import styles from './responsive.css?inline';
 import type {
   BreakpointConfig,
@@ -78,6 +90,17 @@ const COLUMN_FADE_ATTR = 'data-responsive-column-fade';
 
 /** Responsive-owned marker on the grid's own `.header` in card mode; the CSS hide rule keys on it. */
 const HEADER_HIDDEN_ATTR = 'data-responsive-header-hidden';
+
+const CARD_LAYOUT_TARGETS = [
+  '.tbw-scroll-area',
+  '.rows-body-wrapper',
+  '.footer-row',
+  '.tbw-footer',
+  '.tbw-header-pinned',
+  '.tbw-pinned-rows',
+  '.tbw-aggregation-rows',
+  '.tbw-aggregation-row',
+].join(', ');
 
 /**
  * Cancel this plugin's fades on `cell` and nothing else. Cancelling REJECTS
@@ -542,6 +565,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
 
     this.#fadeEndsAt = performance.now() + duration;
     this.gridElement?.setAttribute(COLUMN_FADE_ATTR, '');
+    if (this.gridElement) this.#syncOwnedStyleMarkers();
     clearTimeout(this.#fadeTimer);
     this.#fadeTimer = setTimeout(() => this.#endFadeWindow(), duration);
   }
@@ -553,6 +577,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     this.#fadeOutFields.clear();
     this.#fadeInFields.clear();
     this.gridElement?.removeAttribute(COLUMN_FADE_ATTR);
+    if (this.gridElement) this.#syncOwnedStyleMarkers();
 
     // The fade-out fills forwards to hold the cell at zero until the render that
     // hides it lands. Past the window CSS owns visibility, so releasing the fill
@@ -627,6 +652,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
       this.gridElement.removeAttribute('data-responsive-hide-header');
       this.gridElement.removeAttribute('data-responsive-transition');
       this.#releaseHiddenHeader();
+      this.#syncOwnedStyleMarkers();
       for (const cell of this.gridElement.querySelectorAll(
         '.cell[data-responsive-hidden], .cell[data-responsive-value-only]',
       )) {
@@ -659,10 +685,18 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
    * In multi-breakpoint mode, applies whenever there's an active breakpoint.
    */
   override afterRender(): void {
-    // Measure card height for virtualization calculations
-    this.#measureCardHeightFromDOM();
     // Before core's header-row sync, so the row indices settle in this frame.
     this.#syncHeaderAccessibility();
+    this.#syncOwnedStyleMarkers();
+    // Measure only after fresh rows have their card layout markers.
+    this.#measureCardHeightFromDOM();
+    const attachedGrid = this.grid;
+    if (attachedGrid.getPluginByName('pinnedRows')) {
+      queueMicrotask(() => {
+        // PinnedRows can add chrome after this hook runs.
+        if (this.grid === attachedGrid) this.#syncOwnedStyleMarkers();
+      });
+    }
 
     // In single breakpoint mode, only apply when responsive
     // In multi-breakpoint mode, apply when there's an active breakpoint
@@ -721,6 +755,20 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
         cell.removeAttribute('aria-hidden');
       }
     }
+  }
+
+  override afterCellRender(context: AfterCellRenderContext): void {
+    const host = this.gridElement;
+    syncResponsiveCellStyleMarkers(
+      context.cellElement,
+      host.hasAttribute('data-responsive-animate'),
+      host.hasAttribute('data-responsive-transition'),
+    );
+  }
+
+  /** Reapply card markers to rows created or recycled by virtualized scrolling. */
+  override onScrollRender(): void {
+    this.#syncOwnedRowStyleMarkers();
   }
 
   /**
@@ -851,6 +899,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     // Names must exist on the outgoing rows before the snapshot is taken.
     if (morph !== 'none') this.#setMorphNames(morph);
     host.setAttribute('data-responsive-transition', '');
+    this.#syncOwnedStyleMarkers();
 
     const transition = startViewTransition(async () => {
       // Superseded or detached while the snapshot was being taken: applying
@@ -870,6 +919,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
       // attribute its successor is mid-flight on would abort that successor.
       if (token !== this.#transitionToken) return;
       host.removeAttribute('data-responsive-transition');
+      this.#syncOwnedStyleMarkers();
       if (morph !== 'none') this.#clearMorphNames();
     };
     transition.finished.then(cleanup, cleanup);
@@ -985,7 +1035,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
   /** Original row height before entering responsive mode, for restoration on exit */
   #originalRowHeight?: number;
 
-  /** The host attributes every responsive CSS rule keys off. */
+  /** Synchronize host state and the per-element markers used by responsive CSS. */
   #syncLayoutAttributes(): void {
     this.gridElement.toggleAttribute('data-responsive', this.#isResponsive);
     this.#syncHeaderAccessibility();
@@ -1003,6 +1053,40 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
       'data-responsive-hide-header',
       this.#isResponsive && this.config.hideHeader === true,
     );
+    this.#syncOwnedStyleMarkers();
+  }
+
+  /**
+   * Mark only this grid's style targets. Responsive CSS uses these markers
+   * instead of host descendant selectors, which would include nested grids.
+   */
+  #syncOwnedStyleMarkers(): void {
+    const state = this.#syncOwnedRowStyleMarkers();
+    this.#internalGrid._headerRowEl?.toggleAttribute(COLUMN_FADE_ATTR, state.columnFade);
+
+    for (const target of this.gridElement.querySelectorAll<HTMLElement>(CARD_LAYOUT_TARGETS)) {
+      const owner = target.closest('tbw-grid, [data-tbw-grid]');
+      if (owner && owner !== this.gridElement) continue;
+      target.toggleAttribute('data-responsive-card', state.cardMode);
+    }
+
+    this.#syncOwnedStickyRowMarkers(state);
+  }
+
+  #syncOwnedRowStyleMarkers(): ReturnType<typeof getResponsiveStyleMarkerState> {
+    const state = getResponsiveStyleMarkerState(this.gridElement);
+    for (const row of this.#ownRows()) syncResponsiveStyleMarkers(row, state);
+    return state;
+  }
+
+  #syncOwnedStickyRowMarkers(
+    state: ReturnType<typeof getResponsiveStyleMarkerState> = getResponsiveStyleMarkerState(this.gridElement),
+  ): void {
+    for (const row of this.gridElement.querySelectorAll<HTMLElement>('.tbw-sticky-rows > .tbw-sticky-row')) {
+      const owner = row.closest('tbw-grid, [data-tbw-grid]');
+      if (owner && owner !== this.gridElement) continue;
+      syncResponsiveStyleMarkers(row, state);
+    }
   }
 
   /** This grid's own `.header` (not a nested grid's); `undefined` before the DOM is built. */
@@ -1135,6 +1219,8 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
    * @returns `true` if rendered (prevents default), `void` for default rendering
    */
   override renderRow(row: unknown, rowEl: HTMLElement, rowIndex: number): boolean | void {
+    syncResponsiveRowStyleMarkers(rowEl, getResponsiveStyleMarkerState(this.gridElement));
+
     // Only override when in responsive mode AND cardRenderer is provided
     if (!this.#isResponsive || !this.config.cardRenderer) {
       return; // Let default rendering proceed
@@ -1455,18 +1541,17 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
       }
     }
 
-    // Defer virtualization refresh to avoid nested render cycles
-    // This is called from afterRender, so we can't call refreshVirtualWindow synchronously
-    // Use scheduler's VIRTUALIZATION phase to batch properly and avoid duplicate afterRender calls
+    // Defer the direct refresh to avoid re-entering afterRender.
     if (needsRefresh && !this.#pendingRefresh) {
       this.#pendingRefresh = true;
       queueMicrotask(() => {
         this.#pendingRefresh = false;
         // Only refresh if still attached and in responsive mode
         if (this.grid && this.#isResponsive) {
-          // Request virtualization phase through grid's public API
-          // This goes through the scheduler which batches and handles afterRender properly
           this.#internalGrid.refreshVirtualWindow?.(true, true);
+          // Earlier renderers can claim rows (e.g. loading placeholders), skipping
+          // our per-row/cell hooks as well as this refresh's lifecycle hooks.
+          this.#syncOwnedRowStyleMarkers();
         }
       });
     }

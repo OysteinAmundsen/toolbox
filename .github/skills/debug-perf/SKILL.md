@@ -161,6 +161,20 @@ The `analyze-trace.mjs` script (co-located in this skill folder) reports:
 
 You can also open `trace.json` in Chrome DevTools manually: DevTools → Performance → Load profile.
 
+### CSS pipeline regressions
+
+If a CI render comparison passes locally, repeat on both pages with the same CDP
+CPU throttling (`page.context().newCDPSession(page)` →
+`Emulation.setCPUThrottlingRate`, `{ rate: 4 }`). Keep samples sequential and
+interleaved; do not run builds or other benchmarks concurrently.
+
+When traces implicate style recalculation, A/B the injected `#tbw-grid-styles`
+text with identical grid JavaScript before changing the render loop. For nesting,
+use lightningcss `include: Features.Nesting` with the existing targets and
+`exclude: Features.LightDark`; compare computed styles with the `bundle-check`
+parity script and check bundle budgets before accepting the change. Browser
+support for a CSS feature does not prove its native implementation is faster.
+
 ### E2E Performance Regression Tests
 
 The project has a comprehensive e2e performance test suite at `e2e/tests/performance-regression.spec.ts` (700+ lines). Use it to:

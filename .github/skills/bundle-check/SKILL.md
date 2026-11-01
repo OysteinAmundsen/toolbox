@@ -140,10 +140,12 @@ A green build does not prove the bundles **run**. After touching `vite.config.ts
 
 ```bash
 bun nx build grid
-bun .github/skills/bundle-check/smoke-dist.mjs   # exit 1 + ✗ lines on failure
+node .github/skills/bundle-check/smoke-dist.mjs  # exit 1 + ✗ lines on failure
 ```
 
 It catches what the build cannot: a UMD plugin reading an undefined `TbwGrid.<name>`, a plugin carrying its own `BaseGridPlugin` copy, and module state that is not shared with core (`aggregatorRegistry`). To prove a fix, build once with the old config (`git show HEAD:libs/grid/vite.config.ts`) and confirm the script fails there.
+
+Use Node for this script: Bun's happy-dom `window.eval` can leave the UMD globals unregistered.
 
 ## Dead Code Removal
 

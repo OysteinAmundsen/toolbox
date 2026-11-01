@@ -454,6 +454,104 @@ describe('StickyRowsPlugin', () => {
       expect(clone.style.getPropertyValue('opacity')).toBe('0.5');
     });
 
+    it('normalizes responsive markers on cached clones when they are displayed', () => {
+      const plugin = new StickyRowsPlugin({ isSticky: 'flag' });
+      const grid = createMockGrid({
+        rows: [{ flag: true }, { flag: false }],
+        renderedIndices: [0, 1],
+      });
+      for (const attr of [
+        'data-responsive',
+        'data-responsive-hide-header',
+        'data-responsive-animate',
+        'data-responsive-transition',
+        'data-responsive-column-fade',
+      ]) {
+        grid.setAttribute(attr, '');
+      }
+
+      plugin.attach(grid);
+      plugin.afterRender();
+      plugin.onScroll(scrollEvent(29));
+
+      const clone = grid.querySelector('.tbw-sticky-rows .tbw-sticky-row') as HTMLElement;
+      const cell = clone.querySelector('.cell') as HTMLElement;
+      expect(clone.hasAttribute('data-responsive-card')).toBe(true);
+      expect(clone.hasAttribute('data-responsive-card-hide-header')).toBe(true);
+      expect(cell.hasAttribute('data-responsive-transition-cell')).toBe(true);
+
+      // The sticky row leaves virtualization, so the next display reuses the cached clone.
+      grid.querySelector('.rows .data-grid-row')?.remove();
+      plugin.onScroll(scrollEvent(0));
+      expect(grid.querySelector('.tbw-sticky-rows .tbw-sticky-row')).toBeNull();
+      for (const attr of [
+        'data-responsive',
+        'data-responsive-hide-header',
+        'data-responsive-animate',
+        'data-responsive-transition',
+        'data-responsive-column-fade',
+      ]) {
+        grid.removeAttribute(attr);
+      }
+      plugin.onScroll(scrollEvent(30));
+
+      expect(grid.querySelector('.tbw-sticky-rows .tbw-sticky-row')).toBe(clone);
+      expect(clone.hasAttribute('data-responsive-card')).toBe(false);
+      expect(clone.hasAttribute('data-responsive-card-hide-header')).toBe(false);
+      expect(clone.hasAttribute('data-responsive-animate')).toBe(false);
+      expect(clone.hasAttribute('data-responsive-column-fade')).toBe(false);
+      expect(cell.hasAttribute('data-responsive-transition-cell')).toBe(false);
+    });
+
+    it('skips unchanged responsive clone synchronization and reapplies changed host state', () => {
+      const plugin = new StickyRowsPlugin({ isSticky: 'flag' });
+      const grid = createMockGrid({
+        rows: [{ flag: true }, { flag: false }],
+        renderedIndices: [0, 1],
+      });
+      for (const attr of [
+        'data-responsive',
+        'data-responsive-hide-header',
+        'data-responsive-animate',
+        'data-responsive-transition',
+        'data-responsive-column-fade',
+      ]) {
+        grid.setAttribute(attr, '');
+      }
+
+      plugin.attach(grid);
+      plugin.afterRender();
+      plugin.onScroll(scrollEvent(29));
+
+      const overlay = grid.querySelector('.tbw-sticky-rows') as HTMLElement;
+      const clone = overlay.querySelector('.tbw-sticky-row') as HTMLElement;
+      const queryAll = vi.spyOn(overlay, 'querySelectorAll');
+
+      plugin.onScroll(scrollEvent(30));
+      expect(queryAll).not.toHaveBeenCalled();
+
+      for (const attr of [
+        'data-responsive',
+        'data-responsive-hide-header',
+        'data-responsive-animate',
+        'data-responsive-transition',
+        'data-responsive-column-fade',
+      ]) {
+        grid.removeAttribute(attr);
+      }
+      plugin.onScroll(scrollEvent(30));
+
+      expect(queryAll).toHaveBeenCalledTimes(1);
+      expect(clone.hasAttribute('data-responsive-card')).toBe(false);
+      expect(clone.hasAttribute('data-responsive-card-hide-header')).toBe(false);
+      expect(clone.hasAttribute('data-responsive-animate')).toBe(false);
+      expect(clone.hasAttribute('data-responsive-column-fade')).toBe(false);
+      expect(clone.querySelector('.cell')?.hasAttribute('data-responsive-transition-cell')).toBe(false);
+
+      plugin.onScroll(scrollEvent(31));
+      expect(queryAll).toHaveBeenCalledTimes(1);
+    });
+
     it('keeps cached clones when the underlying row leaves the rendered window', () => {
       const plugin = new StickyRowsPlugin({ isSticky: 'flag' });
       // Initially row 0 is rendered.

@@ -12,6 +12,11 @@ import type { RowPosition } from '../../core/internal/virtualization';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import type { ScrollEvent } from '../../core/plugin/types';
 import type { ColumnConfig } from '../../core/types';
+import {
+  getResponsiveStyleMarkerState,
+  syncResponsiveStyleMarkers,
+  type ResponsiveStyleMarkerState,
+} from '../shared/responsive-style-markers';
 import styles from './sticky-rows.css?inline';
 import type { StickyPredicate, StickyRowsConfig } from './types';
 
@@ -25,6 +30,20 @@ interface VirtualStateLike {
    *  position (per-pixel, unlike `start` which only updates when the
    *  rendered window shifts). */
   container?: HTMLElement | null;
+}
+
+function sameResponsiveStyleMarkerState(
+  left: ResponsiveStyleMarkerState | undefined,
+  right: ResponsiveStyleMarkerState,
+): boolean {
+  return (
+    left !== undefined &&
+    left.cardMode === right.cardMode &&
+    left.hideHeader === right.hideHeader &&
+    left.animate === right.animate &&
+    left.transitioning === right.transitioning &&
+    left.columnFade === right.columnFade
+  );
 }
 
 /**
@@ -93,6 +112,9 @@ export class StickyRowsPlugin extends BaseGridPlugin<StickyRowsConfig> {
   /** Last applied push-mode translation, to skip writes on no-op ticks. */
   private lastPushOffset = 0;
 
+  /** Responsive state already applied to the displayed clones. */
+  private lastResponsiveMarkerState?: ResponsiveStyleMarkerState;
+
   /** True while a deferred "settle" style pass is already queued. Coalesces
    *  multiple scroll ticks into a single re-capture. See
    *  {@link maybeScheduleSettlePass}. */
@@ -109,6 +131,7 @@ export class StickyRowsPlugin extends BaseGridPlugin<StickyRowsConfig> {
     this.stickyIndices = [];
     this.displayedIndices = [];
     this.lastPushOffset = 0;
+    this.lastResponsiveMarkerState = undefined;
     this.settlePassScheduled = false;
   }
   // #endregion
@@ -539,6 +562,7 @@ export class StickyRowsPlugin extends BaseGridPlugin<StickyRowsConfig> {
    *  back into view. */
   private refreshClonesInWindow(): void {
     if (!this.displayedIndices.length) return;
+    const markerState = getResponsiveStyleMarkerState(this.gridElement);
     for (const idx of this.displayedIndices) {
       const live = this.findRenderedRow(idx);
       if (live) {
@@ -546,6 +570,7 @@ export class StickyRowsPlugin extends BaseGridPlugin<StickyRowsConfig> {
         const fresh = this.buildClone(idx);
         const existingClone = this.container?.querySelector(`[data-sticky-row="${idx}"]`);
         if (fresh && existingClone && existingClone !== fresh) {
+          syncResponsiveStyleMarkers(fresh, markerState);
           existingClone.replaceWith(fresh);
         }
       }
@@ -572,6 +597,8 @@ export class StickyRowsPlugin extends BaseGridPlugin<StickyRowsConfig> {
 
     const scrollTop = scrollTopOverride ?? this.getCurrentScrollTop();
     const { indices: desired, pushOffset } = this.computeDisplay(scrollTop);
+    const markerState = getResponsiveStyleMarkerState(this.gridElement);
+    const markerStateChanged = !sameResponsiveStyleMarkerState(this.lastResponsiveMarkerState, markerState);
 
     // Update the container's mode marker (in case config changed).
     if (this.container.dataset['mode'] !== this.config.mode) {
@@ -600,6 +627,8 @@ export class StickyRowsPlugin extends BaseGridPlugin<StickyRowsConfig> {
           if (clone) this.cloneCache.set(idx, clone);
         }
         if (clone) {
+          // Cached clones can outlive responsive layout changes and plugin detach.
+          syncResponsiveStyleMarkers(clone, markerState);
           fragment.appendChild(clone);
           appended.push(idx);
         }
@@ -619,6 +648,13 @@ export class StickyRowsPlugin extends BaseGridPlugin<StickyRowsConfig> {
       this.container.style.transform = pushOffset > 0 ? `translateY(${-pushOffset}px)` : '';
       this.lastPushOffset = pushOffset;
     }
+
+    if (sameSet && markerStateChanged) {
+      for (const clone of this.container.querySelectorAll<HTMLElement>(':scope > .tbw-sticky-row')) {
+        syncResponsiveStyleMarkers(clone, markerState);
+      }
+    }
+    this.lastResponsiveMarkerState = markerState;
   }
 
   /** Find the next sticky index strictly greater than `current`. */

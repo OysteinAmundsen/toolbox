@@ -138,6 +138,8 @@ export function getExpectedFrameworkLabel(demo: DemoName): string {
       return '(React)';
     case 'angular':
       return '(Angular)';
+    case 'vue':
+      return '(Vue)';
   }
 }
 

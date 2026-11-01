@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   DEMOS,
   expectScreenshotIfBaselineExists,
+  getExpectedFrameworkLabel,
   getMaskLocators,
   REFERENCE_DEMO,
   SELECTORS,
@@ -34,6 +35,10 @@ import {
 test.describe('Cross-Framework Visual Parity', () => {
   // Disable retries — visual tests are deterministic; retrying masks real bugs
   test.describe.configure({ mode: 'serial', retries: 0 });
+
+  test('returns the Vue framework label', () => {
+    expect(getExpectedFrameworkLabel('vue')).toBe('(Vue)');
+  });
 
   test.describe('Initial Grid Render', () => {
     for (const [demoName, url] of Object.entries(DEMOS)) {

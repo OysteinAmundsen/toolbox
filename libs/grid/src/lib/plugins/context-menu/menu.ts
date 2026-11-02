@@ -30,22 +30,37 @@ export function buildMenuItems(
 }
 
 /**
- * Remove consecutive, leading, and trailing separators from a menu item list.
+ * Whether a menu item is a group header (a separator carrying a label).
+ *
+ * @param item - The menu item to check
+ * @returns True if the item is a labelled separator
+ */
+export function isGroupHeader(item: ContextMenuItem): boolean {
+  return !!item.separator && !!item.label;
+}
+
+/**
+ * Remove redundant separators and empty group headers from a menu item list.
+ *
+ * - Plain separators: leading, trailing, and consecutive ones are dropped.
+ * - Group headers may lead the menu, but a header with no items before the next
+ *   separator/header (or the end) is dropped — its group is empty.
+ * - When two dividers meet, the later one wins (a header after a plain separator
+ *   absorbs it; a plain separator after a header means the header's group is empty).
  *
  * @param items - Array of menu items
- * @returns Cleaned array with no redundant separators
+ * @returns Cleaned array with no redundant separators or empty groups
  */
 export function collapseSeparators(items: ContextMenuItem[]): ContextMenuItem[] {
   const result: ContextMenuItem[] = [];
   for (const item of items) {
     if (item.separator) {
-      // Skip if the last item is already a separator (consecutive) or list is empty (leading)
-      if (result.length === 0 || result[result.length - 1].separator) continue;
+      if (result.length > 0 && result[result.length - 1].separator) result.pop();
+      if (result.length === 0 && !isGroupHeader(item)) continue;
     }
     result.push(item);
   }
-  // Remove trailing separator
-  if (result.length > 0 && result[result.length - 1].separator) {
+  while (result.length > 0 && result[result.length - 1].separator) {
     result.pop();
   }
   return result;
@@ -62,6 +77,28 @@ export function isItemDisabled(item: ContextMenuItem, params: ContextMenuParams)
   if (item.disabled === true) return true;
   if (typeof item.disabled === 'function') return item.disabled(params);
   return false;
+}
+
+/**
+ * Create the DOM element for a separator or group header.
+ *
+ * @param item - A menu item with `separator: true`
+ * @returns The separator element
+ */
+function createSeparatorElement(item: ContextMenuItem): HTMLElement {
+  const separator = document.createElement('div');
+  separator.className = 'tbw-context-menu-separator';
+  separator.setAttribute('role', 'separator');
+  if (isGroupHeader(item)) {
+    // `separator` has presentational children, so the visible text needs `aria-label` to be exposed.
+    separator.classList.add('tbw-context-menu-group-header');
+    separator.setAttribute('aria-label', item.label as string);
+    const text = document.createElement('span');
+    text.className = 'tbw-context-menu-group-label';
+    text.textContent = item.label as string;
+    separator.appendChild(text);
+  }
+  return separator;
 }
 
 /**
@@ -88,10 +125,7 @@ export function createMenuElement(
 
   for (const item of items) {
     if (item.separator) {
-      const separator = document.createElement('div');
-      separator.className = 'tbw-context-menu-separator';
-      separator.setAttribute('role', 'separator');
-      menu.appendChild(separator);
+      menu.appendChild(createSeparatorElement(item));
       continue;
     }
 
@@ -164,7 +198,7 @@ export function createMenuElement(
         if (existingSubMenu) return;
         if (!item.subMenu) return;
 
-        const subMenuItems = buildMenuItems(item.subMenu, params);
+        const subMenuItems = collapseSeparators(buildMenuItems(item.subMenu, params));
         const subMenu = createMenuElement(subMenuItems, params, onAction, submenuArrow);
         subMenu.classList.add('tbw-context-submenu');
         subMenu.style.position = 'absolute';

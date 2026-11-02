@@ -453,6 +453,18 @@ export const CSS_VARIABLES: Record<string, CSSVariableDefinition[]> = {
       description: 'Submenu arrow size',
       type: 'size',
     },
+    {
+      name: '--tbw-context-menu-group-header-fg',
+      defaultValue: '#555555',
+      description: 'Group header label color',
+      type: 'color',
+    },
+    {
+      name: '--tbw-context-menu-group-header-size',
+      defaultValue: '0.7857em',
+      description: 'Group header label size',
+      type: 'size',
+    },
   ],
 
   'Filtering (Plugin)': [

@@ -34,18 +34,19 @@ grid.gridConfig = {
 
 ## Menu Item Options
 
-| Option      | Type                             | Description              |
-| ----------- | -------------------------------- | ------------------------ |
-| `id`        | `string`                         | Unique identifier        |
-| `name`      | `string`                         | Display label            |
-| `icon`      | `string`                         | Icon (emoji or HTML)     |
-| `shortcut`  | `string \| string[]`             | Keyboard shortcut hint   |
-| `disabled`  | `boolean \| (params) => boolean` | Disable item             |
-| `hidden`    | `boolean \| (params) => boolean` | Hide item                |
-| `separator` | `boolean`                        | Render as separator line |
-| `subMenu`   | `ContextMenuItem[]`              | Nested submenu           |
-| `action`    | `(params) => void`               | Click handler            |
-| `cssClass`  | `string`                         | Optional CSS class       |
+| Option      | Type                             | Description                                                               |
+| ----------- | -------------------------------- | ------------------------------------------------------------------------- |
+| `id`        | `string`                         | Unique identifier                                                         |
+| `name`      | `string`                         | Display label                                                             |
+| `icon`      | `string`                         | Icon (emoji or HTML)                                                      |
+| `shortcut`  | `string \| string[]`             | Keyboard shortcut hint                                                    |
+| `disabled`  | `boolean \| (params) => boolean` | Disable item                                                              |
+| `hidden`    | `boolean \| (params) => boolean` | Hide item                                                                 |
+| `separator` | `boolean`                        | Render as separator line                                                  |
+| `label`     | `string`                         | With `separator: true`, render a group header (divider with inline label) |
+| `subMenu`   | `ContextMenuItem[]`              | Nested submenu                                                            |
+| `action`    | `(params) => void`               | Click handler                                                             |
+| `cssClass`  | `string`                         | Optional CSS class                                                        |
 
 ## Context Parameters
 
@@ -88,8 +89,35 @@ synthesised `contextmenu`:
   selection exactly as a right-click on that cell does (see [Selection Sync Behavior](#selection-sync-behavior)).
   Arrow keys navigate, `Enter`/`Space` activate, `Escape` closes. Automatic — no configuration.
 - [WAI-ARIA Menu pattern](https://www.w3.org/WAI/ARIA/apg/patterns/menubar/) — the popup is `role="menu"`; items are
-  `role="menuitem"` (`tabindex="-1"`), dividers `role="separator"`, disabled items `aria-disabled="true"` (skipped by
+  `role="menuitem"` (`tabindex="-1"`), dividers `role="separator"`, group headers `role="separator"` with
+  `aria-label` set to their label, disabled items `aria-disabled="true"` (skipped by
   the arrow keys). Clicking outside or scrolling also closes the menu.
+
+## Group Headers
+
+Give a separator a `label` to render it as a group header — a divider with the label inline:
+
+```typescript
+new ContextMenuPlugin({
+  items: (params) => [
+    { id: 'cell', name: '', separator: true, label: 'Cell' },
+    { id: 'copy', name: 'Copy value', action: (p) => copy(p.value) },
+    { id: 'row', name: '', separator: true, label: 'Row' },
+    { id: 'edit', name: 'Edit row', action: (p) => edit(p.row) },
+    { id: 'rows', name: '', separator: true, label: `${params.selectedRows.length} selected rows` },
+    {
+      id: 'delete',
+      name: 'Delete selected',
+      hidden: (p) => p.selectedRows.length < 2,
+      action: (p) => remove(p.selectedRows),
+    },
+  ],
+});
+```
+
+Headers are not focusable and are skipped by the arrow keys. A header whose items are all hidden is dropped
+automatically; a header may lead the menu, and a plain separator directly before a header is absorbed by it.
+Works in `subMenu` too.
 
 ## Dynamic Menu Example
 
@@ -109,8 +137,10 @@ new ContextMenuPlugin({
 
 ## CSS Variables
 
-| Variable                    | Description      |
-| --------------------------- | ---------------- |
-| `--tbw-context-menu-bg`     | Menu background  |
-| `--tbw-context-menu-hover`  | Hover background |
-| `--tbw-context-menu-border` | Menu border      |
+| Variable                               | Description              |
+| -------------------------------------- | ------------------------ |
+| `--tbw-context-menu-bg`                | Menu background          |
+| `--tbw-context-menu-hover`             | Hover background         |
+| `--tbw-context-menu-border`            | Menu border              |
+| `--tbw-context-menu-group-header-fg`   | Group header label color |
+| `--tbw-context-menu-group-header-size` | Group header label size  |

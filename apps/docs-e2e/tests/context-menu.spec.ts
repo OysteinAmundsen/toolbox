@@ -50,6 +50,28 @@ test.describe('Context Menu Demos', () => {
     await expect(menu).toBeVisible({ timeout: 3000 });
   });
 
+  test('ContextMenuGroupHeadersDemo — labelled group headers; empty group collapses', async ({ page }) => {
+    await openDemo(page, 'context-menu/ContextMenuGroupHeadersDemo');
+
+    await rightClickCell(page, 0, 1);
+
+    const menu = page.locator('.tbw-context-menu');
+    await expect(menu).toBeVisible({ timeout: 3000 });
+
+    // Single-row selection: the "selected rows" group's items are hidden, so its header is dropped.
+    const headers = menu.locator('[role="separator"].tbw-context-menu-group-header');
+    await expect(headers).toHaveCount(2);
+    await expect(headers.nth(0)).toHaveAttribute('aria-label', 'Cell');
+    await expect(headers.nth(1)).toHaveAttribute('aria-label', 'Row');
+    await expect(headers.nth(0)).toHaveText('Cell');
+
+    // Keyboard navigation skips headers: ArrowDown from the first item lands on the second item.
+    const items = menu.locator('[role="menuitem"]');
+    await items.nth(0).focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(items.nth(1)).toBeFocused();
+  });
+
   test('PluginContributedItemsDemo — plugin items appear in menu', async ({ page }) => {
     await openDemo(page, 'context-menu/PluginContributedItemsDemo');
 

@@ -151,6 +151,13 @@ bun nx build docs
 > changed. Markdown outside `apps/docs/` (READMEs, `.github/**`) needs only
 > `bunx prettier --check <files>`.
 
+> **Inserted a section into an existing page? Diff its headings against `main`.** An edit anchored on
+> the next heading (`old_str: '## Events'`) silently drops that heading when `new_str` forgets to
+> re-emit it, and the link audit only notices if something links to the anchor (PR #596 lost
+> `## Events` this way). PowerShell:
+> `$o = git show "origin/main:$f" | Select-String '^#{1,4} ' | % { $_.Line.Trim() }; $n = Get-Content $f | Select-String '^#{1,4} ' | % { $_.Line.Trim() }; $o | ? { $n -notcontains $_ }`
+> — must print nothing.
+
 > `bun nx build docs` passing (EXIT=0) does **not** mean links are valid — Astro silently
 > renders dead links. `bun tools/docs-link-audit.ts` is the real gate. It walks every
 > `.md`/`.mdx` in the content collection and reports `missing-page`, `missing-anchor`,

@@ -24,6 +24,10 @@ PLAYWRIGHT_HTML_OPEN=never bun nx e2e docs-e2e -- tests/<file>.spec.ts > tmp/e2e
 
 On a local failure Playwright serves the HTML report on :9323 and waits for Ctrl+C. The command never returns, and an interrupted run can leave the port busy for the next one, which then exits 1 with no tests run. `PLAYWRIGHT_HTML_OPEN=never` prevents both.
 
+**`browserType.launch: Executable doesn't exist at …ms-playwright\chromium_headless_shell-NNNN`** — every test fails in ~3 ms. A Playwright bump needs a new browser build; run `bunx playwright install chromium` once, then re-run. Environment issue, not a test bug.
+
+**Quick visual check of a demo** (e.g. new CSS): drop a throwaway `apps/docs-e2e/tests/tmp-*.spec.ts` with `test.use({ deviceScaleFactor: 3 })` and `locator.screenshot({ path: '<ABSOLUTE path>/tmp/x.png' })`, run it with the command above, view the PNG, then delete the spec. Relative screenshot paths do not resolve against the spec or the repo root — use an absolute path.
+
 ## Promo recording (`@promo`)
 
 The `@promo` tests in `apps/docs-e2e/tests/promo/` are **normal CI tests** that also double as

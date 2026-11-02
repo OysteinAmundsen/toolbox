@@ -69,4 +69,34 @@
     background: var(--tbw-context-menu-border, var(--tbw-color-border));
     margin: var(--tbw-spacing-xs) 0;
   }
+
+  /* Group header: a separator with its label inline (`-- Label -------`). */
+  .tbw-context-menu-group-header {
+    display: flex;
+    align-items: center;
+    gap: var(--tbw-spacing-sm);
+    height: auto;
+    background: none;
+    color: var(--tbw-context-menu-group-header-fg, var(--tbw-context-menu-muted, var(--tbw-color-fg-muted)));
+    font-size: var(--tbw-context-menu-group-header-size, var(--tbw-font-size-xs));
+    line-height: 1.4;
+    white-space: nowrap;
+    cursor: default;
+    user-select: none;
+
+    &::before,
+    &::after {
+      content: '';
+      height: 1px;
+      background: var(--tbw-context-menu-border, var(--tbw-color-border));
+    }
+
+    &::before {
+      flex: 0 0 var(--tbw-spacing-sm);
+    }
+
+    &::after {
+      flex: 1;
+    }
+  }
 } /* End @layer tbw-plugins */

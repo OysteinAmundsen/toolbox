@@ -6,7 +6,8 @@
 
 /**
  * Context menu item definition.
- * Supports icons, shortcuts, submenus, separators, and dynamic disabled/hidden states.
+ * Supports icons, shortcuts, submenus, separators, group headers (labelled separators),
+ * and dynamic disabled/hidden states.
  * @since 0.1.1
  */
 export interface ContextMenuItem {
@@ -28,6 +29,22 @@ export interface ContextMenuItem {
   subMenu?: ContextMenuItem[];
   /** Whether this is a separator (id and name required but ignored) */
   separator?: boolean;
+  /**
+   * Turns a separator into a **group header** — a divider with this text inline,
+   * labelling the items that follow it. Only read when `separator: true`.
+   *
+   * Like plain separators, group headers are not focusable or clickable. A header
+   * whose group has no visible items (all hidden) is dropped automatically, and a
+   * plain separator directly before a header is absorbed by it. Unlike a plain
+   * separator, a header may lead the menu.
+   *
+   * @example
+   * ```ts
+   * { id: 'row-group', name: '', separator: true, label: 'Row' }
+   * ```
+   * @since 3.11.0
+   */
+  label?: string;
   /** Optional CSS class to add to the menu item */
   cssClass?: string;
 }

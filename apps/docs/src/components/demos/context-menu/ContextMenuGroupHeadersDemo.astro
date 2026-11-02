@@ -1,0 +1,67 @@
+---
+// ContextMenuGroupHeadersDemo.astro
+---
+<div class="grid-demo not-content" id="context-menu-group-headers-demo">
+  <tbw-grid style="height: 350px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import type { ContextMenuItem, ContextMenuParams } from '@toolbox-web/grid/plugins/context-menu';
+
+import '@toolbox-web/grid/features/context-menu';
+import '@toolbox-web/grid/features/selection';
+
+const container = document.getElementById('context-menu-group-headers-demo');
+if (container) {
+  const sampleData = [
+    { id: 1, name: 'Alice', email: 'alice@example.com', status: 'active' },
+    { id: 2, name: 'Bob', email: 'bob@example.com', status: 'pending' },
+    { id: 3, name: 'Carol', email: 'carol@example.com', status: 'active' },
+    { id: 4, name: 'Dan', email: 'dan@example.com', status: 'inactive' },
+  ];
+  const columns = [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'status', header: 'Status' },
+  ];
+  const grid = queryGrid('tbw-grid', container);
+
+  // The "selected rows" group only makes sense for a multi-row selection. Its
+  // items hide themselves otherwise, and the now-empty header is dropped automatically.
+  const singleRow = (p: ContextMenuParams) => p.selectedRows.length < 2;
+
+  const items = (params: ContextMenuParams): ContextMenuItem[] => [
+    { id: 'cell', name: '', separator: true, label: 'Cell' },
+    { id: 'copy-cell', name: 'Copy value', icon: '📋', action: (p) => console.log('Copy', p.value) },
+    { id: 'reset-cell', name: 'Reset value', icon: '↺', action: (p) => console.log('Reset', p.field) },
+    { id: 'row', name: '', separator: true, label: 'Row' },
+    { id: 'edit-row', name: 'Edit row', icon: '✏️', action: (p) => console.log('Edit', p.row) },
+    { id: 'history', name: 'Show history', icon: '🕘', action: (p) => console.log('History', p.row) },
+    { id: 'rows', name: '', separator: true, label: `${params.selectedRows.length} selected rows` },
+    {
+      id: 'export-rows',
+      name: 'Export selected',
+      icon: '📤',
+      hidden: singleRow,
+      action: (p) => console.log('Export', p.selectedRows),
+    },
+    {
+      id: 'delete-rows',
+      name: 'Delete selected',
+      icon: '🗑️',
+      cssClass: 'danger',
+      hidden: singleRow,
+      action: (p) => console.log('Delete', p.selectedRows),
+    },
+  ];
+
+  grid.gridConfig = {
+    columns,
+    features: { selection: 'row', contextMenu: { items } },
+  };
+  grid.rows = sampleData;
+}
+</script>

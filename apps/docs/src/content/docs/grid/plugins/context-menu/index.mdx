@@ -8,6 +8,7 @@ import { TabItem, Tabs } from '@astrojs/starlight/components';
 import ContextMenuConditionalItemsDemo from '@components/demos/context-menu/ContextMenuConditionalItemsDemo.astro';
 import ContextMenuDefaultDemo from '@components/demos/context-menu/ContextMenuDefaultDemo.astro';
 import ContextMenuEventsDemo from '@components/demos/context-menu/ContextMenuEventsDemo.astro';
+import ContextMenuGroupHeadersDemo from '@components/demos/context-menu/ContextMenuGroupHeadersDemo.astro';
 import ContextMenuWithSubmenusDemo from '@components/demos/context-menu/ContextMenuWithSubmenusDemo.astro';
 import PluginContributedItemsDemo from '@components/demos/context-menu/PluginContributedItemsDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
@@ -207,6 +208,18 @@ Show/hide items based on context.
 
 
 
+### Grouped Menu
+
+<ShowSource file="demos/context-menu/ContextMenuGroupHeadersDemo.astro">
+  <ContextMenuGroupHeadersDemo />
+</ShowSource>
+
+Label each section of the menu with what it acts on. Right-click a single row, then
+<kbd>Ctrl</kbd>/<kbd>⌘</kbd>-click to select several rows and right-click again — the
+**selected rows** group appears only when it has items. See [Group Headers](#group-headers).
+
+
+
 ### Plugin-Contributed Items
 
 <ShowSource file="demos/context-menu/PluginContributedItemsDemo.astro">
@@ -272,6 +285,42 @@ features: {
 },
 ```
 
+## Group Headers
+
+Menus that mix actions of different scope — the clicked **cell**, the whole **row**, a **selection
+of rows** — are easier to scan when each section is labelled. Give a separator a `label` to turn it
+into a group header: a divider with the label inline.
+
+```ts
+features: {
+  contextMenu: {
+    items: (params) => [
+      { id: 'cell', name: '', separator: true, label: 'Cell' },
+      { id: 'copy', name: 'Copy value', action: (p) => copy(p.value) },
+      { id: 'row', name: '', separator: true, label: 'Row' },
+      { id: 'edit', name: 'Edit row', action: (p) => edit(p.row) },
+      { id: 'rows', name: '', separator: true, label: `${params.selectedRows.length} selected rows` },
+      { id: 'delete', name: 'Delete selected', hidden: (p) => p.selectedRows.length < 2, action: (p) => remove(p.selectedRows) },
+    ],
+  },
+},
+```
+
+```
+─ Cell ────────────
+  Copy value
+─ Row ─────────────
+  Edit row
+```
+
+- A plain separator (`separator: true` without `label`) still renders a bare divider.
+- Group headers are not focusable or clickable and are skipped by the arrow keys.
+- **Empty groups collapse automatically.** When every item after a header is hidden, the header is
+  dropped too — no need to compute `hidden` for the header yourself. A header may lead the menu
+  (plain separators may not), and a plain separator directly before a header is absorbed by it.
+- `hidden` (static or a function) works on headers like any other item, and headers work inside
+  `subMenu` as well.
+
 ## Events
 
 <ShowSource>
@@ -294,6 +343,8 @@ The context menu supports CSS custom properties for theming. Override these on `
 | `--tbw-context-menu-fg` | `var(--tbw-color-fg)` | Menu text color |
 | `--tbw-context-menu-border` | `var(--tbw-color-border)` | Menu border |
 | `--tbw-context-menu-hover` | `var(--tbw-color-row-hover)` | Item hover background |
+| `--tbw-context-menu-group-header-fg` | `var(--tbw-context-menu-muted, var(--tbw-color-fg-muted))` | Group header label color |
+| `--tbw-context-menu-group-header-size` | `var(--tbw-font-size-xs)` | Group header label size |
 | `--tbw-menu-min-width` | `10rem` | Minimum menu width |
 | `--tbw-menu-item-padding` | `0.375rem 0.75rem` | Menu item padding |
 | `--tbw-menu-item-gap` | `0.5rem` | Gap between icon and label |
@@ -328,6 +379,8 @@ The menu uses these class names for advanced customization:
 | `.tbw-context-menu-label` | Item label text |
 | `.tbw-context-menu-shortcut` | Keyboard shortcut |
 | `.tbw-context-menu-separator` | Divider line |
+| `.tbw-context-menu-separator.tbw-context-menu-group-header` | Group header (labelled divider) |
+| `.tbw-context-menu-group-label` | Group header label text |
 
 ## Accessibility
 
@@ -336,6 +389,7 @@ The popup follows the
 
 - The popup is `role="menu"`; items are `role="menuitem"` (`tabindex="-1"`,
   focus moved between them by the keyboard), dividers are `role="separator"`,
+  group headers are `role="separator"` named by `aria-label` (the visible label),
   and disabled items carry `aria-disabled="true"` and are skipped.
 - <kbd>↑</kbd> / <kbd>↓</kbd> move between items (wrapping),
   <kbd>Enter</kbd> / <kbd>Space</kbd> activates, and <kbd>Esc</kbd> closes.

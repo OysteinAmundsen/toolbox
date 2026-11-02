@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { ContextMenuPlugin } from './context-menu-plugin';
 import {
   buildMenuItems,
@@ -187,6 +187,93 @@ describe('contextMenu', () => {
       expect(result).toHaveLength(3);
       expect(result[1].separator).toBe(true);
     });
+
+    describe('group headers', () => {
+      const ids = (items: ContextMenuItem[]) => items.map((i) => i.id);
+
+      it('keeps a leading group header', () => {
+        const items: ContextMenuItem[] = [
+          { id: 'h1', name: '', separator: true, label: 'Cell' },
+          { id: 'item1', name: 'Item 1' },
+        ];
+
+        expect(ids(collapseSeparators(items))).toEqual(['h1', 'item1']);
+      });
+
+      it('treats an empty-string label as a plain separator', () => {
+        const items: ContextMenuItem[] = [
+          { id: 'h1', name: '', separator: true, label: '' },
+          { id: 'item1', name: 'Item 1' },
+        ];
+
+        expect(ids(collapseSeparators(items))).toEqual(['item1']);
+      });
+
+      it('drops a trailing group header', () => {
+        const items: ContextMenuItem[] = [
+          { id: 'item1', name: 'Item 1' },
+          { id: 'h1', name: '', separator: true, label: 'Row' },
+        ];
+
+        expect(ids(collapseSeparators(items))).toEqual(['item1']);
+      });
+
+      it('lets a group header absorb a preceding plain separator', () => {
+        const items: ContextMenuItem[] = [
+          { id: 'item1', name: 'Item 1' },
+          { id: 'sep', name: '', separator: true },
+          { id: 'h1', name: '', separator: true, label: 'Row' },
+          { id: 'item2', name: 'Item 2' },
+        ];
+
+        expect(ids(collapseSeparators(items))).toEqual(['item1', 'h1', 'item2']);
+      });
+
+      it('drops a header whose group is empty (followed by another header)', () => {
+        const items: ContextMenuItem[] = [
+          { id: 'h1', name: '', separator: true, label: 'Cell' },
+          { id: 'h2', name: '', separator: true, label: 'Row' },
+          { id: 'item1', name: 'Item 1' },
+        ];
+
+        expect(ids(collapseSeparators(items))).toEqual(['h2', 'item1']);
+      });
+
+      it('drops a header whose group is empty (followed by a plain separator)', () => {
+        const items: ContextMenuItem[] = [
+          { id: 'item1', name: 'Item 1' },
+          { id: 'h1', name: '', separator: true, label: 'Row' },
+          { id: 'sep', name: '', separator: true },
+          { id: 'item2', name: 'Item 2' },
+        ];
+
+        expect(ids(collapseSeparators(items))).toEqual(['item1', 'sep', 'item2']);
+      });
+
+      it('drops a leading header with an empty group without leaving a leading plain separator', () => {
+        const items: ContextMenuItem[] = [
+          { id: 'h1', name: '', separator: true, label: 'Cell' },
+          { id: 'sep', name: '', separator: true },
+          { id: 'item1', name: 'Item 1' },
+        ];
+
+        expect(ids(collapseSeparators(items))).toEqual(['item1']);
+      });
+
+      it('collapses groups whose items were all hidden by buildMenuItems', () => {
+        const params = createMockParams();
+        const items: ContextMenuItem[] = [
+          { id: 'h-cell', name: '', separator: true, label: 'Cell' },
+          { id: 'reset', name: 'Reset', hidden: () => true },
+          { id: 'h-row', name: '', separator: true, label: 'Row' },
+          { id: 'edit', name: 'Edit' },
+          { id: 'h-rows', name: '', separator: true, label: '3 selected rows' },
+          { id: 'delete', name: 'Delete', hidden: true },
+        ];
+
+        expect(ids(collapseSeparators(buildMenuItems(items, params)))).toEqual(['h-row', 'edit']);
+      });
+    });
   });
 
   describe('isItemDisabled', () => {
@@ -245,11 +332,11 @@ describe('contextMenu', () => {
 
   describe('createMenuElement', () => {
     let params: ContextMenuParams;
-    let onAction: ReturnType<typeof vi.fn>;
+    let onAction: Mock<(item: ContextMenuItem) => void>;
 
     beforeEach(() => {
       params = createMockParams();
-      onAction = vi.fn();
+      onAction = vi.fn<(item: ContextMenuItem) => void>();
     });
 
     it('should create a menu element with correct role', () => {
@@ -290,6 +377,41 @@ describe('contextMenu', () => {
       expect(separators).toHaveLength(1);
       expect(separators[0].getAttribute('role')).toBe('separator');
       expect(menuItems).toHaveLength(2);
+    });
+
+    it('should render group headers as labelled, non-focusable separators', () => {
+      const items: ContextMenuItem[] = [
+        { id: 'item1', name: 'Item 1' },
+        { id: 'group1', name: 'ignored', separator: true, label: 'Group 1' },
+        { id: 'item2', name: 'Item 2' },
+        { id: 'sep', name: '', separator: true },
+        { id: 'item3', name: 'Item 3' },
+      ];
+
+      const menu = createMenuElement(items, params, onAction);
+      const separators = menu.querySelectorAll('.tbw-context-menu-separator');
+      const header = menu.querySelector('.tbw-context-menu-group-header');
+
+      expect(separators).toHaveLength(2);
+      expect(header).toBe(separators[0]);
+      expect(header?.getAttribute('role')).toBe('separator');
+      expect(header?.getAttribute('aria-label')).toBe('Group 1');
+      expect(header?.hasAttribute('tabindex')).toBe(false);
+      expect(header?.querySelector('.tbw-context-menu-group-label')?.textContent).toBe('Group 1');
+      expect(separators[1].classList.contains('tbw-context-menu-group-header')).toBe(false);
+      expect(separators[1].hasAttribute('aria-label')).toBe(false);
+      expect(menu.querySelectorAll('[role="menuitem"]')).toHaveLength(3);
+    });
+
+    it('should not count a group header label toward the icon column', () => {
+      const items: ContextMenuItem[] = [
+        { id: 'group1', name: '', separator: true, label: 'Group 1', icon: '📋' },
+        { id: 'item1', name: 'Item 1' },
+      ];
+
+      const menu = createMenuElement(items, params, onAction);
+
+      expect(menu.querySelectorAll('.tbw-context-menu-icon')).toHaveLength(0);
     });
 
     it('should render icon when provided', () => {
@@ -518,109 +640,71 @@ describe('contextMenu', () => {
     });
 
     describe('submenu hover interactions', () => {
+      /** Render a menu with one parent item holding `subMenu`, hover it, and return the parent + rendered submenu. */
+      function openSubmenu(subMenu: ContextMenuItem[]) {
+        const menu = createMenuElement([{ id: 'parent', name: 'Parent', subMenu }], params, onAction);
+        const parentItem = menu.querySelector('.tbw-context-menu-item') as HTMLElement;
+        parentItem.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        return { parentItem, subMenu: parentItem.querySelector<HTMLElement>('.tbw-context-submenu') };
+      }
+
       it('should show submenu on mouseenter', () => {
-        const items: ContextMenuItem[] = [
-          {
-            id: 'parent',
-            name: 'Parent',
-            subMenu: [{ id: 'child', name: 'Child Item' }],
-          },
-        ];
+        const { subMenu } = openSubmenu([{ id: 'child', name: 'Child Item' }]);
 
-        const menu = createMenuElement(items, params, onAction);
-        const parentItem = menu.querySelector('.tbw-context-menu-item');
-
-        parentItem?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-
-        const subMenu = parentItem?.querySelector('.tbw-context-submenu');
         expect(subMenu).not.toBeNull();
         expect(subMenu?.classList.contains('tbw-context-menu')).toBe(true);
       });
 
       it('should remove submenu on mouseleave', () => {
-        const items: ContextMenuItem[] = [
-          {
-            id: 'parent',
-            name: 'Parent',
-            subMenu: [{ id: 'child', name: 'Child' }],
-          },
-        ];
+        const { parentItem, subMenu } = openSubmenu([{ id: 'child', name: 'Child' }]);
+        expect(subMenu).not.toBeNull();
 
-        const menu = createMenuElement(items, params, onAction);
-        const parentItem = menu.querySelector('.tbw-context-menu-item');
-
-        // First trigger mouseenter to create submenu
-        parentItem?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-        expect(parentItem?.querySelector('.tbw-context-submenu')).not.toBeNull();
-
-        // Then trigger mouseleave to remove it
-        parentItem?.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
-        expect(parentItem?.querySelector('.tbw-context-submenu')).toBeNull();
+        parentItem.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+        expect(parentItem.querySelector('.tbw-context-submenu')).toBeNull();
       });
 
       it('should not create duplicate submenu on repeated mouseenter', () => {
-        const items: ContextMenuItem[] = [
-          {
-            id: 'parent',
-            name: 'Parent',
-            subMenu: [{ id: 'child', name: 'Child' }],
-          },
-        ];
+        const { parentItem } = openSubmenu([{ id: 'child', name: 'Child' }]);
 
-        const menu = createMenuElement(items, params, onAction);
-        const parentItem = menu.querySelector('.tbw-context-menu-item');
+        parentItem.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        parentItem.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
 
-        // Trigger mouseenter multiple times
-        parentItem?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-        parentItem?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-        parentItem?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-
-        const subMenus = parentItem?.querySelectorAll('.tbw-context-submenu');
-        expect(subMenus).toHaveLength(1);
+        expect(parentItem.querySelectorAll('.tbw-context-submenu')).toHaveLength(1);
       });
 
       it('should position submenu correctly', () => {
-        const items: ContextMenuItem[] = [
-          {
-            id: 'parent',
-            name: 'Parent',
-            subMenu: [{ id: 'child', name: 'Child' }],
-          },
-        ];
+        const { parentItem, subMenu } = openSubmenu([{ id: 'child', name: 'Child' }]);
 
-        const menu = createMenuElement(items, params, onAction);
-        const parentItem = menu.querySelector('.tbw-context-menu-item') as HTMLElement;
-
-        parentItem?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-
-        const subMenu = parentItem?.querySelector('.tbw-context-submenu') as HTMLElement;
         expect(subMenu?.style.position).toBe('absolute');
         expect(subMenu?.style.left).toBe('100%');
         expect(subMenu?.style.top).toBe('0px');
-        expect(parentItem?.style.position).toBe('relative');
+        expect(parentItem.style.position).toBe('relative');
       });
 
       it('should filter hidden items in submenu', () => {
-        const items: ContextMenuItem[] = [
-          {
-            id: 'parent',
-            name: 'Parent',
-            subMenu: [
-              { id: 'visible', name: 'Visible' },
-              { id: 'hidden', name: 'Hidden', hidden: true },
-            ],
-          },
-        ];
+        const { subMenu } = openSubmenu([
+          { id: 'visible', name: 'Visible' },
+          { id: 'hidden', name: 'Hidden', hidden: true },
+        ]);
 
-        const menu = createMenuElement(items, params, onAction);
-        const parentItem = menu.querySelector('.tbw-context-menu-item');
-
-        parentItem?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-
-        const subMenu = parentItem?.querySelector('.tbw-context-submenu');
         const subMenuItems = subMenu?.querySelectorAll('.tbw-context-menu-item');
         expect(subMenuItems).toHaveLength(1);
         expect(subMenuItems?.[0].getAttribute('data-id')).toBe('visible');
+      });
+
+      it('should render group headers and collapse empty groups in submenu', () => {
+        const { subMenu } = openSubmenu([
+          { id: 'h-empty', name: '', separator: true, label: 'Empty' },
+          { id: 'hidden', name: 'Hidden', hidden: true },
+          { id: 'h-full', name: '', separator: true, label: 'Full' },
+          { id: 'visible', name: 'Visible' },
+          { id: 'trailing', name: '', separator: true },
+        ]);
+
+        const separators = subMenu?.querySelectorAll('.tbw-context-menu-separator');
+        expect(separators).toHaveLength(1);
+        expect(separators?.[0].getAttribute('aria-label')).toBe('Full');
+        expect(subMenu?.lastElementChild?.getAttribute('data-id')).toBe('visible');
       });
     });
   });
@@ -1201,7 +1285,7 @@ describe('contextMenu', () => {
   describe('keyboard navigation', () => {
     describe('setupMenuKeyboard', () => {
       let menu: HTMLElement;
-      let onClose: ReturnType<typeof vi.fn>;
+      let onClose: Mock<() => void>;
 
       beforeEach(() => {
         const items: ContextMenuItem[] = [
@@ -1211,7 +1295,7 @@ describe('contextMenu', () => {
           { id: 'item4', name: 'Item 4', action: vi.fn() },
         ];
         const params = createMockParams();
-        onClose = vi.fn();
+        onClose = vi.fn<() => void>();
         menu = createMenuElement(items, params, vi.fn());
         document.body.appendChild(menu);
         setupMenuKeyboard(menu, onClose);
@@ -1227,6 +1311,26 @@ describe('contextMenu', () => {
 
         menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
         expect(document.activeElement).toBe(items[1]);
+      });
+
+      it('should skip group headers with ArrowDown', () => {
+        const grouped = createMenuElement(
+          [
+            { id: 'a', name: 'A', action: vi.fn() },
+            { id: 'h', name: '', separator: true, label: 'Group' },
+            { id: 'b', name: 'B', action: vi.fn() },
+          ],
+          createMockParams(),
+          vi.fn(),
+        );
+        document.body.appendChild(grouped);
+        setupMenuKeyboard(grouped, onClose);
+        const [a, b] = grouped.querySelectorAll<HTMLElement>('[role="menuitem"]');
+        a.focus();
+
+        grouped.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+        expect(document.activeElement).toBe(b);
+        grouped.remove();
       });
 
       it('should wrap focus from last to first with ArrowDown', () => {

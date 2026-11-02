@@ -85,6 +85,7 @@ const defaultItems: ContextMenuItem[] = [
  * | `visible` | `boolean \| (params) => boolean` | Visibility condition |
  * | `items` | `MenuItem[]` | Submenu items |
  * | `separator` | `boolean` | Create a divider line |
+ * | `label` | `string` | With `separator: true`, renders a group header (divider with inline label) |
  *
  * ## Menu Context (params)
  *
@@ -104,6 +105,8 @@ const defaultItems: ContextMenuItem[] = [
  * | `--tbw-context-menu-bg` | `var(--tbw-color-panel-bg)` | Menu background |
  * | `--tbw-context-menu-fg` | `var(--tbw-color-fg)` | Menu text color |
  * | `--tbw-context-menu-hover` | `var(--tbw-color-row-hover)` | Item hover background |
+ * | `--tbw-context-menu-group-header-fg` | `var(--tbw-context-menu-muted)` | Group header label color |
+ * | `--tbw-context-menu-group-header-size` | `var(--tbw-font-size-xs)` | Group header label size |
  *
  * @example Basic Context Menu
  * ```ts
@@ -261,6 +264,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
     '--tbw-font-size-xs',
     '--tbw-font-size-2xs',
     '--tbw-spacing-xs',
+    '--tbw-spacing-sm',
     '--tbw-icon-size',
     '--tbw-menu-min-width',
     '--tbw-menu-item-padding',
@@ -282,6 +286,8 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
     '--tbw-context-menu-icon-size',
     '--tbw-context-menu-shortcut-size',
     '--tbw-context-menu-arrow-size',
+    '--tbw-context-menu-group-header-fg',
+    '--tbw-context-menu-group-header-size',
     // Icon variables for context menu icons rendered outside tbw-grid
     '--tbw-icon-submenu-arrow',
   ];

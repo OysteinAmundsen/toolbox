@@ -384,29 +384,26 @@ test.describe('Cross-Framework Functional Parity', () => {
         await page.goto(url);
         await waitForGridReady(page);
 
-        // Find resize handle
-        const resizeHandle = page.locator('.dg-resize-handle').first();
-        const handleExists = (await resizeHandle.count()) > 0;
+        // #599: measure the header that owns the handle — `headerCell.first()` is
+        // the zero-width master-detail expander column.
+        const headerCell = page
+          .locator(SELECTORS.headerCell)
+          .filter({ has: page.locator(SELECTORS.resizeHandle) })
+          .first();
+        await expect(headerCell, 'demo must keep at least one resizable column').toBeVisible();
+        const resizeHandle = headerCell.locator(SELECTORS.resizeHandle);
 
-        if (handleExists) {
-          const headerCell = page.locator(SELECTORS.headerCell).first();
-          const initialWidth = await headerCell.evaluate((el) => el.getBoundingClientRect().width);
+        const initialWidth = (await headerCell.boundingBox())!.width;
+        const handleBox = (await resizeHandle.boundingBox())!;
+        const cx = handleBox.x + handleBox.width / 2;
+        const cy = handleBox.y + handleBox.height / 2;
 
-          // Drag resize handle
-          const handleBox = await resizeHandle.boundingBox();
-          if (handleBox) {
-            await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
-            await page.mouse.down();
-            await page.mouse.move(handleBox.x + 50, handleBox.y + handleBox.height / 2);
-            await page.mouse.up();
-            await page.waitForTimeout(200);
+        await page.mouse.move(cx, cy);
+        await page.mouse.down();
+        await page.mouse.move(cx + 60, cy, { steps: 10 });
+        await page.mouse.up();
 
-            // Verify width changed
-            const newWidth = await headerCell.evaluate((el) => el.getBoundingClientRect().width);
-            // Width should have changed (either increased or hit min-width)
-            expect(newWidth).not.toEqual(initialWidth);
-          }
-        }
+        await expect.poll(async () => (await headerCell.boundingBox())?.width ?? 0).toBeGreaterThan(initialWidth + 20);
       });
 
       // #597: the last column's handle is inset fully inside the cell, so both

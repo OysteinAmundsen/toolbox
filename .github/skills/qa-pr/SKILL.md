@@ -1,5 +1,4 @@
 ---
-
 name: qa-pr
 description: Remote QA — evaluate and address review comments on a GitHub pull request (from Copilot or a human reviewer). Fetch every unresolved thread, classify each as valid / partially valid / wrong, fix what's valid (via qa-apply-findings), push back on what isn't (citing DECIDED entries), reply inline and resolve threads with the bundled gh-CLI scripts. Never closes, merges, or pushes the PR. Counterpart to `qa` (local review). Use for any PR feedback triage; prefer this over the generic address-pr-comments skill.
 argument-hint: '<PR number>'
@@ -79,6 +78,13 @@ For the fixes: normalize every accepted item into the shared findings contract
 `thread.threadId` / `thread.commentId`) and apply them via the `qa-apply-findings` skill. Follow
 `delivery-workflow.instructions.md` for every code change. If a comment reveals a genuinely new
 constraint or invariant, capture it in the matching `.github/knowledge/` file as part of the fix.
+
+**Before replying "Fixed", review your own fix adversarially.** Code written to answer a review comment is where the
+next comment lands: on #604 each of three rounds was triggered by the previous round's fix. Run `/qa` →
+"Interaction & adversarial review" steps 3–5 on the new code. That means: falsify any classifier or heuristic the
+fix adds, check the staleness of any state it caches, and probe with the other plugins in both registration orders
+(`.github/skills/qa/scripts/probe.ts`). Prove each new regression test with `qa/scripts/mutation-check.ts`. Fix what
+that finds in the same round.
 
 ## 3. Reply and resolve
 

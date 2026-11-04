@@ -17,6 +17,14 @@ End-to-end local quality loop:
 The user runs this _before_ committing so problems are caught locally instead of waiting for the PR reviewer.
 Once a PR exists and has review comments, use `/qa-pr <PR number>` instead (the remote half of QA).
 
+### Scripts (`.github/skills/qa/scripts/`, Bun, run from repo root)
+
+| Script              | Purpose                                                                                                           |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `spec-typecheck.ts` | `tsc` each touched `*.spec.ts`, report only errors on changed lines (`[--base <ref>]` for branch mode).           |
+| `probe.ts`          | Run a throwaway integration probe (`--from <spec> --body <file> --name <topic>`), print `PROBE` lines, delete it. |
+| `mutation-check.ts` | Prove a test guards a fix: swap one text occurrence back to the broken code, expect red, restore byte-exact.      |
+
 ---
 
 ## 1. Parse the argument
@@ -63,9 +71,10 @@ For each file (or each hunk, when reviewing a diff), check:
 - Race conditions, stale closures (especially in React hooks: missing/incorrect `useEffect` deps).
 - Type assertions that hide real type errors (`as any`, `as unknown as T`, non-null `!`).
 - **Spec type errors** — no gate type-checks `*.spec.ts` (lint/test/build all pass over a hard `TS2322`): see
-  `build-and-deploy.md` → `INVARIANT (#470)`. For each touched spec, run that one-file `tsc --ignoreConfig` recipe
-  and report only errors on lines the diff changed (intersect with `git diff -U0` hunk ranges) — specs on `main`
-  already carry dozens of pre-existing errors.
+  `build-and-deploy.md` → `INVARIANT (#470)`. Run `bun .github/skills/qa/scripts/spec-typecheck.ts` (add
+  `--base <ref>` in `branch` mode). It runs the one-file `tsc --ignoreConfig` recipe on each touched spec and reports
+  only errors on changed lines, since specs on `main` already carry dozens of pre-existing errors. It exits 1 when
+  one of those lands on a changed line.
 
 ### Security (OWASP-aware)
 
@@ -197,6 +206,62 @@ For every modified or new prose block:
 4. **Knowledge files:** `DECIDED` entries are contracts. If a `DECIDED` claim contradicts code in scope, flag it explicitly and say which side you believe is correct (the entry usually wins; the diff under review may be the legitimate update).
 
 When prose disagrees with code, treat it as **Should fix** at minimum (**Blocking** if on a public API surface).
+
+### Interaction & adversarial review (beyond the hunk)
+
+Hunk-local checks miss the defect class the Copilot reviewer finds most on this repo: how the change behaves
+**combined with code the diff does not touch**. On PR #604 it found three such bugs in a row, and a hunk-scoped `/qa` missed all three. Two were plugin-order bugs (Pivot/GroupingColumns/PinnedColumns registered after
+ColumnVirtualization). The third was a shrunken pivot misread as scroll feedback. Run this for every changed
+function, class, or field that takes part in a shared mechanism: plugin hooks, queries, events, shared helpers,
+or cached state.
+
+1. **Map the blast radius.** Grep every other implementer and consumer of each touched mechanism, and read their
+   bodies, not just their signatures. Example: `override <hook>\(|hookPriority|query\.type === '<q>'|'<q>'`. Include
+   the core side that feeds it. For plugins that means `grid.ts#processColumns`, `config-manager.ts#merge` and
+   `plugin-manager.ts` dispatch. The knowledge `FLOW:` entries and `data-flow-traces.md` name the path.
+2. **Combination matrix, both registration orders.** For each interacting plugin, ask what the change does when
+   the plugin runs before it and when it runs after. Plugin array order decides hook order unless `hookPriority`
+   overrides it. Check these hazards:
+   - replacement (Pivot swaps the whole column list);
+   - cloning (`{ ...col }` breaks identity);
+   - reordering (pinning), including hidden columns;
+   - utility columns rebuilt on every pass;
+   - feedback loops (core re-seeds `#baseColumns` from processed `_columns`).
+3. **Falsify every classifier.** Every condition the diff adds that sorts inputs into kinds is a hypothesis. Typical
+   forms are "fewer columns ⇒ scroll pass", "same fields ⇒ feedback", or a cache keyed on length or identity.
+   Construct a concrete input that satisfies the condition but means the other thing, and the reverse. Read the
+   defaults that shape that input (e.g. `showTotals`, `overscan`, `threshold`).
+4. **Staleness of stored state.** For each new or changed field that caches derived state, list every event that
+   must refresh it and confirm each path does. Events to check: config replaced (larger _and_ smaller), runtime
+   setters, hide/show, row data change, plugin detach, and a re-run in each render phase.
+5. **Prove, don't argue.** Any candidate from 2–4 that reading cannot rule out gets a throwaway probe:
+   - Write only the probe body: `it(...)` blocks that `console.log('PROBE …')` the measured values.
+   - Run `bun .github/skills/qa/scripts/probe.ts --from <existing integration spec> --body <file> --name <topic>`.
+     It copies the spec for its helpers, skips its suites, runs yours, prints the `PROBE` lines and deletes the file.
+   - Only measured defects become findings; put the numbers in **Evidence**.
+   - Always measure a **control** too: the same probe without the changed plugin or flag. A defect that reproduces
+     anyway is pre-existing: file it as a bug issue (delivery-workflow), unless the diff widens its reach, in which
+     case it is a finding.
+   - When a finding is fixed, prove the new test guards it with
+     `bun .github/skills/qa/scripts/mutation-check.ts --file <src> --spec <filter> --find <fixed> --replace <broken>`.
+     It must print `KILLED`.
+6. **Re-review review-driven code first.** Code written to answer an earlier review comment is where the next
+   comment lands. Run step 3 on it before anything else.
+
+### Fresh-context pass (author bias)
+
+When `/qa` runs in the session that wrote the code, the reviewer shares the author's assumptions. A gap the author
+knowingly left looks "fine" even though an outside reviewer will probe it. So in `full` AI mode, after your own pass,
+launch **one** `code-review` subagent. Give it a fresh context containing:
+
+- the diff range (or file list);
+- the interaction points from step 1;
+- the classifiers from step 3;
+- an instruction to apply steps 2–4 adversarially and return only high-confidence findings with `path:line` and a
+  concrete triggering input.
+
+Verify each returned finding yourself (step 5) before it enters the report, and dedupe against your own findings.
+In `saving` mode, skip the subagent and list the step-1/step-3 inventory in the report so the user can decide.
 
 ## 4. Report format — must be agent-actionable
 

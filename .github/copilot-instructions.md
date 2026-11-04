@@ -120,7 +120,7 @@ Loaded on demand from `.github/skills/` for task-specific workflows:
 | `docs-update`         | After any feature, fix, or refactor                                                                 |
 | `since-tag`           | Resolving `@since` JSDoc versions for new public API                                                |
 | `qa-pr`               | `/qa-pr <PR>` — remote QA: evaluate PR review comments, fix valid ones, reply + resolve threads     |
-| `qa`                  | `/qa` (manual only) — local QA: pre-commit review + fix of a file/folder/diff/branch                |
+| `qa`                  | `/qa` (manual only) — local QA: review (incl. adversarial plugin-interaction probes) + fix          |
 | `fallow`              | Codebase intelligence: health score, complexity, dead code, duplication, PR audit via `bunx fallow` |
 | `qa-apply-findings`   | Shared findings execution core for `qa` and `qa-pr` (not user-invocable)                            |
 | `retrospective`       | Post-task lessons learned; update instructions & skills                                             |

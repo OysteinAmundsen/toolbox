@@ -113,6 +113,7 @@ Use ARIA roles and data attributes for robustness:
 
 - Own body rows are direct children of `.rows`, not `.rows-body`; for nested-grid fixtures, scope to the first owning `.rows` before selecting `:scope > .data-grid-row`.
 - Measurement regressions must assert that new row elements were created during the measured refresh before checking their styles; latch that observation so a later no-op refresh cannot erase it.
+- Never guard a known fixture element with `test.skip(count === 0)` / `if (await x.count())` — a stale selector then passes silently (#599: `.dg-resize-handle` never matched). Assert presence with `await expect(x).toHaveCount(n)` instead; fallow flags added skips as `weakened-tests/skip-only`.
 - Rows: `[role="row"]` via `dataRows()`
 - Cells: `[role="gridcell"]` via `cell()`
 - Headers: `[role="columnheader"]` via `headerCell()`

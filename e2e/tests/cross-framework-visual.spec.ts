@@ -408,6 +408,39 @@ test.describe('Cross-Framework Functional Parity', () => {
           }
         }
       });
+
+      // #597: the last column's handle is inset fully inside the cell, so both
+      // pseudo-elements must be re-pinned to the cell edge. Layout-only — happy-dom
+      // cannot catch it, so compare the resolved x of `::before` and `::after`.
+      test('last column resize indicator lines up with its header bar', async ({ page }) => {
+        await page.goto(url);
+        await waitForGridReady(page);
+
+        const lastHandle = page.locator(`.header-row > .cell:last-child > ${SELECTORS.resizeHandle}`);
+        await expect(lastHandle, 'demo must keep a resizable last column for this check').toHaveCount(1);
+
+        await lastHandle.scrollIntoViewIfNeeded();
+        await lastHandle.hover();
+
+        const geom = await lastHandle.evaluate((el) => {
+          const box = el.getBoundingClientRect();
+          const centerX = (pseudo: '::before' | '::after') => {
+            const cs = getComputedStyle(el, pseudo);
+            const tx = cs.transform === 'none' ? 0 : new DOMMatrixReadOnly(cs.transform).m41;
+            return box.left + parseFloat(cs.left) + tx + parseFloat(cs.width) / 2;
+          };
+          return {
+            cellRight: (el.parentElement as HTMLElement).getBoundingClientRect().right,
+            bar: centerX('::before'),
+            line: centerX('::after'),
+          };
+        });
+
+        expect(Math.abs(geom.line - geom.bar), `bar=${geom.bar} line=${geom.line}`).toBeLessThanOrEqual(0.5);
+        expect(Math.abs(geom.bar - geom.cellRight), `bar=${geom.bar} cellRight=${geom.cellRight}`).toBeLessThanOrEqual(
+          2,
+        );
+      });
     });
   }
 });

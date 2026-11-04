@@ -148,6 +148,8 @@ bun run e2e:full
 
 If a run fails with connection-refused / timeout on ports 4000/4100/4200/4300, the demo servers aren't up — start them (Option 1) or use `e2e:full` (Option 2).
 
+**Cold dev servers flake on the first run.** Right after `bun run demo`, the first parallel run can fail on the React demo with `Element is not attached to the DOM` or a header drag that never lands. The header is replaced under the test. Re-run (or `--repeat-each=3 --workers=1` for the affected tests) before treating it as a real failure. A failure that reproduces on warm servers is genuine.
+
 ## Update visual baselines
 
 Only after intentionally changing rendered output. Review the regenerated PNGs before committing.

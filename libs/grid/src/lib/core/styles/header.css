@@ -109,9 +109,11 @@
             right: 0;
             width: max(var(--tbw-resize-hit-area, 18px), var(--tbw-touch-target-min, 24px));
 
-            /* Hit area grew inward; pin the visible bar back to the cell edge
-               so it still reads as the column boundary. */
-            &::before {
+            /* Hit area grew inward; pin the visible bar AND the body indicator
+               line back to the cell edge so both read as the column boundary
+               and stay aligned with each other (#597). */
+            &::before,
+            &::after {
               left: auto;
               right: 0;
               transform: none;

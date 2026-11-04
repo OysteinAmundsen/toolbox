@@ -231,8 +231,8 @@ override afterRowRender(context: AfterRowRenderContext): void {
 | `this.grid` | Typed `GridElement` (extends `GridElementRef`) |
 | `this.gridElement` | Grid as `HTMLElement` for DOM queries |
 | `this.isOwnTarget(eventOrElement)` | `false` when an event (or element) belongs to a grid nested inside this one (see below) |
-| `this.columns` | Current column configurations |
-| `this.visibleColumns` | Only visible columns |
+| `this.columns` | All column configurations (hidden included, never windowed) |
+| `this.visibleColumns` | Rendered columns — visible only, narrowed by [column virtualization](/grid/plugins/column-virtualization/); use to match DOM cell indices |
 | `this.rows` | Processed rows (after filtering, grouping) |
 | `this.sourceRows` | Original unfiltered rows |
 | `this.disconnectSignal` | `AbortSignal` for auto-cleanup |

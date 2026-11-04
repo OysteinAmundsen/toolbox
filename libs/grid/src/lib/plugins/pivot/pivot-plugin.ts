@@ -1021,8 +1021,9 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
   // #region Private Helpers
 
+  /** Rendered (visible, possibly windowed) columns: pivot rows must match the header/template tracks. */
   private get gridColumns(): ColumnConfig[] {
-    return (this.grid.columns ?? []) as ColumnConfig[];
+    return this.visibleColumns;
   }
 
   /**

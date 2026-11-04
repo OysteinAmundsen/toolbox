@@ -10,7 +10,7 @@ import { resolveCellValue } from '../../core/internal/value-accessor';
 import { BaseGridPlugin, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import { type CollectHeaderRowsContext, type HeaderRowCell, type HeaderRowContribution } from '../../core/plugin/types';
 import type { ColumnConfig, InternalGrid } from '../../core/types';
-import { getSourceColumns, resolveColumns, resolveRows } from '../shared/data-collection';
+import { resolveColumns, resolveRows } from '../shared/data-collection';
 import { buildCsv, type CsvOptions, downloadBlob, downloadCsv } from './csv';
 import { buildExcelXml, downloadExcel } from './excel';
 import type { ExportCompleteDetail, ExportConfig, ExportFormat, ExportMode, ExportParams } from './types';
@@ -172,7 +172,7 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
       headerRows: params?.headerRows,
     };
 
-    const columns = resolveColumns(getSourceColumns(this.grid), params?.columns, config.onlyVisible) as ColumnConfig[];
+    const columns = resolveColumns(this.columns, params?.columns, config.onlyVisible) as ColumnConfig[];
 
     let rows: Record<string, unknown>[];
     if (params?.rowIndices) {
@@ -470,7 +470,7 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
    * header labels, widths, or types alongside the data.
    */
   getResolvedColumns(params?: Partial<ExportParams>): ColumnConfig[] {
-    return resolveColumns(getSourceColumns(this.grid), params?.columns, this.config.onlyVisible) as ColumnConfig[];
+    return resolveColumns(this.columns, params?.columns, this.config.onlyVisible) as ColumnConfig[];
   }
 
   /**

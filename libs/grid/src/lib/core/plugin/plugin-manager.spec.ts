@@ -283,6 +283,31 @@ describe('PluginManager hookPriority', () => {
       expect(executionOrder).toEqual(['reverser', 'observer']);
       expect(observer.seen).toEqual(['b', 'a']);
     });
+
+    it('should chain windowColumns and return the input untouched without windowing plugins (#603)', () => {
+      const input: ColumnConfig[] = [{ field: 'a' }, { field: 'b' }, { field: 'c' }];
+      expect(manager.windowColumns(input)).toBe(input);
+
+      class DropFirst extends BaseGridPlugin {
+        readonly name = 'dropFirst';
+        override windowColumns(columns: readonly ColumnConfig[]): readonly ColumnConfig[] {
+          executionOrder.push('dropFirst');
+          return columns.slice(1);
+        }
+      }
+      class DropLast extends BaseGridPlugin {
+        static override readonly manifest: PluginManifest = { hookPriority: { windowColumns: -1 } };
+        readonly name = 'dropLast';
+        override windowColumns(columns: readonly ColumnConfig[]): readonly ColumnConfig[] {
+          executionOrder.push('dropLast');
+          return columns.slice(0, -1);
+        }
+      }
+      manager.attachAll([new DropFirst(), new DropLast()]);
+
+      expect(manager.windowColumns(input).map((c) => c.field)).toEqual(['b']);
+      expect(executionOrder).toEqual(['dropLast', 'dropFirst']);
+    });
   });
 
   describe('cache invalidation', () => {

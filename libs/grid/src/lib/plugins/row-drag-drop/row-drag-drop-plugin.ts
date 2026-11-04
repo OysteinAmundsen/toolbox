@@ -317,7 +317,13 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
 
   /** @internal */
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
-    if (!this.shouldRenderDragHandle()) return [...columns];
+    // Core re-feeds the previous pass's output on every COLUMNS pass, so an existing handle is
+    // rebuilt in place (never stacked), keeping a runtime pin (`setPinPosition`) and its position.
+    const existingIndex = columns.findIndex((c) => c.field === ROW_DRAG_HANDLE_FIELD);
+    if (!this.shouldRenderDragHandle()) {
+      return existingIndex < 0 ? [...columns] : columns.filter((c) => c.field !== ROW_DRAG_HANDLE_FIELD);
+    }
+    const existingPin = (columns[existingIndex] as (ColumnConfig & { pinned?: unknown }) | undefined)?.pinned;
 
     const dragHandleColumn: ColumnConfig = {
       field: ROW_DRAG_HANDLE_FIELD,
@@ -348,6 +354,12 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
       },
     };
 
+    if (existingPin != null) (dragHandleColumn as ColumnConfig & { pinned?: unknown }).pinned = existingPin;
+    if (existingIndex >= 0) {
+      const next = [...columns];
+      next[existingIndex] = dragHandleColumn;
+      return next;
+    }
     return this.config.dragHandlePosition === 'right' ? [...columns, dragHandleColumn] : [dragHandleColumn, ...columns];
   }
 

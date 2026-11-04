@@ -10,29 +10,6 @@
 
 import type { ColumnConfig } from '../../core/types';
 
-/** The slice of the grid {@link getSourceColumns} needs. */
-interface ColumnSourceGrid {
-  readonly columns: ColumnConfig[];
-  query?<R>(type: string, context?: unknown): R[];
-}
-
-/**
- * The full column list a data operation (export, copy) draws from.
- *
- * `grid.columns` holds the RENDERED columns. A plugin that windows them for
- * rendering only (e.g. `ColumnVirtualizationPlugin`) answers the
- * `'getFullColumns'` query with the complete post-plugin list, hidden columns
- * included, so off-screen columns are not silently dropped (#598).
- *
- * @param grid - The grid the calling plugin is attached to
- * @returns The full column list, or `grid.columns` when no plugin windows them
- */
-export function getSourceColumns(grid: ColumnSourceGrid | undefined): ColumnConfig[] {
-  if (!grid) return [];
-  const responses = grid.query?.<ColumnConfig[]>('getFullColumns');
-  return (Array.isArray(responses) && responses[0]) || grid.columns;
-}
-
 /**
  * Resolve which columns to include in a data export or copy operation.
  *

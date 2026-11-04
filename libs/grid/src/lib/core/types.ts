@@ -457,7 +457,7 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   querySelectorAll<E extends Element = Element>(selectors: string): NodeListOf<E>;
   _rows: T[];
   _columns: ColumnInternal<T>[];
-  /** Visible columns only (excludes hidden). Use for rendering. */
+  /** Rendered columns: visible (excludes hidden), narrowed by any column windowing (e.g. ColumnVirtualization). Use for rendering. */
   _visibleColumns: ColumnInternal<T>[];
   _headerRowEl: HTMLElement;
   _bodyEl: HTMLElement;

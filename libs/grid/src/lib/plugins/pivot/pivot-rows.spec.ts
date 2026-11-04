@@ -26,7 +26,7 @@ describe('pivot-rows', () => {
   describe('renderPivotGroupRow', () => {
     const createContext = (overrides: Partial<RowRenderContext> = {}): RowRenderContext => ({
       columns: [
-        { field: 'label', header: 'Label' },
+        { field: '__pivotLabel', header: 'Label' },
         { field: 'value', header: 'Value' },
         { field: 'count', header: 'Count' },
       ] as ColumnConfig[],
@@ -221,7 +221,7 @@ describe('pivot-rows', () => {
 
       const ctx = createContext({
         columns: [
-          { field: 'label', header: 'Label' },
+          { field: '__pivotLabel', header: 'Label' },
           { field: 'value', header: 'Value', format: (v: unknown) => `$${Number(v).toLocaleString()}` },
           { field: 'count', header: 'Count' },
         ] as ColumnConfig[],
@@ -251,7 +251,7 @@ describe('pivot-rows', () => {
 
   describe('renderPivotLeafRow', () => {
     const columns: ColumnConfig[] = [
-      { field: 'name', header: 'Name' },
+      { field: '__pivotLabel', header: 'Name' },
       { field: 'amount', header: 'Amount' },
     ];
 
@@ -333,7 +333,7 @@ describe('pivot-rows', () => {
 
     it('should apply column format function to non-first columns', () => {
       const fmtColumns: ColumnConfig[] = [
-        { field: 'name', header: 'Name' },
+        { field: '__pivotLabel', header: 'Name' },
         { field: 'amount', header: 'Amount', format: (v: unknown) => `$${Number(v).toFixed(2)}` },
       ];
       const row: PivotRowData = {
@@ -360,7 +360,7 @@ describe('pivot-rows', () => {
 
   describe('renderPivotGrandTotalRow', () => {
     const columns: ColumnConfig[] = [
-      { field: 'label', header: 'Label' },
+      { field: '__pivotLabel', header: 'Label' },
       { field: 'total', header: 'Total' },
       { field: 'avg', header: 'Average' },
     ];
@@ -420,7 +420,7 @@ describe('pivot-rows', () => {
 
     it('should apply column format function to non-first columns', () => {
       const fmtColumns: ColumnConfig[] = [
-        { field: 'label', header: 'Label' },
+        { field: '__pivotLabel', header: 'Label' },
         { field: 'total', header: 'Total', format: (v: unknown) => `€${Number(v).toLocaleString()}` },
         { field: 'avg', header: 'Average' },
       ];

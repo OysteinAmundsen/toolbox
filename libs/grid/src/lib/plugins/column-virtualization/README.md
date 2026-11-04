@@ -39,15 +39,11 @@ The plugin automatically enables when column count exceeds the threshold.
 
 Pinned columns and utility columns (selection checkbox, master-detail expander, row-drag handle) are never virtualized away: they are always rendered, so pinned ones stay visible while scrolling horizontally. Unpinned utility columns scroll out of view like any unpinned column; pin them to keep them on screen.
 
-## Export and Clipboard
+## Export, Clipboard and Column APIs
 
-Virtualization only limits which columns are **rendered** — `grid.columns` holds the rendered window. `ExportPlugin` and `ClipboardPlugin` still include every column, including those scrolled out of view (a cell-range copy covers only the selected columns).
+Virtualization only limits which columns are **rendered**. `grid.columns` and every column API (`setColumnVisible`, `setPinPosition`, reordering, …) keep working on the full column list, including columns scrolled out of view. `ExportPlugin` and `ClipboardPlugin` therefore include every column (a cell-range copy covers only the selected columns).
 
-The plugin always windows the columns **after** every other column plugin (pinning, grouping, pivot), whatever their order in `plugins`, so exports keep pinned order, group header rows, and pivot columns. A custom plugin can get the full list via the `'getFullColumns'` query (answered only while virtualization is active):
-
-```typescript
-const [full = this.grid.columns] = this.grid.query<ColumnConfig[]>('getFullColumns');
-```
+The window is computed **after** every other column plugin (pinning, grouping, pivot), whatever their order in `plugins`, from their final output — so pinned order, group header rows, and pivot columns are preserved. Custom plugins that map columns onto rendered DOM cells by index should use `this.visibleColumns` (the rendered columns), not `this.columns`.
 
 ## API Methods
 

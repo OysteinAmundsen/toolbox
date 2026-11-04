@@ -20,16 +20,16 @@ related: [grid-plugins-catalog-data, grid-plugins-catalog-ui, grid-plugins-shell
 - FLOW: `attach(grid)` → merge defaults + user config → store grid ref → `onPluginAttached()` notifications → [runtime hooks] → `detach()` → abort signal fires → cleanup.
 - INVARIANT: `disconnectSignal` (AbortSignal) fires on detach — use it for ALL event-listener cleanup. GUARANTEED by `PluginManager.detachAll()` calling `plugin.__releaseDisconnectSignal()` (idempotent; base `detach()` calls it too) AFTER `plugin.detach()` — 7 plugins (clipboard, context-menu, filtering, grouping-columns, reorder, selection, visibility) override `detach()` without `super.detach()` and leaked host listeners until PR #525. Tests: `integration/plugin-detach-signal.spec.ts`.
 - INVARIANT: `plugin.grid` is available after `attach()`, null after `detach()`.
-- INVARIANT: `plugin.grid` (typed `GridElement`) is the object plugins read internal state from (`_sortState`, `_visibleColumns`, `_virtualization`, …). Do **NOT** re-route those reads through `this.gridElement` / `grid._hostElement`. Production satisfies `_hostElement === this` (`grid.ts` `get _hostElement() { return this; }`), but plugin specs mock `grid` as a plain object with **no** `_hostElement`, so the swap yields `undefined` at runtime. Verified: 73 failures across 7 specs (tree, undo-redo, reorder-columns, multi-sort, grouping-rows, row-drag-drop, server-side).
-- DECIDED (Aug 2026, #465): plugin grid types form one narrowing chain `PublicGrid<T>` → `InternalGrid<T>` → `GridElementRef<T>` → `GridElement`, with the **plugin-facing type at the bottom**. `GridElementRef<T = any> extends Omit<InternalGrid<T>, Exclude<keyof GridConfig<T>, ElementBackedConfigKey> | DomRedeclaredKey>, HTMLElement` (`core/plugin/types.ts`). WHY: the post-`attach()` view is the _most specific_ one, and `GridElementRef`/`GridElement` are **not exported from `public.ts`**, so all narrowing lands on types no consumer can name ⇒ zero public-API change, non-breaking. Deleted all ~13 `this.grid as unknown as GridHost` casts; bundle byte-identical (155.72 kB / 46.13 kB gz).
+- INVARIANT: `plugin.grid` (typed `GridElement`) is the object plugins read internal state from (`_sortState`, `_visibleColumns`, `_virtualization`, …). Do **NOT** re-route those reads through `this.gridElement` / `grid._hostElement`. Production satisfies `_hostElement === this`, but plugin specs mock `grid` as a plain object with **no** `_hostElement` (see RULED OUT (a) below).
+- DECIDED (Aug 2026, #465): plugin grid types form one narrowing chain `PublicGrid<T>` → `InternalGrid<T>` → `GridElementRef<T>` → `GridElement`, with the **plugin-facing type at the bottom**. `GridElementRef<T = any> extends Omit<InternalGrid<T>, Exclude<keyof GridConfig<T>, ElementBackedConfigKey> | DomRedeclaredKey>, HTMLElement` (`core/plugin/types.ts`). WHY: the post-`attach()` view is the _most specific_ one, and `GridElementRef`/`GridElement` are **not exported from `public.ts`**, so all narrowing lands on types no consumer can name ⇒ zero public-API change. No `this.grid as unknown as GridHost` casts remain.
 - INVARIANT: `GridElementRef extends HTMLElement`, so `this.grid` is directly assignable to `GridHost = InternalGrid<T> & HTMLElement`. MUST NOT re-add a hand-rolled DOM facade (`clientWidth`, `addEventListener`, `setAttribute`, …) — removed for real inheritance. `DomRedeclaredKey = 'querySelector' | 'querySelectorAll'` is omitted from the `InternalGrid` half: it declares 2 overloads vs `HTMLElement`'s 4, and multiply-inherited same-named members must be _identical_.
 - INVARIANT: only 4 of `GridConfig`'s 25 keys are real accessors on the custom element — `ElementBackedConfigKey = 'columns' | 'fitMode' | 'columnState' | 'columnInference'`. Every other config key (`rowHeight`, `locale`, `sortable`, …) lives only in `gridConfig`/`effectiveConfig` and is `undefined` when read off the element, so `GridElementRef` omits them. `InternalGrid extends GridConfig` over-promises ~20 phantom members; reading them off a plugin's `grid` is now a compile error.
 - DECIDED (#465, PR #466 review): `PublicGrid.getPlugin` and `GridElement.getPlugin` are both constrained to `GridPlugin` (`core/types.ts`), not `BaseGridPlugin` — the latter would reintroduce a circular import. `PublicGrid.getPlugin` is thus _stricter_ than before (was unconstrained `<P>`), but NOT breaking: `BaseGridPlugin implements GridPlugin` with `abstract readonly name` (subclasses must declare it) and `version` defaulted to `__GRID_VERSION__`, so every registerable plugin satisfies it by construction. Only `getPlugin(NonPluginClass)` is newly rejected — it returned `undefined` anyway (`plugin-manager` only stores `BaseGridPlugin`). RULED OUT: an unconstrained "back-compat" overload — TS resolves to it and the constraint never binds.
-- RULED OUT: (a) re-routing via `this.gridElement` / `grid._hostElement` — 73 failures across 7 specs (plugin specs mock `grid` without `_hostElement`); (b) `GridElement extends GridElementRef, InternalGrid` — multiple inheritance needs identical same-named members; (c) hoisting `protected get internalGrid()` onto `BaseGridPlugin` — base-class names are unmanglable at every call site (editing has ~500 B headroom); (d) dropping `InternalGrid extends GridConfig<T>` — removes 25 members from an **exported** type = breaking.
+- RULED OUT: (a) re-routing via `this.gridElement` / `grid._hostElement` — 73 failures across 7 specs (tree, undo-redo, reorder-columns, multi-sort, grouping-rows, row-drag-drop, server-side); (b) `GridElement extends GridElementRef, InternalGrid` — multiple inheritance needs identical same-named members; (c) hoisting `protected get internalGrid()` onto `BaseGridPlugin` — base-class names are unmanglable at every call site (editing has ~500 B headroom); (d) dropping `InternalGrid extends GridConfig<T>` — removes 25 members from an **exported** type = breaking.
 - INVARIANT: a scratch/probe `.ts` file **cannot** verify grid type-compatibility. `InternalGrid extends GridConfig`, and 52 files `declare module '../core/types'`, so its shape depends on which augmentations the compilation loaded — a probe reported "no error" for a cast that fails in real plugin files. Verify via `bun nx build grid`, never an isolated file.
 - DECIDED: prefer config-driven init over post-ready imperative setup. Known-at-config-time resources accept a config prop and auto-init in `attach()` (pattern: `ServerSidePlugin` reads `config.dataSource`). Reserve imperative setters (`setDataSource()`) for runtime swaps.
-- DECIDED (Feb 2026, dead-config audit): a key declared on `*PluginConfig` + set in `defaultConfig` + documented, with ZERO consumers, is **dead and MUST be removed** — never "reserved for future use". Sweep with grep for `this.config.<key>`, `config.<key>`, `gridConfig.<key>` across the plugin dir + core. Removed: `visibility.allowHideAll`, `master-detail.collapseOnClickOutside`, `filtering.{trimInput,useWorker}`. PENDING: `pinned-rows.{showRowCount,showSelectedCount,showFilteredCount}` (removal needs a synthesized default `slots: []`).
-- INVARIANT (Sep 2026): imperative plugin state set via a plugin-API call does **NOT** survive a `gridConfig` reassignment. `set gridConfig` → `#queueUpdate` → (scheduler rAF) `#syncPlugins()` → `pluginManager.detachAll()` + `#initializePlugins()`, so the instance returned by `getPluginByName()` **before** the flush is discarded. Worse for observer-driven plugins: the fresh `attach()` re-`observe()`s, and RO callbacks are delivered **after** rAF callbacks in the same frame — so even `requestAnimationFrame(() => plugin.setX())` is undone. Callers that must pin state across a config rebuild have to re-assert from the plugin's own change event (converges in one correction), not from a one-shot rAF. Hit by `ResponsiveDefaultDemo` (`setResponsive()` reverted by the re-attached `ResizeObserver`).
+- DECIDED (Feb 2026, dead-config audit): a key declared on `*PluginConfig` + set in `defaultConfig` + documented, with ZERO consumers, is **dead and MUST be removed** — never "reserved for future use". Sweep: grep `config.<key>` across the plugin dir + core. Removed: `visibility.allowHideAll`, `master-detail.collapseOnClickOutside`, `filtering.{trimInput,useWorker}`. PENDING: `pinned-rows.{showRowCount,showSelectedCount,showFilteredCount}` (removal needs a synthesized default `slots: []`).
+- INVARIANT (Sep 2026): imperative plugin state set via a plugin-API call does **NOT** survive a `gridConfig` reassignment. `set gridConfig` → `#queueUpdate` → (scheduler rAF) `#syncPlugins()` → `pluginManager.detachAll()` + `#initializePlugins()`, so the instance returned by `getPluginByName()` **before** the flush is discarded. Observer-driven plugins re-`observe()` on the fresh `attach()`, and RO callbacks fire **after** rAF callbacks in the same frame, so even `requestAnimationFrame(() => plugin.setX())` is undone. To pin state across a config rebuild, re-assert from the plugin's own change event, not a one-shot rAF (`ResponsiveDefaultDemo`, `setResponsive()`).
 
 ## hook-system
 
@@ -39,11 +39,14 @@ related: [grid-plugins-catalog-data, grid-plugins-catalog-ui, grid-plugins-shell
 | ----------------- | ------------ | ---------------------------------------- | ---------------- |
 | `orderColumns`    | COLUMNS      | reorder FULL list, hidden incl. (#512)   | `ColumnConfig[]` |
 | `processColumns`  | COLUMNS      | transform column array                   | `ColumnConfig[]` |
+| `windowColumns`   | lazy         | render-only subset (#603), `@internal`   | `ColumnConfig[]` |
 | `processRows`     | ROWS         | transform row array (filter/sort/expand) | `any[]`          |
 | `afterCellRender` | per-cell     | cell styling, badges                     | void             |
 | `afterRowRender`  | per-row      | row styling, ARIA                        | void             |
 | `afterRender`     | STYLE        | full DOM queries, event listeners        | void             |
 | `onScrollRender`  | scroll-reuse | reapply visual state to recycled DOM     | void             |
+
+- INVARIANT: `windowColumns` runs on a `_visibleColumns` cache miss. `processColumns` MUST be idempotent on its OWN output (each COLUMNS pass re-seeds `#baseColumns`): rebuild an injected column in place by field, keeping runtime state (RowDragDrop: pin, #603).
 
 ### Event hooks (return `true` for early exit)
 
@@ -126,16 +129,16 @@ modifiesRowStructure — affects the render scheduler
 
 ## hook-priority map
 
-| Plugin        | Hook             | Priority | Reason                                     |
-| ------------- | ---------------- | -------- | ------------------------------------------ |
-| ServerSide    | `processRows`    | -10      | provides managedNodes first                |
-| PinnedColumns | `processColumns` | -10      | reorder pinned before ColumnVirtualization |
-| Pivot         | `onHeaderClick`  | -10      | intercept before MultiSort                 |
-| GroupingRows  | `onHeaderClick`  | -1       | intercept group headers before MultiSort   |
-| Tree          | `processRows`    | 10       | after ServerSide, before others            |
-| GroupingRows  | `processRows`    | 10       | after ServerSide                           |
-| Editing       | `processRows`    | 50       | final rows → edit index before reconcile   |
-| Pivot         | `processRows`    | 100      | after MultiSort, apply aggregation         |
+| Plugin        | Hook             | Priority | Reason                                   |
+| ------------- | ---------------- | -------- | ---------------------------------------- |
+| ServerSide    | `processRows`    | -10      | provides managedNodes first              |
+| PinnedColumns | `processColumns` | -10      | reorder before others (Tree) wrap them   |
+| Pivot         | `onHeaderClick`  | -10      | intercept before MultiSort               |
+| GroupingRows  | `onHeaderClick`  | -1       | intercept group headers before MultiSort |
+| Tree          | `processRows`    | 10       | after ServerSide, before others          |
+| GroupingRows  | `processRows`    | 10       | after ServerSide                         |
+| Editing       | `processRows`    | 50       | final rows → edit index before reconcile |
+| Pivot         | `processRows`    | 100      | after MultiSort, apply aggregation       |
 
 ## scroll dispatch
 

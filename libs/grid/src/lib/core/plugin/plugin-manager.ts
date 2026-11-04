@@ -413,6 +413,18 @@ export class PluginManager {
   }
 
   /**
+   * Execute the internal windowColumns hook (render-only column subset) on all plugins.
+   * Returns the input array unchanged when no plugin windows.
+   */
+  windowColumns<C extends ColumnConfig>(columns: C[]): C[] {
+    let result = columns;
+    for (const plugin of this.#getPluginsForHook('windowColumns')) {
+      if (plugin.windowColumns) result = plugin.windowColumns(result) as C[];
+    }
+    return result;
+  }
+
+  /**
    * Execute processConfig hook on all plugins.
    * Lets plugins contribute to the effective config during each merge. Plugins
    * mutate the passed config in place (e.g. the shell plugin folds its state

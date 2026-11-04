@@ -26,11 +26,12 @@ const read = (flag: string, fileFlag: string): string => {
   if (typeof args[fileFlag] === 'string') return readFileSync(args[fileFlag] as string, 'utf8');
   return fail(`Missing --${flag} or --${fileFlag}`);
 };
-const find = read('find', 'find-file');
-const replace = read('replace', 'replace-file');
-
 const original = readFileSync(file);
 const text = original.toString('utf8');
+// Working trees here are CRLF (core.autocrlf=true); let multi-line --find/--replace use plain \n.
+const toFileEol = (s: string): string => (text.includes('\r\n') && !s.includes('\r\n') ? s.replace(/\n/g, '\r\n') : s);
+const find = toFileEol(read('find', 'find-file'));
+const replace = toFileEol(read('replace', 'replace-file'));
 const hits = text.split(find).length - 1;
 if (hits !== 1) fail(`--find must match exactly once in ${file} (matched ${hits})`);
 

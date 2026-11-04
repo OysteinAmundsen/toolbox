@@ -5,7 +5,8 @@
  * Significantly improves rendering performance when dealing with >30 columns.
  */
 
-import { BaseGridPlugin, ScrollEvent } from '../../core/plugin/base-plugin';
+import { interleaveHiddenColumns } from '../../core/internal/columns';
+import { BaseGridPlugin, type PluginManifest, type PluginQuery, ScrollEvent } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
 import {
   computeColumnOffsets,
@@ -59,6 +60,22 @@ import type { ColumnVirtualizationConfig } from './types';
  */
 export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizationConfig> {
   /** @internal */
+  static override readonly manifest: PluginManifest = {
+    hookPriority: {
+      // Window AFTER every semantic column transform (pinning order, pivot, grouping…), so
+      // `originalColumns`/`#sourceColumns` hold the final full set, whatever the plugin order.
+      orderColumns: 1000,
+      processColumns: 1000,
+    },
+    queries: [
+      {
+        type: 'getFullColumns',
+        description: 'Full processed column list (hidden included), before the render-only column window',
+      },
+    ],
+  };
+
+  /** @internal */
   readonly name = 'columnVirtualization';
 
   /** @internal */
@@ -80,6 +97,16 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
   private columnOffsets: number[] = [];
   /** Store the original full column set for virtualization calculations */
   private originalColumns: readonly ColumnConfig[] = [];
+  /** Full ordered column list (hidden included) captured with `originalColumns`, for `getFullColumns`. */
+  #sourceColumns: readonly ColumnConfig[] = [];
+  /** This pass's `orderColumns` input; adopted as `#sourceColumns` only with a new column set. */
+  #pendingSourceColumns: readonly ColumnConfig[] = [];
+  /** Window emitted by the last pass (empty when not virtualized) — the only list core feeds back. */
+  #lastWindow: readonly ColumnConfig[] = [];
+  /** Fields hidden when the current set was adopted; showing one later is not a new set (#603). */
+  #hiddenAtAdoption = new Set<string>();
+  /** Row/header left padding: offset of the window start minus the always-rendered columns before it. */
+  #leftPadding = 0;
   // #endregion
 
   // #region Lifecycle
@@ -90,9 +117,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
 
     // Initialize state from current columns
     const columns = this.columns;
-    this.columnWidths = getColumnWidths(columns);
-    this.columnOffsets = computeColumnOffsets(columns);
-    this.totalWidth = computeTotalWidth(columns);
+    this.#measure(columns);
     this.endCol = columns.length - 1;
   }
 
@@ -104,6 +129,11 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     this.columnWidths = [];
     this.columnOffsets = [];
     this.originalColumns = [];
+    this.#sourceColumns = [];
+    this.#pendingSourceColumns = [];
+    this.#lastWindow = [];
+    this.#hiddenAtAdoption.clear();
+    this.#leftPadding = 0;
     this.isVirtualized = false;
     this.startCol = 0;
     this.endCol = 0;
@@ -143,25 +173,42 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
 
   // #region Hooks
 
+  /**
+   * Capture the final ordered column list (hidden included; runs last via `hookPriority`) so
+   * `getFullColumns` can re-insert hidden columns at their source position. Never reorders.
+   * @internal
+   */
+  override orderColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
+    // After a scroll pass core feeds back our own window here, so it is only
+    // trusted once processColumns recognises a new full column set.
+    this.#pendingSourceColumns = columns;
+    return columns as ColumnConfig[];
+  }
+
+  /** @internal */
+  override handleQuery(query: PluginQuery): unknown {
+    // `grid.columns` only holds the rendered window while virtualized; data
+    // operations (export, copy) need every column (#598).
+    if (query.type === 'getFullColumns' && this.isVirtualized) {
+      return interleaveHiddenColumns(this.#sourceColumns, this.originalColumns);
+    }
+    return undefined;
+  }
+
   /** @internal */
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
-    // Detect if this is a new column set or just a scroll-triggered re-render.
-    // We consider it "new" if:
-    // 1. We don't have any stored yet (first time)
-    // 2. Incoming has AS MANY OR MORE columns than we stored (genuine new config)
-    //    When virtualization is active, our output is a SUBSET (fewer columns),
-    //    so a scroll-triggered re-render will have fewer columns than originalColumns.
-    //    When virtualization is off, our output has the same count as originalColumns,
-    //    but any config change (e.g., pinning a column) also has the same count.
-    //    Using >= ensures we pick up property-only changes (like adding `pinned`).
-    const isNewColumnSet = this.originalColumns.length === 0 || columns.length >= this.originalColumns.length;
+    // Core feeds our previous window back in on later passes (scroll, render requests),
+    // so only a pass that is NOT that feedback carries a new full column set.
+    const isNewColumnSet = this.originalColumns.length === 0 || !this.#isWindowFeedback(columns);
 
     if (isNewColumnSet) {
       // Store the full column set
       this.originalColumns = columns;
-      this.columnWidths = getColumnWidths(columns);
-      this.columnOffsets = computeColumnOffsets(columns);
-      this.totalWidth = computeTotalWidth(columns);
+      this.#sourceColumns = this.#pendingSourceColumns;
+      this.#hiddenAtAdoption = new Set(this.#sourceColumns.filter((c) => c.hidden).map((c) => c.field));
+      this.#measure(columns);
+    } else {
+      this.#adoptFeedbackColumns(columns);
     }
 
     // Use the original (full) column set for virtualization decisions
@@ -177,6 +224,8 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     if (!isVirtualized) {
       this.startCol = 0;
       this.endCol = fullColumns.length - 1;
+      this.#lastWindow = [];
+      this.#leftPadding = 0;
       return [...fullColumns];
     }
 
@@ -193,8 +242,68 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     this.startCol = viewport.startCol;
     this.endCol = viewport.endCol;
 
-    // Return only visible columns from the ORIGINAL full set
-    return viewport.visibleColumns.map((i) => fullColumns[i]);
+    // Pinned (sticky) and utility columns (selection checkbox, expander, drag handle) are never
+    // windowed out. Padding shrinks by the always-rendered columns before the window so window
+    // cells keep their true x-offset. Read live per pass (runtime `setPinPosition` while virtualized: #606).
+    const rendered: ColumnConfig[] = [];
+    let leadingWidth = 0;
+    for (let i = 0; i < fullColumns.length; i++) {
+      const col = fullColumns[i];
+      if (i >= viewport.startCol && i <= viewport.endCol) rendered.push(col);
+      else if (col.utility || (col as ColumnConfig & { pinned?: string }).pinned) {
+        rendered.push(col);
+        if (i < viewport.startCol) leadingWidth += this.columnWidths[i] ?? 0;
+      }
+    }
+    this.#leftPadding = (this.columnOffsets[viewport.startCol] ?? 0) - leadingWidth;
+    this.#lastWindow = rendered;
+    return [...rendered];
+  }
+
+  /**
+   * A feedback pass still carries this pass's upstream property changes for the fields it
+   * contains — e.g. TreePlugin wrapping a renderer once rows arrive, or a resized width. Adopt
+   * those objects by field so they are not discarded in favour of the cached ones.
+   */
+  #adoptFeedbackColumns(columns: readonly ColumnConfig[]): void {
+    const incoming = new Map(columns.map((c) => [c.field, c]));
+    let changed = false;
+    const next = this.originalColumns.map((col) => {
+      const update = incoming.get(col.field);
+      if (!update || update === col) return col;
+      changed = true;
+      return update;
+    });
+    if (!changed) return;
+    this.originalColumns = next;
+    this.#measure(next);
+  }
+
+  #measure(columns: readonly ColumnConfig[]): void {
+    this.columnWidths = getColumnWidths(columns);
+    this.columnOffsets = computeColumnOffsets(columns);
+    this.totalWidth = computeTotalWidth(columns);
+  }
+
+  /**
+   * Whether `columns` is our previous window fed back by core rather than a new column set.
+   *
+   * Feedback carries exactly the last window's fields. Allowed differences: utility columns
+   * (re-injected by other plugins each pass), window columns since hidden, and columns hidden
+   * at adoption since shown (#603). Anything else — e.g. an active Pivot whose regenerated
+   * columns shrank — is a semantic replacement, even when it has fewer columns than before.
+   */
+  #isWindowFeedback(columns: readonly ColumnConfig[]): boolean {
+    const last = this.#lastWindow;
+    if (last.length === 0 || columns.length >= this.originalColumns.length) return false;
+    const windowFields = new Set(last.map((c) => c.field));
+    const incoming = new Set<string>();
+    for (const col of columns) {
+      if (col.utility) continue;
+      if (!windowFields.has(col.field) && !this.#hiddenAtAdoption.has(col.field)) return false;
+      incoming.add(col.field);
+    }
+    return last.every((c) => c.utility || c.hidden || incoming.has(c.field));
   }
 
   /** @internal */
@@ -205,7 +314,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     if (!gridEl) return;
 
     // Apply left padding to offset scrolled-out columns
-    const leftPadding = this.columnOffsets[this.startCol] ?? 0;
+    const leftPadding = this.#leftPadding;
 
     const headerRow = gridEl.querySelector('.header-row') as HTMLElement | null;
     const bodyRows = gridEl.querySelectorAll('.data-grid-row');

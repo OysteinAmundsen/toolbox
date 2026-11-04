@@ -337,6 +337,7 @@ export interface PluginConfigRule<TConfig = unknown> {
  * @category Plugin Development
  */
 export type HookName =
+  | 'orderColumns'
   | 'processColumns'
   | 'processConfig'
   | 'processRows'

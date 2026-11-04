@@ -154,6 +154,31 @@ set `autoEnable: false` to control activation yourself.
 - `fitMode: 'fixed'` — the plugin is designed for fixed-width column layouts
 - Columns should have explicit widths (columns without widths default to 100px)
 
+Pinned columns and utility columns (selection checkbox, master-detail expander, row-drag handle) are
+never virtualized away: they are always rendered, so pinned ones stay visible while you scroll
+horizontally. Unpinned utility columns scroll out of view like any unpinned column; pin them to keep
+them on screen.
+
+## Export and Clipboard
+
+Virtualization only limits which columns are **rendered**. `grid.columns` holds that rendered
+window, but the [Export](/grid/plugins/export/) and [Clipboard](/grid/plugins/clipboard/) plugins
+still include every column, including the ones scrolled out of view. A copy of a cell-range
+selection covers only the selected columns.
+
+The plugin always windows the columns **after** every other column plugin (pinning, grouping,
+pivot), whatever their order in `plugins`. Exports therefore keep pinned order, group header
+rows, and pivot columns.
+
+A custom plugin that needs the full column list can ask for it with the `'getFullColumns'`
+query. It is answered only while virtualization is active; otherwise `grid.columns` is already
+complete:
+
+```ts
+// Inside a custom plugin
+const [full = this.grid.columns] = this.grid.query<ColumnConfig[]>('getFullColumns');
+```
+
 ## Programmatic API
 
 ```ts

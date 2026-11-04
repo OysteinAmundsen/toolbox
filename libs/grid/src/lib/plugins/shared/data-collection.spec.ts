@@ -1,8 +1,40 @@
 import { describe, expect, it } from 'vitest';
 import type { ColumnConfig } from '../../core/types';
-import { formatValueAsText, resolveColumns, resolveRows } from './data-collection';
+import { formatValueAsText, getSourceColumns, resolveColumns, resolveRows } from './data-collection';
 
 describe('data-collection shared utility', () => {
+  // #region getSourceColumns
+
+  describe('getSourceColumns', () => {
+    const rendered: ColumnConfig[] = [{ field: 'a' }];
+    const full: ColumnConfig[] = [{ field: 'a' }, { field: 'b' }];
+
+    it('returns the getFullColumns answer when a plugin windows the columns', () => {
+      const asked: string[] = [];
+      const query = <R>(type: string): R[] => {
+        asked.push(type);
+        return [full as R];
+      };
+      expect(getSourceColumns({ columns: rendered, query })).toBe(full);
+      expect(asked).toEqual(['getFullColumns']);
+    });
+
+    it('falls back to grid.columns when no plugin answers', () => {
+      const query = <R>(): R[] => [];
+      expect(getSourceColumns({ columns: rendered, query })).toBe(rendered);
+    });
+
+    it('falls back to grid.columns when the grid has no query API', () => {
+      expect(getSourceColumns({ columns: rendered })).toBe(rendered);
+    });
+
+    it('returns an empty list without a grid', () => {
+      expect(getSourceColumns(undefined)).toEqual([]);
+    });
+  });
+
+  // #endregion
+
   // #region resolveColumns
 
   describe('resolveColumns', () => {

@@ -390,12 +390,12 @@ export class PluginManager {
   }
 
   /**
-   * Execute the internal orderColumns hook on all plugins (full column list, hidden included).
-   * Returns the input array unchanged when no plugin reorders.
+   * Execute the internal orderColumns hook on all plugins (full column list, hidden included),
+   * in `hookPriority` order. Returns the input array unchanged when no plugin reorders.
    */
   orderColumns<C extends ColumnConfig>(columns: readonly C[]): readonly C[] {
     let result = columns;
-    for (const plugin of this.plugins) {
+    for (const plugin of this.#getPluginsForHook('orderColumns')) {
       if (plugin.orderColumns) result = plugin.orderColumns(result) as C[];
     }
     return result;

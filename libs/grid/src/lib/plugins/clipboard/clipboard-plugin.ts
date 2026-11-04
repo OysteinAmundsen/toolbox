@@ -21,6 +21,7 @@ import { readCellDisplayText } from '../shared/cell-text';
 import {
   formatDelimitedValue,
   formatValueAsText,
+  getSourceColumns,
   resolveColumns,
   resolveRows,
   type DelimitedFormatOptions,
@@ -523,7 +524,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     let colIndices: number[] | null = null;
     if (options?.columns) {
       // Caller specified exact fields
-      columns = resolveColumns(this.columns, options.columns);
+      columns = resolveColumns(getSourceColumns(this.grid), options.columns);
     } else if (ranges.length && !isRowAxis) {
       // Range/cell selection: restrict to selection column bounds
       // Selection indices are visible-column indices (from data-col)
@@ -531,7 +532,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
       colIndices = columns.map((col) => this.visibleColumns.indexOf(col));
     } else {
       // Row selection or no selection: all visible columns
-      columns = resolveColumns(this.columns);
+      columns = resolveColumns(getSourceColumns(this.grid));
     }
 
     // --- Rows ---

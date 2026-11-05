@@ -1353,7 +1353,8 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
 
   /**
    * Reorder the FULL column list — hidden columns included — before `processColumns` runs.
-   * Must return a permutation of `columns` (same objects, no additions or removals).
+   * Must return a permutation of `columns` (same objects, no additions or removals). Sole
+   * exception: a column-REPLACING plugin swapping its own stale output for its cached source list.
    *
    * A plugin that moves columns (e.g. pinning to an edge) must do it here rather than in
    * `processColumns`, which only ever sees visible columns: core cannot tell from a

@@ -15,7 +15,7 @@ import {
   type PluginManifest,
   type PluginQuery,
 } from '../../core/plugin/base-plugin';
-import type { ColumnConfig } from '../../core/types';
+import type { ColumnConfig, ColumnInternal } from '../../core/types';
 import { isFormFieldKeyTarget } from '../shared/form-field-target';
 import { tryFormat } from '../shared/format-value';
 import type { ToolPanelDefinition } from '../shell/types';
@@ -192,6 +192,8 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   /** Tracks whether user has manually interacted with expand/collapse */
   private userHasToggledExpand = false;
   private originalColumns: Array<{ field: string; header: string }> = [];
+  /** Pre-pivot column configs, restored on disable (COLUMNS passes re-seed from pivot output). */
+  private sourceColumns: ColumnConfig[] = [];
   private panelContainer: HTMLElement | null = null;
   private grandTotalFooter: HTMLElement | null = null;
   private previousVisibleKeys = new Set<string>();
@@ -233,6 +235,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     this.pivotResult = null;
     this.fieldHeaderMap.clear();
     this.originalColumns = [];
+    this.sourceColumns = [];
     this.panelContainer = null;
     this.cleanupGrandTotalFooter();
     this.previousVisibleKeys.clear();
@@ -369,6 +372,24 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     return flatRows;
   }
 
+  /**
+   * Cache the full source list (hidden included) and swap it back in for stale pivot output, so
+   * hidden columns keep their place once pivot stops producing columns (#605).
+   * @internal
+   */
+  override orderColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
+    if (!columns.some((c) => c.field === '__pivotLabel')) {
+      this.sourceColumns = [...columns];
+      return [...columns];
+    }
+    // Hidden source columns ride along in pivot output; adopt their latest objects (applyColumnState clones).
+    const current = new Map(columns.map((c) => [c.field, c]));
+    this.sourceColumns = this.sourceColumns.map((c) => current.get(c.field) ?? c);
+    // processRows already ran this flush, so pivotResult reflects the current config.
+    const pivoting = this.isActive && this.pivotResult !== null;
+    return pivoting || this.sourceColumns.length === 0 ? [...columns] : [...this.sourceColumns];
+  }
+
   /** @internal */
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
     if (!this.isActive || !this.pivotResult) {
@@ -416,6 +437,21 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
         type: 'number',
         sortable: true,
       });
+    }
+
+    // Core re-feeds the previous output each COLUMNS pass: keep runtime widths of surviving fields.
+    const sized = new Map<string, ColumnInternal>();
+    for (const col of columns as readonly ColumnInternal[]) {
+      if (col.__renderedWidth !== undefined) sized.set(col.field, col);
+    }
+    for (const col of pivotColumns as ColumnInternal[]) {
+      // merge() never sees pivot columns, so seed the reset target here.
+      col.__originalWidth = typeof col.width === 'number' ? col.width : undefined;
+      const prev = sized.get(col.field);
+      if (!prev) continue;
+      col.width = prev.width;
+      col.__renderedWidth = prev.__renderedWidth;
+      col.__userResized = prev.__userResized;
     }
 
     return pivotColumns;
@@ -554,7 +590,8 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
       property: 'sortRows',
     });
 
-    this.refresh();
+    // Row sort leaves the column layout unchanged, so skip the COLUMNS pass.
+    this.requestRender();
 
     // Announce for screen readers
     const gridEl = this.gridElement;
@@ -856,7 +893,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     }
     this.isActive = true;
     this.emit<PivotStateChangeDetail>('pivot-state-change', { active: true });
-    this.requestRender();
+    this.requestColumnsRender();
   }
 
   /**
@@ -868,7 +905,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     this.isActive = false;
     this.pivotResult = null;
     this.emit<PivotStateChangeDetail>('pivot-state-change', { active: false });
-    this.requestRender();
+    this.requestColumnsRender();
   }
 
   /**
@@ -961,7 +998,8 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
    */
   refresh(): void {
     this.pivotResult = null;
-    this.requestRender();
+    // The pivot columns derive from the rebuilt result, so processColumns must re-run (#605).
+    this.requestColumnsRender();
   }
 
   // #endregion

@@ -694,6 +694,7 @@ describe('PivotPlugin lifecycle and API', () => {
       rows: [],
       effectiveConfig: {},
       requestRender: () => renderCount++,
+      requestColumnsRender: () => renderCount++,
       getAllColumns: () => columns,
       getRenderCount: () => renderCount,
       _hostElement: grid,
@@ -928,8 +929,11 @@ describe('PivotPlugin lifecycle and API', () => {
       expect(plugin.getPivotResult()).not.toBeNull();
 
       const countBefore = mockGrid.getRenderCount();
+      const columnsRender = vi.spyOn(mockGrid, 'requestColumnsRender');
       plugin.refresh();
       expect(mockGrid.getRenderCount()).toBeGreaterThan(countBefore);
+      // Pivot columns derive from the rebuilt result (#605)
+      expect(columnsRender).toHaveBeenCalledOnce();
     });
   });
 
@@ -1755,6 +1759,7 @@ describe('PivotPlugin interactive header-click sorting', () => {
       rows: sampleRows,
       effectiveConfig: {},
       requestRender: () => renderCount++,
+      requestColumnsRender: () => renderCount++,
       getAllColumns: () => (gridEl as any).columns,
       getRenderCount: () => renderCount,
       _hostElement: gridEl,
@@ -1801,13 +1806,16 @@ describe('PivotPlugin interactive header-click sorting', () => {
   });
 
   it('handles click on __pivotLabel — ascending on first click', () => {
-    const { plugin, getRenderCount } = createPluginWithGrid();
+    const { plugin, gridEl, getRenderCount } = createPluginWithGrid();
     plugin.processRows(sampleRows);
     const startCount = getRenderCount();
+    const columnsRender = vi.spyOn(gridEl as any, 'requestColumnsRender');
 
     const result = plugin.onHeaderClick(makeHeaderClickEvent('__pivotLabel'));
     expect(result).toBe(true);
     expect(getRenderCount()).toBeGreaterThan(startCount);
+    // A row sort leaves the column layout alone
+    expect(columnsRender).not.toHaveBeenCalled();
 
     // processRows again to see the sort applied
     const rows = plugin.processRows(sampleRows);

@@ -189,7 +189,6 @@ describe('ColumnVirtualization runs after semantic column transforms (#604 revie
 
     pivot.setColumnGroupFields([]);
     await waitUpgrade(grid);
-    // Pivot only rebuilds its columns on the next COLUMNS pass (#605) — the scroll provides it.
     scrollTo(virtualization, 500);
     await waitUpgrade(grid);
 

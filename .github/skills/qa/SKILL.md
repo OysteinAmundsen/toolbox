@@ -271,6 +271,11 @@ or cached state.
      lines and breaks the module), run the probe, and restore the backup in a `finally`.
    - Drive the state through an API that actually carries it before trusting a negative result. `ColumnState` has no
      `pinned`, so `applyColumnState({ pinned })` is a silent no-op; use `PinnedColumnsPlugin.setPinPosition` (#613).
+   - If an API call seems to do nothing, check that the flush ran at all: spy on each hook separately
+     (`vi.spyOn(plugin, 'processRows')`, then the same for `orderColumns` and `processColumns`) and log the call
+     counts. A hook that throws aborts the flush, and the throw does not reach `window` `error` listeners. It shows
+     up only as an `Error:` line under the `PROBE` output.
+     (#616 QA: 0 calls exposed a `TBW001` throw in `mergeConfig`, filed as #626.)
    - When a finding is fixed, prove the new test guards it with
      `bun .github/skills/qa/scripts/mutation-check.ts --file <src> --spec <filter> --find <fixed> --replace <broken>`.
      It must print `KILLED`.

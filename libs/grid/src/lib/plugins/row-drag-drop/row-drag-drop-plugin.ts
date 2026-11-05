@@ -28,7 +28,12 @@ import {
   registerDragSession,
 } from '../../core/internal/drag-drop-registry';
 import { ensureCellVisible } from '../../core/internal/keyboard';
-import { BaseGridPlugin, type GridElement, type PluginManifest } from '../../core/plugin/base-plugin';
+import {
+  BaseGridPlugin,
+  type GridElement,
+  type PluginDependency,
+  type PluginManifest,
+} from '../../core/plugin/base-plugin';
 import type { ColumnConfig, GridHost } from '../../core/types';
 import {
   type DragAlternativeAction,
@@ -209,9 +214,16 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
       { type: 'row-drag-start', description: 'Cross-grid drag started on this grid.', cancelable: true },
       { type: 'row-drag-end', description: 'Drag finished on this grid (regardless of outcome).' },
       { type: 'row-drop', description: 'Cross-grid drop landing on this grid.', cancelable: true },
-      { type: 'row-transfer', description: 'Cross-grid transfer completed (fires on both grids).' },
     ],
   };
+
+  /**
+   * Optional dependencies.
+   * - `pivot`: answers `columns:is-replaced`, so the drag handle is left out of the pivot layout (#616).
+   */
+  static override readonly dependencies: PluginDependency[] = [
+    { name: 'pivot', required: false, reason: 'Queries columns:is-replaced to omit the drag handle while pivoting' },
+  ];
 
   /** @internal */
   protected override get defaultConfig(): Partial<RowDragDropConfig<T>> {
@@ -320,7 +332,8 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     // Core re-feeds the previous pass's output on every COLUMNS pass, so an existing handle is
     // rebuilt in place (never stacked), keeping a runtime pin (`setPinPosition`) and its position.
     const existingIndex = columns.findIndex((c) => c.field === ROW_DRAG_HANDLE_FIELD);
-    if (!this.shouldRenderDragHandle()) {
+    // A column-replacing plugin (Pivot) renders its own rows, where the handle would be empty (#616).
+    if (!this.shouldRenderDragHandle() || this.queryBoolean('columns:is-replaced')) {
       return existingIndex < 0 ? [...columns] : columns.filter((c) => c.field !== ROW_DRAG_HANDLE_FIELD);
     }
     const existingPin = (columns[existingIndex] as (ColumnConfig & { pinned?: unknown }) | undefined)?.pinned;

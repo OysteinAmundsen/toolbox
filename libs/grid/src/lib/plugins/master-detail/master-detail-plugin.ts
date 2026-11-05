@@ -114,11 +114,13 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   };
 
   /**
-   * Optional dependency on ServerSide for async detail data.
-   * When loaded, MasterDetail can fetch detail data via `datasource:fetch-children`.
+   * Optional dependencies.
+   * - `serverSide`: when loaded, MasterDetail can fetch detail data via `datasource:fetch-children`.
+   * - `pivot`: answers `columns:is-replaced`, so the expander is left out of the pivot layout (#616).
    */
   static override readonly dependencies = [
     { name: 'serverSide', required: false, reason: 'Fetches detail data via datasource:fetch-children on expand' },
+    { name: 'pivot', required: false, reason: 'Queries columns:is-replaced to omit the expander while pivoting' },
   ];
 
   /** Typed internal grid accessor. */
@@ -594,7 +596,10 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     // This supports React/Angular adapters which register renderers asynchronously via light DOM.
     // They must set showExpandColumn: true to get the column immediately, avoiding layout shift.
     const shouldAddExpander =
-      this.config.showExpandColumn === true || (this.config.showExpandColumn !== false && !!this.config.detailRenderer);
+      (this.config.showExpandColumn === true ||
+        (this.config.showExpandColumn !== false && !!this.config.detailRenderer)) &&
+      // A column-replacing plugin (Pivot) renders its own rows, where the expander would be empty (#616).
+      !this.queryBoolean('columns:is-replaced');
 
     if (!shouldAddExpander) {
       return [...columns];

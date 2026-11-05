@@ -2,6 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ColumnConfig } from '../../core/types';
 import { ROW_DRAG_HANDLE_FIELD, RowDragDropPlugin } from './row-drag-drop-plugin';
 import type { RowMoveDetail } from './types';
 
@@ -90,6 +91,29 @@ describe('RowDragDropPlugin', () => {
       expect(result.length).toBe(2);
       expect(result[0].field).toBe('id');
       expect(result[1].field).toBe('name');
+    });
+
+    it('should not stack handles when fed its own output (core re-feeds every COLUMNS pass)', () => {
+      const plugin = new RowDragDropPlugin({ dragHandlePosition: 'right' });
+      const grid = createGridMock();
+      plugin.attach(grid as any);
+
+      const once = plugin.processColumns([{ field: 'id' }, { field: 'name' }]);
+      const twice = plugin.processColumns(once);
+
+      expect(twice.map((c) => c.field)).toEqual(['id', 'name', ROW_DRAG_HANDLE_FIELD]);
+    });
+
+    it('should keep a runtime pin and position when rebuilding its handle', () => {
+      const plugin = new RowDragDropPlugin();
+      const grid = createGridMock();
+      plugin.attach(grid as any);
+
+      const [handle, ...rest] = plugin.processColumns([{ field: 'id' }, { field: 'name' }]);
+      const result = plugin.processColumns([...rest, { ...handle, pinned: 'right' } as ColumnConfig]);
+
+      expect(result.map((c) => c.field)).toEqual(['id', 'name', ROW_DRAG_HANDLE_FIELD]);
+      expect((result[2] as ColumnConfig & { pinned?: string }).pinned).toBe('right');
     });
 
     it('should mark drag handle column as utility column', () => {

@@ -249,9 +249,10 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
       return;
     }
 
-    // Apply sticky offsets after a microtask to ensure DOM is ready
+    // Apply sticky offsets after a microtask to ensure DOM is ready. Offsets map header-group
+    // `grid-column` tracks, which exist only for RENDERED columns (column windowing, #603).
     queueMicrotask(() => {
-      const result = applyStickyOffsets(host, columns);
+      const result = applyStickyOffsets(host, [...this.visibleColumns]);
       this.#groupEndAdjustments = result.groupEndAdjustments;
       this.leftOffsets = result.leftOffsets;
       this.rightOffsets = result.rightOffsets;
@@ -478,8 +479,8 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
    * @param position - The pin position (`'left'`, `'right'`, `'start'`, `'end'`), or `undefined` to unpin
    */
   setPinPosition(field: string, position: PinnedPosition | undefined): void {
-    // Read the currently-visible columns from the plugin accessor.
-    // These are the post-processColumns result, which is the authoritative column set.
+    // The full post-processColumns list (hidden included, never the render-only
+    // column window — #606) is the authoritative column set.
     const currentColumns = this.columns;
     if (!currentColumns?.length) return;
 
@@ -547,8 +548,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
    * Re-apply sticky offsets (e.g., after column resize).
    */
   refreshStickyOffsets(): void {
-    const columns = [...this.columns];
-    const result = applyStickyOffsets(this.gridElement, columns);
+    const result = applyStickyOffsets(this.gridElement, [...this.visibleColumns]);
     this.#groupEndAdjustments = result.groupEndAdjustments;
     this.leftOffsets = result.leftOffsets;
     this.rightOffsets = result.rightOffsets;

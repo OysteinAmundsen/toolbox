@@ -446,7 +446,7 @@ export interface GridElementRef<T = any>
   sourceRows: T[];
   /** Column configurations. */
   columns: ColumnConfig[];
-  /** Visible columns only (excludes hidden). Use for rendering. @internal */
+  /** Rendered columns: visible (excludes hidden), narrowed by any column windowing. Use for rendering. @internal */
   _visibleColumns: ColumnConfig[];
   /** Full grid configuration. */
   gridConfig: GridConfig;

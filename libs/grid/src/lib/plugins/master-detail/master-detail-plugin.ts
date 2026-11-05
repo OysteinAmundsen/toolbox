@@ -756,7 +756,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     // depending on `[aria-expanded="true"]` (which lives on the toggle
     // button, not the row). MUST clear on the negative branch — the row
     // pool recycles elements as the virtual window slides.
-    const columnCount = this.columns.length;
+    const columnCount = this.visibleColumns.length;
     // Once per sync, not per row — this runs on every render and scroll frame.
     const serverSideActive = this.#hasExpandedRows() && this.queryBoolean('datasource:is-active');
     for (const [rowIndex, rowEl] of visibleRowMap) {

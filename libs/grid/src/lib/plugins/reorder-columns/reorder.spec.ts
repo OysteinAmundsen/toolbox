@@ -186,8 +186,10 @@ describe('ReorderPlugin', () => {
         _rows: [],
         _hostElement: grid,
         getColumnOrder: () => currentOrder,
+        // Like the real grid, applying an order synchronously reorders the rendered columns.
         setColumnOrder: (order: string[]) => {
           currentOrder = order;
+          Object.assign(grid, { _visibleColumns: order.map((f) => columns.find((c) => c.field === f)) });
         },
         queryPlugins: () => [],
         query: () => [], // Simplified query API

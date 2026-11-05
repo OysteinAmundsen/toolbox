@@ -5,7 +5,7 @@
  * Significantly improves rendering performance when dealing with >30 columns.
  */
 
-import { BaseGridPlugin, ScrollEvent } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, type PluginManifest, type PluginQuery, ScrollEvent } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
 import {
   computeColumnOffsets,
@@ -59,6 +59,16 @@ import type { ColumnVirtualizationConfig } from './types';
  */
 export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizationConfig> {
   /** @internal */
+  static override readonly manifest: PluginManifest = {
+    queries: [
+      {
+        type: 'revealColumn',
+        description: 'Scroll a column (context: field) into the rendered window; true when the window moved',
+      },
+    ],
+  };
+
+  /** @internal */
   readonly name = 'columnVirtualization';
 
   /** @internal */
@@ -78,8 +88,10 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
   private totalWidth = 0;
   private columnWidths: number[] = [];
   private columnOffsets: number[] = [];
-  /** Store the original full column set for virtualization calculations */
-  private originalColumns: readonly ColumnConfig[] = [];
+  /** Row/header left padding: offset of the window start minus the always-rendered columns before it. */
+  #leftPadding = 0;
+  /** Whether afterRender wrote padding/width styles that must be cleared once virtualization turns off. */
+  #stylesApplied = false;
   // #endregion
 
   // #region Lifecycle
@@ -90,9 +102,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
 
     // Initialize state from current columns
     const columns = this.columns;
-    this.columnWidths = getColumnWidths(columns);
-    this.columnOffsets = computeColumnOffsets(columns);
-    this.totalWidth = computeTotalWidth(columns);
+    this.#measure(columns);
     this.endCol = columns.length - 1;
   }
 
@@ -103,7 +113,8 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
 
     this.columnWidths = [];
     this.columnOffsets = [];
-    this.originalColumns = [];
+    this.#leftPadding = 0;
+    this.#stylesApplied = false;
     this.isVirtualized = false;
     this.startCol = 0;
     this.endCol = 0;
@@ -143,44 +154,52 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
 
   // #region Hooks
 
-  /** @internal */
-  override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
-    // Detect if this is a new column set or just a scroll-triggered re-render.
-    // We consider it "new" if:
-    // 1. We don't have any stored yet (first time)
-    // 2. Incoming has AS MANY OR MORE columns than we stored (genuine new config)
-    //    When virtualization is active, our output is a SUBSET (fewer columns),
-    //    so a scroll-triggered re-render will have fewer columns than originalColumns.
-    //    When virtualization is off, our output has the same count as originalColumns,
-    //    but any config change (e.g., pinning a column) also has the same count.
-    //    Using >= ensures we pick up property-only changes (like adding `pinned`).
-    const isNewColumnSet = this.originalColumns.length === 0 || columns.length >= this.originalColumns.length;
+  /**
+   * `revealColumn`: scroll so a column that fell outside the window (e.g. moved by keyboard
+   * reorder) is rendered again, and re-window synchronously so the caller can resolve its
+   * rendered index right away. Offsets are measured fresh from the full visible list.
+   * @internal
+   */
+  override handleQuery(query: PluginQuery): unknown {
+    if (query.type !== 'revealColumn' || !this.isVirtualized) return undefined;
+    const columns = this.columns.filter((c) => !c.hidden);
+    const index = columns.findIndex((c) => c.field === query.context);
+    if (index < 0) return undefined;
 
-    if (isNewColumnSet) {
-      // Store the full column set
-      this.originalColumns = columns;
-      this.columnWidths = getColumnWidths(columns);
-      this.columnOffsets = computeColumnOffsets(columns);
-      this.totalWidth = computeTotalWidth(columns);
-    }
+    const left = computeColumnOffsets(columns)[index];
+    const right = left + getColumnWidths(columns)[index];
+    const viewportWidth = this.grid?.clientWidth || 800;
+    let target = this.scrollLeft;
+    if (left < target) target = left;
+    else if (right > target + viewportWidth) target = right - viewportWidth;
+    if (target === this.scrollLeft) return false;
 
-    // Use the original (full) column set for virtualization decisions
-    const fullColumns = this.originalColumns;
-    const isVirtualized = shouldVirtualize(
-      fullColumns.length,
-      this.config.threshold ?? 30,
-      this.config.autoEnable ?? true,
-    );
+    this.scrollLeft = target;
+    const scrollArea = this.gridElement?.querySelector<HTMLElement>('.tbw-scroll-area');
+    if (scrollArea) scrollArea.scrollLeft = target;
+    this.grid._invalidateVisibleColumnsCache();
+    this.requestColumnsRender();
+    return true;
+  }
 
-    this.isVirtualized = isVirtualized ?? false;
+  /**
+   * Narrow the full visible column list to the rendered scroll window. A pure function of
+   * `(columns, scrollLeft)`: core passes the complete post-plugin set on every call and never
+   * feeds the window back into `processColumns` (#603).
+   * @internal
+   */
+  override windowColumns(columns: readonly ColumnConfig[]): readonly ColumnConfig[] {
+    this.#measure(columns);
+    this.isVirtualized =
+      shouldVirtualize(columns.length, this.config.threshold ?? 30, this.config.autoEnable ?? true) ?? false;
 
-    if (!isVirtualized) {
+    if (!this.isVirtualized) {
       this.startCol = 0;
-      this.endCol = fullColumns.length - 1;
-      return [...fullColumns];
+      this.endCol = columns.length - 1;
+      this.#leftPadding = 0;
+      return columns;
     }
 
-    // Get viewport width from grid element
     const viewportWidth = this.grid?.clientWidth || 800;
     const viewport = getVisibleColumnRange(
       this.scrollLeft,
@@ -193,19 +212,47 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     this.startCol = viewport.startCol;
     this.endCol = viewport.endCol;
 
-    // Return only visible columns from the ORIGINAL full set
-    return viewport.visibleColumns.map((i) => fullColumns[i]);
+    // Pinned (sticky) and utility columns (selection checkbox, expander, drag handle) are never
+    // windowed out. Padding shrinks by the always-rendered columns before the window so window
+    // cells keep their true x-offset.
+    const rendered: ColumnConfig[] = [];
+    let leadingWidth = 0;
+    for (let i = 0; i < columns.length; i++) {
+      const col = columns[i] as ColumnConfig & { pinned?: string };
+      if (i >= viewport.startCol && i <= viewport.endCol) rendered.push(col);
+      // Same pin resolution as PinnedColumns (`pinned ?? meta.pinned`).
+      else if (col.utility || (col.pinned ?? col.meta?.pinned)) {
+        rendered.push(col);
+        if (i < viewport.startCol) leadingWidth += this.columnWidths[i] ?? 0;
+      }
+    }
+    this.#leftPadding = (this.columnOffsets[viewport.startCol] ?? 0) - leadingWidth;
+    return rendered;
+  }
+
+  #measure(columns: readonly ColumnConfig[]): void {
+    this.columnWidths = getColumnWidths(columns);
+    this.columnOffsets = computeColumnOffsets(columns);
+    this.totalWidth = computeTotalWidth(columns);
   }
 
   /** @internal */
   override afterRender(): void {
-    if (!this.isVirtualized) return;
+    if (!this.isVirtualized) {
+      // Hiding columns or a smaller config can drop below the threshold: undo the padding/widths once.
+      if (this.#stylesApplied) {
+        this.#cleanupStyles();
+        this.#stylesApplied = false;
+      }
+      return;
+    }
 
     const gridEl = this.gridElement;
     if (!gridEl) return;
+    this.#stylesApplied = true;
 
     // Apply left padding to offset scrolled-out columns
-    const leftPadding = this.columnOffsets[this.startCol] ?? 0;
+    const leftPadding = this.#leftPadding;
 
     const headerRow = gridEl.querySelector('.header-row') as HTMLElement | null;
     const bodyRows = gridEl.querySelectorAll('.data-grid-row');
@@ -235,18 +282,16 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
 
   /** @internal */
   override onScroll(event: ScrollEvent): void {
-    if (!this.isVirtualized) return;
-
-    // Check if horizontal scroll position changed significantly
+    // Track the position even while not virtualized, so a later switch back on (columns shown,
+    // larger config) windows at the real scroll offset instead of a stale one.
     const scrollDelta = Math.abs(event.scrollLeft - this.scrollLeft);
     if (scrollDelta < 1) return;
-
-    // Update scroll position
     this.scrollLeft = event.scrollLeft;
+    if (!this.isVirtualized) return;
 
-    // Recalculate visible columns and request re-render
-    // Must use requestColumnsRender() to trigger COLUMNS phase (processColumns hook)
-    // requestRender() only requests ROWS phase which doesn't reprocess columns
+    // Recalculate visible columns and request re-render.
+    // COLUMNS phase rebuilds `_columns`, which invalidates `_visibleColumns` and re-runs
+    // windowColumns; requestRender() (ROWS phase) would keep the stale window.
     this.requestColumnsRender();
   }
   // #endregion

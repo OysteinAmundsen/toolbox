@@ -37,6 +37,14 @@ Column virtualization improves performance when dealing with many columns (50+).
 
 The plugin automatically enables when column count exceeds the threshold.
 
+Pinned columns and utility columns (selection checkbox, master-detail expander, row-drag handle) are never virtualized away: they are always rendered, so pinned ones stay visible while scrolling horizontally. Unpinned utility columns scroll out of view like any unpinned column; pin them to keep them on screen.
+
+## Export, Clipboard and Column APIs
+
+Virtualization only limits which columns are **rendered**. `grid.columns` and every column API (`setColumnVisible`, `setPinPosition`, reordering, …) keep working on the full column list, including columns scrolled out of view. `ExportPlugin` and `ClipboardPlugin` therefore include every column (a cell-range copy covers only the selected columns).
+
+The window is computed **after** every other column plugin (pinning, grouping, pivot), whatever their order in `plugins`, from their final output — so pinned order, group header rows, and pivot columns are preserved. Custom plugins that map columns onto rendered DOM cells by index should use `this.visibleColumns` (the rendered columns), not `this.columns`.
+
 ## API Methods
 
 Access via `grid.getPluginByName('columnVirtualization')`:

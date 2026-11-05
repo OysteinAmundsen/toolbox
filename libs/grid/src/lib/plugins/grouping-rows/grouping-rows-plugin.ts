@@ -1222,7 +1222,8 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
   private renderPerColumnGroupRow(row: any, rowEl: HTMLElement, handleToggle: () => void): void {
     const config = this.config;
     const aggregators = config.aggregators ?? {};
-    const columns = this.columns;
+    // Cells line up with the body grid template, which only has tracks for rendered columns.
+    const columns = this.visibleColumns;
     const groupRows = row.__groupRows ?? [];
 
     // Get grid template from the grid element

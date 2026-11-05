@@ -385,12 +385,17 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#visibleColumnsCache = undefined;
   }
 
-  // visibleColumns returns only visible columns for rendering
-  // This is what header/row rendering should use
+  // _visibleColumns: the RENDERED columns — visible ones, narrowed by plugin `windowColumns`
+  // hooks (e.g. ColumnVirtualization's scroll window). The window never flows back into
+  // `_columns`, so `#baseColumns` and column APIs always hold the full list (#603).
   // Cached — invalidated when _columns is set or _invalidateVisibleColumnsCache() is called
   #visibleColumnsCache?: ColumnInternal<T>[];
   get _visibleColumns(): ColumnInternal<T>[] {
-    return (this.#visibleColumnsCache ??= this._columns.filter((c) => !c.hidden));
+    if (!this.#visibleColumnsCache) {
+      const visible = this._columns.filter((c) => !c.hidden);
+      this.#visibleColumnsCache = this.#pluginManager?.windowColumns(visible) ?? visible;
+    }
+    return this.#visibleColumnsCache;
   }
 
   /**
@@ -3552,9 +3557,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * changes (visibility, order, sort).
    */
   #applyColumnState(state: GridColumnState): void {
-    // Snapshot column order, visibility, and sort before applying state
+    // Snapshot column order, visibility, sort, and the rendered set before applying state
     const prevColumns = this._columns;
     const prevSort = this._sortState;
+    const prevRendered = this._visibleColumns;
 
     const plugins = (this.#pluginManager?.getAll() ?? []) as BaseGridPlugin[];
     this.#configManager.applyState(state, plugins);
@@ -3573,6 +3579,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (!hasPluginSort && this.#isWidthOnlyChange(prevColumns, prevSort)) {
       // Invalidate visible columns cache (configManager bypasses grid._columns setter)
       this.#visibleColumnsCache = undefined;
+      // Widths move a `windowColumns` window (#603): a changed rendered set needs new header/body cells.
+      const rendered = this._visibleColumns;
+      if (rendered.length !== prevRendered.length || rendered.some((c, i) => c.field !== prevRendered[i].field)) {
+        this.#setup();
+        return;
+      }
       // Update CSS grid-template-columns — O(m) column count
       updateTemplate(this);
       // Notify plugins via afterRender hooks

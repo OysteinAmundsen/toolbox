@@ -337,7 +337,9 @@ export interface PluginConfigRule<TConfig = unknown> {
  * @category Plugin Development
  */
 export type HookName =
+  | 'orderColumns'
   | 'processColumns'
+  | 'windowColumns'
   | 'processConfig'
   | 'processRows'
   | 'afterStructuralRender'
@@ -969,15 +971,17 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   }
 
   /**
-   * Get the current columns from the grid.
+   * Get the current columns from the grid — the full post-plugin list, hidden included.
+   * Never narrowed by column windowing; use {@link visibleColumns} to match rendered cells.
    */
   protected get columns(): ColumnConfig[] {
     return this.grid?.columns ?? [];
   }
 
   /**
-   * Get only visible columns from the grid (excludes hidden).
-   * Use this for rendering that needs to match the grid template.
+   * Get the RENDERED columns: visible (excludes hidden), narrowed to the scroll window
+   * when column virtualization is active. Use this for rendering that needs to match the
+   * grid template / DOM cell indices.
    */
   protected get visibleColumns(): ColumnConfig[] {
     return this.grid?._visibleColumns ?? [];
@@ -1360,6 +1364,22 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * @internal
    */
   orderColumns?(columns: readonly ColumnConfig[]): ColumnConfig[];
+
+  /**
+   * Narrow the visible columns down to the subset that is actually RENDERED (e.g. a
+   * horizontal scroll window). Runs after every `processColumns` hook, whenever core
+   * recomputes `_visibleColumns`; the result feeds only the header/body DOM and the
+   * grid template.
+   *
+   * Core never stores the result back into `grid.columns` or feeds it into the next
+   * `processColumns` pass, so column APIs, data operations and upstream plugins always
+   * see the full list. Must return a subset of `columns` in the same relative order.
+   *
+   * @param columns - Every visible column, after all `processColumns` hooks
+   * @returns The columns to render
+   * @internal
+   */
+  windowColumns?(columns: readonly ColumnConfig[]): readonly ColumnConfig[];
 
   /**
    * Called before each render cycle begins.

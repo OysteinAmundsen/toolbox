@@ -11,6 +11,12 @@
 
 import type { ColumnConfig, GridIcons, Translate } from '../../core/types';
 
+/**
+ * Field of the row-label column. The label cell is found by field, not position: `columns` is the
+ * RENDERED set, which column virtualization can start past the label column (#603).
+ */
+const PIVOT_LABEL_FIELD = '__pivotLabel';
+
 /** Row data with pivot metadata */
 export interface PivotRowData {
   __pivotRowKey?: string;
@@ -51,7 +57,7 @@ export function renderPivotGroupRow(row: PivotRowData, rowEl: HTMLElement, ctx: 
     cell.setAttribute('data-row', String(ctx.rowIndex));
     cell.setAttribute('role', 'gridcell');
 
-    if (colIdx === 0) {
+    if (col.field === PIVOT_LABEL_FIELD) {
       // First column: indent + toggle + label + count
       const indent = Number(row.__pivotIndent) || 0;
       cell.style.paddingLeft = `${indent}px`;
@@ -113,7 +119,7 @@ export function renderPivotLeafRow(
     cell.setAttribute('data-row', String(rowIndex));
     cell.setAttribute('role', 'gridcell');
 
-    if (colIdx === 0) {
+    if (col.field === PIVOT_LABEL_FIELD) {
       // First column: indent + label (no toggle for leaves)
       const indent = Number(row.__pivotIndent) || 0;
       // Add extra indent for alignment with toggle button
@@ -154,7 +160,7 @@ export function renderPivotGrandTotalRow(
     cell.setAttribute('data-col', String(colIdx));
     // No role attribute - parent row has role=presentation so children don't need grid semantics
 
-    if (colIdx === 0) {
+    if (col.field === PIVOT_LABEL_FIELD) {
       // First column: Grand Total label
       const label = document.createElement('span');
       label.className = 'pivot-label';

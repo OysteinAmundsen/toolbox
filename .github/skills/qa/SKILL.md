@@ -234,6 +234,13 @@ or cached state.
 4. **Staleness of stored state.** For each new or changed field that caches derived state, list every event that
    must refresh it and confirm each path does. Events to check: config replaced (larger _and_ smaller), runtime
    setters, hide/show, row data change, plugin detach, and a re-run in each render phase.
+   - **Flag flips.** When the diff makes a mode flag recompute more often (e.g. `isVirtualized` recounted every
+     pass), anything written under the ON branch (inline styles, cached offsets, skipped input like `scrollLeft`)
+     must be torn down or kept current on the OFF branch. Probe ON → OFF → ON (#603 QA: stale 1700px header
+     padding after hiding columns below the threshold).
+   - **Index spaces.** When a list's meaning widens (window → full list), grep every consumer that writes an
+     index into another list's space (`_focusCol = <order index>`, `data-col`, selection ranges). Follow aliases
+     to their call sites (#607: Pivot's `get gridColumns() { return this.grid.columns }` fed `renderRow`).
 5. **Prove, don't argue.** Any candidate from 2–4 that reading cannot rule out gets a throwaway probe:
    - Write only the probe body: `it(...)` blocks that `console.log('PROBE …')` the measured values.
    - Run `bun .github/skills/qa/scripts/probe.ts --from <existing integration spec> --body <file> --name <topic>`.

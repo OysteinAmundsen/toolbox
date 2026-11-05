@@ -822,8 +822,16 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
     this.moveColumn(column.field, toIndex);
 
-    // Update focus to follow the moved column and refresh visual focus state
-    grid._focusCol = toIndex;
+    // Follow the moved column by FIELD: `toIndex` indexes the full order (hidden columns, column
+    // windowing) while `_focusCol` is a rendered index, and a swap of unequal widths can shift the
+    // virtualized window. `setColumnOrder` applies synchronously, so the re-windowed list is current.
+    let movedIndex = grid._visibleColumns.findIndex((c) => c.field === column.field);
+    // A swap of unequal widths can push the moved column out of the window: ask the windowing
+    // plugin to scroll it back in, then resolve its rendered index again (PR #607 review).
+    if (movedIndex < 0 && this.queryBoolean('revealColumn', column.field)) {
+      movedIndex = grid._visibleColumns.findIndex((c) => c.field === column.field);
+    }
+    grid._focusCol = movedIndex >= 0 ? movedIndex : focusCol;
     ensureCellVisible(this.#internalGrid);
 
     event.preventDefault();

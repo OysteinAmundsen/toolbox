@@ -6,6 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ColumnConfig } from '../types';
 import { BaseGridPlugin, type PluginManifest } from './base-plugin';
 import { PluginManager } from './plugin-manager';
 import type { GridElementRef } from './types';
@@ -254,6 +255,58 @@ describe('PluginManager hookPriority', () => {
       executionOrder.length = 0;
       expect(manager.renderRow({ id: 1 }, rowEl, 1)).toBe(true);
       expect(executionOrder).toEqual(['placeholder', 'card']);
+    });
+
+    it('should order orderColumns by priority and chain each result (#604)', () => {
+      class Observer extends BaseGridPlugin {
+        static override readonly manifest: PluginManifest = { hookPriority: { orderColumns: 100 } };
+        readonly name = 'observer';
+        seen: string[] = [];
+        override orderColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
+          executionOrder.push('observer');
+          this.seen = columns.map((c) => c.field);
+          return [...columns];
+        }
+      }
+      class Reverser extends BaseGridPlugin {
+        readonly name = 'reverser';
+        override orderColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
+          executionOrder.push('reverser');
+          return [...columns].reverse();
+        }
+      }
+      // Attached first, but priority 100 must run after the default-priority reorder.
+      const observer = new Observer();
+      manager.attachAll([observer, new Reverser()]);
+
+      manager.orderColumns([{ field: 'a' }, { field: 'b' }]);
+      expect(executionOrder).toEqual(['reverser', 'observer']);
+      expect(observer.seen).toEqual(['b', 'a']);
+    });
+
+    it('should chain windowColumns and return the input untouched without windowing plugins (#603)', () => {
+      const input: ColumnConfig[] = [{ field: 'a' }, { field: 'b' }, { field: 'c' }];
+      expect(manager.windowColumns(input)).toBe(input);
+
+      class DropFirst extends BaseGridPlugin {
+        readonly name = 'dropFirst';
+        override windowColumns(columns: readonly ColumnConfig[]): readonly ColumnConfig[] {
+          executionOrder.push('dropFirst');
+          return columns.slice(1);
+        }
+      }
+      class DropLast extends BaseGridPlugin {
+        static override readonly manifest: PluginManifest = { hookPriority: { windowColumns: -1 } };
+        readonly name = 'dropLast';
+        override windowColumns(columns: readonly ColumnConfig[]): readonly ColumnConfig[] {
+          executionOrder.push('dropLast');
+          return columns.slice(0, -1);
+        }
+      }
+      manager.attachAll([new DropFirst(), new DropLast()]);
+
+      expect(manager.windowColumns(input).map((c) => c.field)).toEqual(['b']);
+      expect(executionOrder).toEqual(['dropLast', 'dropFirst']);
     });
   });
 

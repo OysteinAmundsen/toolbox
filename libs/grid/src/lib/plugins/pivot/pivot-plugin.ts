@@ -194,6 +194,8 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   private originalColumns: Array<{ field: string; header: string }> = [];
   /** Pre-pivot column configs, restored on disable (COLUMNS passes re-seed from pivot output). */
   private sourceColumns: ColumnConfig[] = [];
+  /** Hidden pivot-generated columns by field, captured in `orderColumns` for `processColumns` to re-hide (#609). */
+  private hiddenPivotColumns = new Map<string, ColumnInternal>();
   private panelContainer: HTMLElement | null = null;
   private grandTotalFooter: HTMLElement | null = null;
   private previousVisibleKeys = new Set<string>();
@@ -236,6 +238,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     this.fieldHeaderMap.clear();
     this.originalColumns = [];
     this.sourceColumns = [];
+    this.hiddenPivotColumns.clear();
     this.panelContainer = null;
     this.cleanupGrandTotalFooter();
     this.previousVisibleKeys.clear();
@@ -375,9 +378,11 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   /**
    * Cache the full source list (hidden included) and swap it back in for stale pivot output, so
    * hidden columns keep their place once pivot stops producing columns (#605).
+   * While pivoting, hidden pivot columns are pulled out for `processColumns` to re-hide (#609).
    * @internal
    */
   override orderColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
+    this.hiddenPivotColumns.clear();
     if (!columns.some((c) => c.field === '__pivotLabel')) {
       this.sourceColumns = [...columns];
       return [...columns];
@@ -387,7 +392,19 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     this.sourceColumns = this.sourceColumns.map((c) => current.get(c.field) ?? c);
     // processRows already ran this flush, so pivotResult reflects the current config.
     const pivoting = this.isActive && this.pivotResult !== null;
-    return pivoting || this.sourceColumns.length === 0 ? [...columns] : [...this.sourceColumns];
+    if (!pivoting) {
+      return this.sourceColumns.length === 0 ? [...columns] : [...this.sourceColumns];
+    }
+    // processColumns only sees visible columns and regenerates every pivot column, so a hidden one
+    // would come back visible (interleaveHiddenColumns skips fields already in its output). Removing
+    // it here also drops a hidden column whose key no longer exists.
+    const sourceFields = new Set(this.sourceColumns.map((c) => c.field));
+    const result: ColumnConfig[] = [];
+    for (const col of columns) {
+      if (col.hidden && !sourceFields.has(col.field)) this.hiddenPivotColumns.set(col.field, col as ColumnInternal);
+      else result.push(col);
+    }
+    return result;
   }
 
   /** @internal */
@@ -439,14 +456,15 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
       });
     }
 
-    // Core re-feeds the previous output each COLUMNS pass: keep runtime widths of surviving fields.
+    // Core re-feeds the previous output each COLUMNS pass: keep runtime widths and visibility of surviving fields.
     const sized = new Map<string, ColumnInternal>();
-    for (const col of columns as readonly ColumnInternal[]) {
+    for (const col of [...(columns as readonly ColumnInternal[]), ...this.hiddenPivotColumns.values()]) {
       if (col.__renderedWidth !== undefined) sized.set(col.field, col);
     }
     for (const col of pivotColumns as ColumnInternal[]) {
       // merge() never sees pivot columns, so seed the reset target here.
       col.__originalWidth = typeof col.width === 'number' ? col.width : undefined;
+      if (this.hiddenPivotColumns.has(col.field)) col.hidden = true;
       const prev = sized.get(col.field);
       if (!prev) continue;
       col.width = prev.width;

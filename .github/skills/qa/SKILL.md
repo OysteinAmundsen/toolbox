@@ -249,6 +249,8 @@ or cached state.
    - Always measure a **control** too: the same probe without the changed plugin or flag. A defect that reproduces
      anyway is pre-existing: file it as a bug issue (delivery-workflow), unless the diff widens its reach, in which
      case it is a finding.
+   - Drive the state through an API that actually carries it before trusting a negative result. `ColumnState` has no
+     `pinned`, so `applyColumnState({ pinned })` is a silent no-op; use `PinnedColumnsPlugin.setPinPosition` (#613).
    - When a finding is fixed, prove the new test guards it with
      `bun .github/skills/qa/scripts/mutation-check.ts --file <src> --spec <filter> --find <fixed> --replace <broken>`.
      It must print `KILLED`.

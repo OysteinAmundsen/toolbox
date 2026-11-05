@@ -41,6 +41,13 @@ async function expectSourceRestoredOnDisable(grid: DataGridElement, pivot: Pivot
   expect(fields(grid).some((f) => f.includes('|'))).toBe(false);
 }
 
+async function expectHiddenSourceRestored(grid: DataGridElement, pivot: PivotPlugin) {
+  pivot.disablePivot();
+  await waitUpgrade(grid);
+  expect(fields(grid).slice(0, 4)).toEqual(['c0', 'c1', 'c2', 'c3']);
+  expect(grid.columns[2].hidden).toBe(true);
+}
+
 async function setWidth(grid: DataGridElement, field: string, width: number) {
   const state = grid.getColumnState();
   grid.applyColumnState({ columns: state.columns.map((c) => (c.field === field ? { ...c, width } : c)) });
@@ -97,12 +104,7 @@ describe('PivotPlugin runtime layout changes (#605)', () => {
 
   it('a pivot round-trip keeps a hidden source column in place', async () => {
     const { grid, pivot } = await setup('c2');
-
-    pivot.disablePivot();
-    await waitUpgrade(grid);
-
-    expect(fields(grid).slice(0, 4)).toEqual(['c0', 'c1', 'c2', 'c3']);
-    expect(grid.columns[2].hidden).toBe(true);
+    await expectHiddenSourceRestored(grid, pivot);
   });
 
   it('a pass with the label column hidden does not poison the cached source columns', async () => {
@@ -151,6 +153,76 @@ describe('PivotPlugin runtime layout changes (#605)', () => {
     await waitUpgrade(grid);
 
     expect(grid.columns.find((c) => c.field === 'c5')?.width).toBe(300);
+  });
+
+  describe('hidden pivot columns (#609)', () => {
+    const pivotCol = (grid: DataGridElement, field: string) => grid.columns.find((c) => c.field === field);
+
+    async function hide(grid: DataGridElement, field: string) {
+      grid.setColumnVisible(field, false);
+      await waitUpgrade(grid);
+    }
+
+    it('setColumnVisible hides a pivot column', async () => {
+      const { grid } = await setup();
+      await hide(grid, 'k0|c1');
+
+      expect(pivotCol(grid, 'k0|c1')?.hidden).toBe(true);
+      expect(grid.querySelector('.header-row [data-field="k0|c1"]')).toBeNull();
+    });
+
+    it('a hidden pivot column stays hidden and in place across COLUMNS passes', async () => {
+      const { grid, pivot } = await setup();
+      const before = fields(grid);
+      await hide(grid, 'k0|c1');
+
+      grid.requestColumnsRender();
+      await waitUpgrade(grid);
+      pivot.setRowGroupFields(['c3']);
+      await waitUpgrade(grid);
+
+      expect(fields(grid)).toEqual(before);
+      expect(pivotCol(grid, 'k0|c1')?.hidden).toBe(true);
+    });
+
+    it('a hidden pivot column can be shown again', async () => {
+      const { grid } = await setup();
+      await hide(grid, 'k0|c1');
+
+      grid.setColumnVisible('k0|c1', true);
+      await waitUpgrade(grid);
+
+      expect(pivotCol(grid, 'k0|c1')?.hidden).toBeFalsy();
+      expect(grid.querySelector('.header-row [data-field="k0|c1"]')).not.toBeNull();
+    });
+
+    it('a hidden pivot column keeps its resized width', async () => {
+      const { grid, pivot } = await setup();
+      await setWidth(grid, 'k0|c1', 320);
+      await hide(grid, 'k0|c1');
+
+      pivot.setRowGroupFields(['c3']);
+      await waitUpgrade(grid);
+
+      expect(pivotCol(grid, 'k0|c1')?.width).toBe(320);
+    });
+
+    it('a hidden pivot column whose key no longer exists is dropped', async () => {
+      const { grid, pivot } = await setup();
+      await hide(grid, 'k0|c1');
+
+      pivot.setColumnGroupFields(['c3']);
+      await waitUpgrade(grid);
+
+      expect(fields(grid)).not.toContain('k0|c1');
+      expect(fields(grid)).toEqual(['__pivotLabel', 'even|c1', 'odd|c1', '__pivotTotal']);
+    });
+
+    it('a hidden source column survives while a pivot column is hidden', async () => {
+      const { grid, pivot } = await setup('c2');
+      await hide(grid, 'k0|c1');
+      await expectHiddenSourceRestored(grid, pivot);
+    });
   });
 
   it('an invalid config while active shows the source columns the raw rows need', async () => {

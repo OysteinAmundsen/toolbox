@@ -435,6 +435,35 @@ describe('core never feeds the rendered column window back into processColumns (
 
       expect(renderedFields(grid)[0]).toBe('c3');
       expect(grid.columns).toHaveLength(COLUMN_COUNT);
+      expect(grid.gridConfig.columns).toHaveLength(COLUMN_COUNT);
+      expect(grid.columns.find((c) => c.field === 'c3')?.pinned).toBe('left');
+    });
+
+    it('G2: pins an off-window column and keeps it rendered (#606)', async () => {
+      const pinned = new PinnedColumnsPlugin();
+      const { grid } = await setup(makeColumns(), [pinned], virtualizationFirst);
+      expect(renderedFields(grid)).not.toContain('c150');
+
+      pinned.setPinPosition('c150', 'right');
+      await waitUpgrade(grid);
+
+      expect(renderedFields(grid).at(-1)).toBe('c150');
+      expect(grid.gridConfig.columns).toHaveLength(COLUMN_COUNT);
+      expect(grid.columns.find((c) => c.field === 'c150')?.pinned).toBe('right');
+    });
+
+    it('G3: unpins back to the original slot without losing columns (#606)', async () => {
+      const pinned = new PinnedColumnsPlugin();
+      const { grid } = await setup(makeColumns(), [pinned], virtualizationFirst);
+
+      pinned.setPinPosition('c3', 'left');
+      await waitUpgrade(grid);
+      pinned.setPinPosition('c3', undefined);
+      await waitUpgrade(grid);
+
+      expect(grid.columns.map((c) => c.field)).toEqual(makeColumns().map((c) => c.field));
+      expect(grid.gridConfig.columns).toHaveLength(COLUMN_COUNT);
+      expect(grid.columns.find((c) => c.field === 'c3')?.pinned).toBeUndefined();
     });
   });
 });

@@ -152,7 +152,13 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
           'ServerSidePlugin lazy-loads rows in blocks, so pivot aggregation cannot be performed client-side.',
       },
     ],
-    queries: [{ type: 'sort:get-sort-config', description: 'Returns the current pivot sort configuration' }],
+    queries: [
+      { type: 'sort:get-sort-config', description: 'Returns the current pivot sort configuration' },
+      {
+        type: 'columns:is-replaced',
+        description: 'True while pivot replaces the whole column layout, so per-row utility columns are omitted',
+      },
+    ],
   };
 
   /**
@@ -666,7 +672,15 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
       if (multiConfigs) return multiConfigs;
       return this.config.sortRows ?? null;
     }
+    // Pivot rows are aggregates drawn by renderRow, so a utility column added after Pivot's
+    // processColumns (expander, drag handle) would be an empty cell; its owner skips it (#616).
+    if (query.type === 'columns:is-replaced') return this.replacesColumns();
     return undefined;
+  }
+
+  /** Whether `processColumns` replaces the columns; processRows already ran on COLUMNS flushes. */
+  private replacesColumns(): boolean {
+    return this.isActive && this.pivotResult !== null;
   }
 
   /** @internal */

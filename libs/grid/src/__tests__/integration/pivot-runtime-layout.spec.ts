@@ -10,6 +10,7 @@ import type { DataGridElement } from '../../lib/core/grid';
 import { RenderPhase } from '../../lib/core/internal/render-scheduler';
 import type { BaseGridPlugin } from '../../lib/core/plugin/base-plugin';
 import { ExportPlugin } from '../../lib/plugins/export/export-plugin';
+import { MasterDetailPlugin } from '../../lib/plugins/master-detail/master-detail-plugin';
 import { PinnedColumnsPlugin } from '../../lib/plugins/pinned-columns/pinned-columns-plugin';
 import type { PinnedPosition } from '../../lib/plugins/pinned-columns/types';
 import { PivotPlugin } from '../../lib/plugins/pivot/pivot-plugin';
@@ -475,6 +476,57 @@ describe('PivotPlugin runtime layout changes (#605)', () => {
     await waitUpgrade(grid);
 
     expect(fields(grid)[0]).toBe('c0');
+  });
+
+  describe('utility columns (#616)', () => {
+    const utilityPlugins: Array<[string, string, () => BaseGridPlugin]> = [
+      [
+        'MasterDetail',
+        '__tbw_expander',
+        () => new MasterDetailPlugin({ showExpandColumn: true, detailRenderer: () => 'detail' }),
+      ],
+      ['RowDragDrop', '__tbw_row_drag', () => new RowDragDropPlugin()],
+    ];
+    const pivotLayout = ['__pivotLabel', 'k0|c1', 'k1|c1', '__pivotTotal'];
+
+    async function setupUtility(utility: BaseGridPlugin, pivotFirst: boolean) {
+      const columns = ['c0', 'c1', 'c2', 'c3'].map((field) => ({ field, header: field.toUpperCase(), width: 100 }));
+      const rows = Array.from({ length: 4 }, (_, i) => ({ c0: 'A', c1: i, c2: `k${i % 2}`, c3: i }));
+      const pivot = new PivotPlugin({
+        rowGroupFields: ['c0'],
+        columnGroupFields: ['c2'],
+        valueFields: [{ field: 'c1', aggFunc: 'sum' }],
+        showToolPanel: false,
+      });
+      const grid = createGrid();
+      grid.gridConfig = { columns, plugins: pivotFirst ? [pivot, utility] : [utility, pivot] };
+      grid.rows = rows;
+      await waitUpgrade(grid);
+      return { grid, pivot };
+    }
+
+    describe.each(utilityPlugins)('%s', (_name, utilityField, create) => {
+      it.each([true, false])('is left out of the pivot layout (pivot registered first: %s)', async (pivotFirst) => {
+        const { grid } = await setupUtility(create(), pivotFirst);
+
+        expect(fields(grid)).toEqual(pivotLayout);
+        const firstRow = grid.querySelector('.rows .data-grid-row')!;
+        expect(firstRow.querySelectorAll('.cell')).toHaveLength(pivotLayout.length);
+        expect(firstRow.querySelector('.cell')!.textContent).toContain('A');
+      });
+
+      it('comes back when pivot is disabled and leaves again when re-enabled', async () => {
+        const { grid, pivot } = await setupUtility(create(), true);
+
+        pivot.disablePivot();
+        await waitUpgrade(grid);
+        expect(fields(grid)).toEqual([utilityField, 'c0', 'c1', 'c2', 'c3']);
+
+        pivot.enablePivot();
+        await waitUpgrade(grid);
+        expect(fields(grid)).toEqual(pivotLayout);
+      });
+    });
   });
 
   describe('row data changes (#608)', () => {

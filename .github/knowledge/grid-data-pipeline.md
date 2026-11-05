@@ -9,7 +9,7 @@ related: [grid-render-pipeline, grid-core, grid-plugins-catalog-data, data-flow-
 
 - Rendering that value (scheduler, virtualization, `rows.ts`) → grid-render-pipeline.md (also holds the `core/internal/` module index); sanitizing it → grid-sanitize.md.
 - Lifecycle, config precedence, DOM structure, state-ownership matrix → grid-core.md.
-- Server-side / pivot row transforms → grid-plugins-catalog-data.md; tree / grouping (HierarchyPlugin) → grid-plugins-hierarchy.md.
+- Server-side row transforms → grid-plugin-server-side.md; pivot → grid-plugin-pivot.md; tree / grouping (HierarchyPlugin) → grid-plugins-hierarchy.md.
 
 Read order for a value bug: `resolveCellValue` (below) → the mutating call site (row-manager / EditingPlugin) → cache invalidation.
 

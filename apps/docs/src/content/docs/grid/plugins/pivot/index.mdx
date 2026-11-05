@@ -444,6 +444,10 @@ The Pivot plugin **cannot** be used with the following plugins:
 
 A development-mode warning is shown if incompatible plugins are loaded together.
 
+### Utility columns
+
+Pivot rows are aggregates with no detail or drag semantics, so the per-row utility columns from [Master Detail](/grid/plugins/master-detail/) (expander), [Row Drag & Drop](/grid/plugins/row-drag-drop/) (drag handle) and [Selection](/grid/plugins/selection/) (checkbox) are left out while a pivot is active, whatever order the plugins are registered in. They return when `disablePivot()` restores the source columns.
+
 ## See Also
 
 - [Row Grouping](/grid/plugins/grouping-rows/) — Group flat data by field values

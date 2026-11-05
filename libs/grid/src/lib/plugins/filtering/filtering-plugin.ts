@@ -15,6 +15,7 @@ import type { ColumnConfig, ColumnState } from '../../core/types';
 import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/types';
 import {
   BLANK_FILTER_VALUE,
+  compileFilters,
   computeFilterCacheKey,
   filterRows,
   getUniqueValues,
@@ -141,6 +142,11 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
         type: 'getContextMenuItems',
         description: 'Contributes filter-related items to the header context menu',
       },
+      {
+        type: 'filter:get-predicate',
+        description:
+          'Compiles the active filters on generated fields selected by the context `(field) => boolean` into one row predicate',
+      },
     ],
   };
 
@@ -176,6 +182,15 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   }
 
   /**
+   * Whether a row-model plugin generates `field` on its own rows (Pivot's label, value and total
+   * columns). Source rows never carry it, so filters on it are skipped in {@link processRows} and
+   * applied by that plugin through `filter:get-predicate` (#622).
+   */
+  private isGeneratedField(field: string): boolean {
+    return this.queryBoolean('rows:is-generated-field', field);
+  }
+
+  /**
    * Resolve the row set used to compute filter unique values.
    *
    * Default source is `sourceRows` (raw user input — `grid.#rows`). When a plugin
@@ -183,8 +198,12 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
    * from `processRows`), `sourceRows` is empty and we fall back to the processed
    * `grid.rows` with placeholder rows excluded. This lets users filter by values
    * that have actually been loaded so far without having to wire a `valuesHandler`.
+   * A generated field reads the generating plugin's unfiltered rows instead.
    */
-  private getDataRows(): Record<string, unknown>[] {
+  private getDataRows(generated = false): Record<string, unknown>[] {
+    if (generated) {
+      return this.grid.query?.<Record<string, unknown>[]>('rows:generated-rows', null)?.[0] ?? [];
+    }
     const source = this.sourceRows as Record<string, unknown>[];
     if (source.length > 0) return source;
     const processed = this.rows as Record<string, unknown>[];
@@ -315,8 +334,14 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     }
 
     if (notInFields.length > 0) {
-      // Single pass through the resolved data rows for notIn fields only
-      const uniqueMap = getUniqueValuesBatch(this.getDataRows(), notInFields);
+      // Single pass per row set: source rows, and generated rows for generated fields (#622)
+      const source: typeof notInFields = [];
+      const generated: typeof notInFields = [];
+      for (const entry of notInFields) (this.isGeneratedField(entry.field) ? generated : source).push(entry);
+      const uniqueMap = new Map([
+        ...(source.length ? getUniqueValuesBatch(this.getDataRows(), source) : []),
+        ...(generated.length ? getUniqueValuesBatch(this.getDataRows(true), generated) : []),
+      ]);
       for (const { field } of notInFields) {
         const excluded = this.excludedValues.get(field);
         const unique = uniqueMap.get(field) ?? [];
@@ -371,6 +396,10 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     } else if (filter.type === 'set' && filter.operator === 'in' && Array.isArray(filter.value)) {
       // For `in` filters we need the complement (excluded = allUnique - included)
       // so the filter panel can render correct checkbox states.
+      if (this.isGeneratedField(field)) {
+        this.excludedValues.delete(field);
+        return;
+      }
       // This requires data to be loaded. If no rows are available yet, defer —
       // the complement will be computed lazily when the panel opens.
       const sourceRows = this.getDataRows();
@@ -484,7 +513,25 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
       return items.length > 0 ? items : undefined;
     }
+
+    if (query.type === 'filter:get-predicate') {
+      return this.compileGeneratedFilters(query.context as (field: string) => boolean);
+    }
     return undefined;
+  }
+
+  /**
+   * Compile the active filters on generated fields that `select` accepts, for the plugin that
+   * generates those rows (Pivot filters its aggregated rows after building them, #622).
+   * `undefined` when none apply, or when an async `filterHandler` owns every filter.
+   */
+  private compileGeneratedFilters(
+    select: (field: string) => boolean,
+  ): ((row: Record<string, unknown>) => boolean) | undefined {
+    if (this.config.filterHandler || !this.filters.size) return undefined;
+    const filters = [...this.filters.values()].filter((f) => select(f.field) && this.isGeneratedField(f.field));
+    if (!filters.length) return undefined;
+    return compileFilters(filters, this.config.caseSensitive, this.getFilterValues());
   }
   // #endregion
 
@@ -513,10 +560,14 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     if (dataSourceMode === 'server') return rows as unknown[];
     const keep = dataSourceMode === 'local' ? isLoadingRow : undefined;
 
+    // A generated field (e.g. Pivot's `k0|sales`) is absent from these source rows, so its filter
+    // would drop every row; the generating plugin applies it to its own rows instead (#622).
+    const sourceFilters = filterList.filter((f) => !this.isGeneratedField(f.field));
+
     // Check cache — also verify input rows haven't changed (e.g. due to sort).
     // Reference equality covers reorders/reshapes upstream; in-place mutations keep
     // the reference, so edit/revert/`cell-change` signals clear `cachedInputRows` (see attach).
-    const newCacheKey = computeFilterCacheKey(filterList);
+    const newCacheKey = computeFilterCacheKey(sourceFilters);
     const inputUnchanged = rows === this.cachedInputRows;
 
     if (this.cacheKey === newCacheKey && this.cachedResult && inputUnchanged) {
@@ -536,7 +587,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     // Filter rows synchronously (worker support can be added later)
     const result = filterRows(
       rows as Record<string, unknown>[],
-      filterList,
+      sourceFilters,
       this.config.caseSensitive,
       this.getFilterValues(),
       keep,
@@ -756,7 +807,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   getUniqueValues(field: string): unknown[] {
     const col = this.getColumnByField(field);
     const getter = col?.filterValue;
-    return getUniqueValues(this.getDataRows(), field, getter);
+    return getUniqueValues(this.getDataRows(this.isGeneratedField(field)), field, getter);
   }
 
   // #region Stale Filter Detection (#166)
@@ -947,7 +998,12 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     // plugin-managed processed rows when a plugin owns the data, e.g. ServerSide).
     // The first row per value lets the panel call `column.format(value, row)` with a real row.
     const rowsByValue = new Map<unknown, Record<string, unknown>>();
-    const uniqueValues = getUniqueValues(this.getDataRows(), field, this.getFilterExtractor(column), rowsByValue);
+    const uniqueValues = getUniqueValues(
+      this.getDataRows(this.isGeneratedField(field)),
+      field,
+      this.getFilterExtractor(column),
+      rowsByValue,
+    );
 
     // Position and append to body BEFORE rendering content
     // so getListItemHeight() can read CSS variables from computed styles.
@@ -960,6 +1016,30 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   }
 
   /**
+   * The panel's excluded-value set for `field`, created on first use. An `in` filter stores its
+   * complement against `uniqueValues`: generated values can change without a source-row change,
+   * so their complement refreshes on every panel open; source-field complements initialize once.
+   */
+  private resolveExcludedValues(field: string, uniqueValues: unknown[]): Set<unknown> {
+    const currentFilter = this.filters.get(field);
+    if (
+      currentFilter?.operator === 'in' &&
+      currentFilter.type === 'set' &&
+      Array.isArray(currentFilter.value) &&
+      (this.isGeneratedField(field) || !this.excludedValues.has(field))
+    ) {
+      const included = new Set<unknown>(currentFilter.value.map((v) => (v == null ? BLANK_FILTER_VALUE : v)));
+      this.excludedValues.set(field, new Set(uniqueValues.filter((v) => !included.has(v))));
+    }
+    let excludedSet = this.excludedValues.get(field);
+    if (!excludedSet) {
+      excludedSet = new Set();
+      this.excludedValues.set(field, excludedSet);
+    }
+    return excludedSet;
+  }
+
+  /**
    * Render filter panel content with given values
    */
   private renderPanelContent(
@@ -969,27 +1049,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     uniqueValues: unknown[],
     labelSource: Omit<FilterValueLabelSource, 'onFormatError'>,
   ): void {
-    // For `in` filters, recompute excludedValues from current data if not yet populated.
-    // This handles the case where setFilterModel was called before rows were loaded.
-    const currentFilter = this.filters.get(field);
-    if (
-      currentFilter?.operator === 'in' &&
-      currentFilter.type === 'set' &&
-      Array.isArray(currentFilter.value) &&
-      !this.excludedValues.has(field)
-    ) {
-      const inValues = currentFilter.value as unknown[];
-      const included = new Set<unknown>(inValues.map((v) => (v == null ? BLANK_FILTER_VALUE : v)));
-      const excluded = new Set<unknown>(uniqueValues.filter((v) => !included.has(v)));
-      this.excludedValues.set(field, excluded);
-    }
-
-    // Get current excluded values or initialize empty
-    let excludedSet = this.excludedValues.get(field);
-    if (!excludedSet) {
-      excludedSet = new Set();
-      this.excludedValues.set(field, excludedSet);
-    }
+    const excludedSet = this.resolveExcludedValues(field, uniqueValues);
 
     // Get current search text
     const currentSearchText = this.searchText.get(field) ?? '';

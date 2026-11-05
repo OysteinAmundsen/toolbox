@@ -4,10 +4,12 @@ import {
   aggregateValues,
   buildPivot,
   calculateTotals,
+  filterPivotRows,
   flattenPivotRows,
   getColumnTotals,
   getUniqueColumnKeys,
   groupByFields,
+  pivotRowFields,
   resolveDefaultExpanded,
   sortPivotMulti,
   sortPivotRows,
@@ -369,6 +371,51 @@ describe('pivot-engine', () => {
       const totals = calculateTotals(pivotRows, ['col'], valueFields);
 
       expect(totals['col|amount']).toBe(100);
+    });
+  });
+
+  describe('filterPivotRows', () => {
+    const leaf = (key: string, value: number): PivotRow => ({
+      rowKey: key,
+      rowLabel: key,
+      depth: 1,
+      values: { 'k|v': value },
+      isGroup: false,
+    });
+    const tree = (): PivotRow[] => [
+      {
+        rowKey: 'A',
+        rowLabel: 'A',
+        depth: 0,
+        values: { 'k|v': 3 },
+        isGroup: true,
+        children: [leaf('A1', 1), leaf('A2', 2)],
+      },
+      { rowKey: 'B', rowLabel: 'B', depth: 0, values: { 'k|v': 9 }, isGroup: false },
+    ];
+
+    it('keeps the ancestors of a matching row and does not mutate the input', () => {
+      const rows = tree();
+      const result = filterPivotRows(rows, (r) => r.rowKey === 'A2');
+
+      expect(flattenPivotRows(result).map((r) => r.rowKey)).toEqual(['A', 'A2']);
+      expect(rows[0].children).toHaveLength(2);
+    });
+
+    it('keeps a matching group whose children all fail, without children', () => {
+      const result = filterPivotRows(tree(), (r) => r.rowKey === 'A');
+      expect(result.map((r) => r.rowKey)).toEqual(['A']);
+      expect(result[0].children).toEqual([]);
+    });
+
+    it('returns the same array when every row matches', () => {
+      const rows = tree();
+      expect(filterPivotRows(rows, () => true)).toBe(rows);
+    });
+
+    it('exposes the label, total and value fields to the predicate', () => {
+      const row: PivotRow = { ...leaf('A1', 1), total: 1 };
+      expect(pivotRowFields(row)).toEqual({ __pivotLabel: 'A1', __pivotTotal: 1, 'k|v': 1 });
     });
   });
 

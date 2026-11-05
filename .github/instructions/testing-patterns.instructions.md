@@ -57,6 +57,11 @@ All DOM-, CSS-, and happy-dom-environment quirks are grouped here. Check this se
 
 - **`dispatchEvent` fires extra events**: Spying on `dispatchEvent` may show more calls than expected (e.g., 3 instead of 1) because happy-dom dispatches additional internal events. Use `addEventListener` on the specific event type instead of spying on `dispatchEvent`.
 
+### Driving an Editing commit from a spec
+
+- **Capture `ctx.commit` from a custom `editor`, and return a non-`<input>` element** when committing a non-string value (object, `null`). `editing.commitActiveRowEdit()` re-commits from every `<input>` in the row, so it overwrites the value with `input.value` (`''`).
+- **Closing a row edit does not run `processRows`**: it re-renders the row only. To assert a filter, sort or row-model reaction, call `grid.requestRender()` after the commit (PR #636: `pivot-filtering.spec.ts` › editor commit and rollback).
+
 ## Adapter Test Gotchas
 
 - **React lowercases custom element attributes**: React renders camelCase props as lowercase DOM attributes (e.g., `cardRowHeight` → `cardrowheight`). Use `getAttribute('cardrowheight')` in assertions.

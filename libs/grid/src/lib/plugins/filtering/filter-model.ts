@@ -374,11 +374,42 @@ function compileTextPredicate(
 }
 
 /**
- * Filter rows based on multiple filter conditions (AND logic).
- * All filters must match for a row to be included.
+ * Compile a non-empty filter list into one row predicate (AND logic).
  *
  * Pre-compiles each filter into a specialized predicate to avoid
  * repeated type coercion and branch checks inside the hot loop.
+ *
+ * @param filters - Filters to combine (must not be empty)
+ * @param caseSensitive - Whether text comparisons are case sensitive
+ * @param filterValues - Optional map of field → value extractor for complex columns
+ * @returns Predicate that is true when the row matches every filter
+ */
+export function compileFilters<T extends Record<string, unknown>>(
+  filters: readonly FilterModel[],
+  caseSensitive = false,
+  filterValues?: Map<string, (value: unknown, row: T) => unknown | unknown[]>,
+): (row: T) => boolean {
+  const predicates = filters.map((f) =>
+    compileFilter(
+      f,
+      caseSensitive,
+      filterValues?.get(f.field) as ((value: unknown, row: Record<string, unknown>) => unknown | unknown[]) | undefined,
+    ),
+  );
+
+  // Single-filter fast path avoids per-row loop overhead
+  if (predicates.length === 1) return predicates[0];
+  return (row: T) => {
+    for (let i = 0; i < predicates.length; i++) {
+      if (!predicates[i](row)) return false;
+    }
+    return true;
+  };
+}
+
+/**
+ * Filter rows based on multiple filter conditions (AND logic).
+ * All filters must match for a row to be included.
  *
  * @param rows - The rows to filter
  * @param filters - Array of filters to apply
@@ -396,25 +427,7 @@ export function filterRows<T extends Record<string, unknown>>(
 ): T[] {
   if (!filters.length) return rows as T[];
 
-  // Pre-compile all filters into specialized predicates
-  const predicates = filters.map((f) =>
-    compileFilter(
-      f,
-      caseSensitive,
-      filterValues?.get(f.field) as ((value: unknown, row: Record<string, unknown>) => unknown | unknown[]) | undefined,
-    ),
-  );
-
-  // Single-filter fast path avoids per-row loop overhead
-  const matchAll =
-    predicates.length === 1
-      ? predicates[0]
-      : (row: T) => {
-          for (let i = 0; i < predicates.length; i++) {
-            if (!predicates[i](row)) return false;
-          }
-          return true;
-        };
+  const matchAll = compileFilters(filters, caseSensitive, filterValues);
 
   if (keep) return rows.filter((row) => keep(row) || matchAll(row));
   return rows.filter(matchAll);

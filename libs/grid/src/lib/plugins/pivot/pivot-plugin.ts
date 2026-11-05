@@ -186,6 +186,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   private isActive = false;
   private hasInitialized = false;
   private pivotResult: PivotResult | null = null;
+  private renderedColumnKeys: string[] | null = null;
   private fieldHeaderMap: Map<string, string> = new Map();
   private expandedKeys: Set<string> = new Set();
   private defaultExpanded: boolean | number | string | string[] = true;
@@ -231,6 +232,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     this.isActive = false;
     this.hasInitialized = false;
     this.pivotResult = null;
+    this.renderedColumnKeys = null;
     this.fieldHeaderMap.clear();
     this.originalColumns = [];
     this.panelContainer = null;
@@ -296,7 +298,17 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     this.defaultExpanded = this.config.defaultExpanded ?? true;
 
     // Build pivot first so we have the rows structure
+    const previousColumnKeys = this.pivotResult?.columnKeys ?? this.renderedColumnKeys;
     this.pivotResult = buildPivot(rows as PivotDataRow[], this.config);
+    const columnKeys = this.pivotResult.columnKeys;
+    if (
+      previousColumnKeys &&
+      (previousColumnKeys.length !== columnKeys.length || previousColumnKeys.some((key, i) => key !== columnKeys[i]))
+    ) {
+      // Row-only renders do not process columns. Rebuild them when the pivot
+      // structure changes; the next row pass sees the same keys and settles.
+      this.requestColumnsRender();
+    }
 
     // When MultiSort is active, apply its sort model to pivot rows.
     // This overrides config.sortRows when MultiSort has active sorts.
@@ -372,8 +384,11 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   /** @internal */
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
     if (!this.isActive || !this.pivotResult) {
+      this.renderedColumnKeys = null;
       return [...columns];
     }
+
+    this.renderedColumnKeys = [...this.pivotResult.columnKeys];
 
     const pivotColumns: ColumnConfig[] = [];
 

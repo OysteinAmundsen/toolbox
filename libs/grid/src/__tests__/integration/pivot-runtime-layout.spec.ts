@@ -420,6 +420,45 @@ describe('PivotPlugin runtime layout changes (#605)', () => {
       expect(fields(grid)).toEqual(['__pivotLabel', 'even|c1', 'odd|c1', '__pivotTotal']);
     });
 
+    it('unpinning a source column after disablePivot restores its position (#615)', async () => {
+      const { grid, pivot, pinned } = await setupPinned();
+      pinned.setPinPosition('k1|c1', 'left');
+      await waitUpgrade(grid);
+      pivot.disablePivot();
+      await waitUpgrade(grid);
+
+      pinned.setPinPosition('c3', 'left');
+      await waitUpgrade(grid);
+      pinned.setPinPosition('c3', undefined);
+      await waitUpgrade(grid);
+
+      expect(fields(grid)).toEqual(['c0', 'c1', 'c2', 'c3']);
+    });
+
+    // Core keeps a hidden source column in the pivot layout, so the pin stays present (PR #625 review).
+    it.each([false, true])(
+      'a source column pinned before a pivot round-trip unpins to its source position (hidden: %s)',
+      async (hidden) => {
+        const { grid, pivot, pinned } = await setupPinned();
+        const step = async (action: () => void) => {
+          action();
+          await waitUpgrade(grid);
+        };
+        await step(() => pivot.disablePivot());
+        await step(() => pinned.setPinPosition('c3', 'left'));
+        if (hidden) await step(() => grid.setColumnVisible('c3', false));
+        await step(() => pivot.enablePivot());
+        await step(() => pinned.setPinPosition('k1|c1', 'left'));
+        await step(() => pivot.disablePivot());
+        expect(pinOf(grid, 'c3')).toBe('left');
+
+        await step(() => pinned.setPinPosition('c3', undefined));
+        if (hidden) await step(() => grid.setColumnVisible('c3', true));
+
+        expect(fields(grid)).toEqual(['c0', 'c1', 'c2', 'c3']);
+      },
+    );
+
     it('pinning keeps the processColumns order of plugins registered before Pivot', async () => {
       const { grid, pinned } = await setupPinned([new RowDragDropPlugin()]);
       pinned.setPinPosition('k1|c1', 'left');

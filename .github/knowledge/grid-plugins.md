@@ -46,7 +46,7 @@ related: [grid-plugins-catalog-data, grid-plugins-catalog-ui, grid-plugins-shell
 | `afterRender`     | STYLE        | full DOM queries, event listeners        | void             |
 | `onScrollRender`  | scroll-reuse | reapply visual state to recycled DOM     | void             |
 
-- INVARIANT: `windowColumns` runs on a `_visibleColumns` cache miss. `processColumns` MUST be idempotent on its OWN output (each COLUMNS pass re-seeds `#baseColumns`): rebuild an injected column in place by field, keeping runtime state (RowDragDrop: pin, #603).
+- INVARIANT: `windowColumns` runs on a `_visibleColumns` cache miss. `processColumns` MUST be idempotent on its OWN output (each COLUMNS pass re-seeds `#baseColumns`): rebuild an injected column in place by field, keeping runtime state (RowDragDrop: pin, #603). Column-REPLACING plugins must cache their source columns in `orderColumns` (full list) to restore them (Pivot, #605).
 
 ### Event hooks (return `true` for early exit)
 

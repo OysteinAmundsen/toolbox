@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { nextFrame } from '../../../../test/helpers';
 import type { InternalGrid } from '../types';
 import { RenderPhase, RenderScheduler } from './render-scheduler';
 
@@ -121,6 +122,95 @@ describe('RenderScheduler', () => {
         'renderVirtualWindow',
         'afterRender',
       ]);
+    });
+  });
+
+  describe('COLUMNS requested by processRows hooks (#608)', () => {
+    /**
+     * Mimics `grid.ts#rebuildRowModel`: plugin hooks run inside `runRowHooks` and either call the plugin
+     * column API (`'columns'`) or trigger a generic request (e.g. a consumer listener); `data-change` fires after.
+     */
+    const processRowsRequesting = (fromHooks: 'columns' | RenderPhase | 0, afterHooks: RenderPhase | 0 = 0) => {
+      vi.mocked(grid._schedulerProcessRows).mockImplementationOnce(() => {
+        callOrder.push('processRows');
+        scheduler.runRowHooks(() => {
+          if (fromHooks === 'columns') scheduler.requestColumns('processRows-hook');
+          else if (fromHooks) scheduler.requestPhase(fromHooks, 'listener-in-hook');
+        });
+        if (afterHooks) scheduler.requestPhase(afterHooks, 'data-change-listener');
+      });
+    };
+
+    it('escalates a ROWS flush to COLUMNS in the same frame', async () => {
+      processRowsRequesting('columns');
+      scheduler.requestPhase(RenderPhase.ROWS, 'test');
+      await scheduler.whenReady();
+
+      expect(callOrder).toEqual([
+        'processRows',
+        'mergeConfig',
+        'processColumns',
+        'updateTemplate',
+        'renderHeader',
+        'renderVirtualWindow',
+        'afterRender',
+      ]);
+      expect(scheduler.isPending).toBe(false);
+      await nextFrame();
+      expect(grid._schedulerProcessRows).toHaveBeenCalledTimes(1);
+    });
+
+    it('reports the escalated phase in the render event', async () => {
+      const listener = vi.fn();
+      grid._hostElement.addEventListener('render', listener);
+      processRowsRequesting('columns');
+      scheduler.requestPhase(RenderPhase.ROWS, 'test');
+      await scheduler.whenReady();
+
+      expect(listener).toHaveBeenCalledTimes(1);
+      expect(listener.mock.calls[0][0].detail.phase).toBe(RenderPhase.COLUMNS);
+    });
+
+    it('serves the request inside a COLUMNS flush without a second pass', async () => {
+      processRowsRequesting('columns');
+      scheduler.requestPhase(RenderPhase.COLUMNS, 'test');
+      await scheduler.whenReady();
+      await nextFrame();
+
+      expect(grid._schedulerMergeConfig).toHaveBeenCalledTimes(1);
+      expect(grid._schedulerProcessColumns).toHaveBeenCalledTimes(1);
+      expect(scheduler.isPending).toBe(false);
+    });
+
+    it.each([
+      ['ROWS', RenderPhase.ROWS],
+      ['COLUMNS', RenderPhase.COLUMNS],
+      ['FULL', RenderPhase.FULL],
+    ])('a generic %s request made inside the hooks keeps its own flush', async (_name, phase) => {
+      processRowsRequesting(phase);
+      scheduler.requestPhase(RenderPhase.ROWS, 'test');
+      await scheduler.whenReady();
+
+      expect(grid._schedulerProcessColumns).not.toHaveBeenCalled();
+      expect(scheduler.pendingPhase).toBe(phase);
+      await nextFrame();
+      expect(grid._schedulerProcessRows).toHaveBeenCalledTimes(2);
+    });
+
+    it('a request made after the row hooks still gets its own flush', async () => {
+      processRowsRequesting('columns', RenderPhase.ROWS);
+      scheduler.requestPhase(RenderPhase.ROWS, 'test');
+      await scheduler.whenReady();
+
+      expect(grid._schedulerProcessColumns).toHaveBeenCalledTimes(1);
+      expect(scheduler.pendingPhase).toBe(RenderPhase.ROWS);
+      await nextFrame();
+      expect(grid._schedulerProcessRows).toHaveBeenCalledTimes(2);
+    });
+
+    it('requestColumns outside a flush takes the normal path', () => {
+      scheduler.runRowHooks(() => scheduler.requestColumns('outside'));
+      expect(scheduler.pendingPhase).toBe(RenderPhase.COLUMNS);
     });
   });
 
@@ -358,9 +448,7 @@ describe('RenderScheduler', () => {
 
     it('dispatches "render" AFTER plugin afterRender hooks run', async () => {
       const order: string[] = [];
-      (evtGrid._schedulerAfterRender as ReturnType<typeof vi.fn>).mockImplementation(() =>
-        order.push('afterRender'),
-      );
+      (evtGrid._schedulerAfterRender as ReturnType<typeof vi.fn>).mockImplementation(() => order.push('afterRender'));
       host.addEventListener('render', () => order.push('event:render'), { once: true });
       // Drop the recorder added in beforeEach so we don't double-count
       events.length = 0;

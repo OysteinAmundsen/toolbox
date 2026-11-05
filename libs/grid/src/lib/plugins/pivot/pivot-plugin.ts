@@ -57,6 +57,10 @@ import type {
 // Import CSS as inline string (Vite handles this)
 import styles from './pivot.css?inline';
 
+function sameKeys(a: readonly string[] | null, b: readonly string[]): boolean {
+  return a !== null && a.length === b.length && a.every((key, i) => key === b[i]);
+}
+
 /**
  * Pivot Table Plugin for tbw-grid
  *
@@ -196,6 +200,8 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   private isActive = false;
   private hasInitialized = false;
   private pivotResult: PivotResult | null = null;
+  /** Column keys the last `processColumns` built columns for; a row update that changes them needs a COLUMNS pass (#608). */
+  private renderedColumnKeys: readonly string[] | null = null;
   private fieldHeaderMap: Map<string, string> = new Map();
   private expandedKeys: Set<string> = new Set();
   private defaultExpanded: boolean | number | string | string[] = true;
@@ -255,6 +261,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     this.isActive = false;
     this.hasInitialized = false;
     this.pivotResult = null;
+    this.renderedColumnKeys = null;
     this.fieldHeaderMap.clear();
     this.originalColumns = [];
     this.sourceColumns = [];
@@ -328,6 +335,9 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
     // Build pivot first so we have the rows structure
     this.pivotResult = buildPivot(rows as PivotDataRow[], this.config);
+    // A ROWS-only flush (grid.rows update) skips processColumns, so new or vanished keys would keep
+    // stale columns. The scheduler serves this request in the current flush (#608).
+    if (!sameKeys(this.renderedColumnKeys, this.pivotResult.columnKeys)) this.requestColumnsRender();
 
     // When MultiSort is active, apply its sort model to pivot rows.
     // This overrides config.sortRows when MultiSort has active sorts.
@@ -435,8 +445,10 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   /** @internal */
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
     if (!this.isActive || !this.pivotResult) {
+      this.renderedColumnKeys = null;
       return [...columns];
     }
+    this.renderedColumnKeys = this.pivotResult.columnKeys;
 
     const pivotColumns: ColumnConfig[] = [];
 
@@ -1109,7 +1121,8 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
    * Force re-computation of the pivot result.
    *
    * Clears the cached pivot result and triggers a full re-render.
-   * Call this after changing the underlying row data.
+   * Assigning `grid.rows` already rebuilds the pivot, including columns for added or
+   * removed column keys; call this after mutating row objects in place.
    */
   refresh(): void {
     this.pivotResult = null;

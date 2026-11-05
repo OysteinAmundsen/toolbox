@@ -253,6 +253,11 @@ or cached state.
    - **Index spaces.** When a list's meaning widens (window → full list), grep every consumer that writes an
      index into another list's space (`_focusCol = <order index>`, `data-col`, selection ranges). Follow aliases
      to their call sites (#607: Pivot's `get gridColumns() { return this.grid.columns }` fed `renderRow`).
+   - **Pending state.** When a fix makes a call build on a queued/not-yet-applied value instead of the processed
+     one, the queued value must equal what processing will produce. Probe the same calls in ONE tick vs.
+     SEPARATE ticks: the end states must match (#618 QA: raw pending list → same-side pins lost call order).
+     Also interleave a runtime setter on the same object (`setColumnVisible`), and use an explicit column `order`:
+     a pending COPY drops in-place runtime writes, and a re-ordered source shifts `applyInitialOrder` (PR #628).
 5. **Prove, don't argue.** Any candidate from 2–4 that reading cannot rule out gets a throwaway probe:
    - Write only the probe body: `it(...)` blocks that `console.log('PROBE …')` the measured values.
    - Run `bun .github/skills/qa/scripts/probe.ts --from <existing integration spec> --body <file> --name <topic>`.

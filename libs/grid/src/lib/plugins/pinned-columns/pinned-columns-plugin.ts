@@ -10,6 +10,8 @@ import type { AfterCellRenderContext, PluginManifest, PluginQuery, ScrollEvent }
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, ColumnInternal } from '../../core/types';
 import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/types';
+import { dataFieldSelector } from '../shared/data-field-selector';
+import { applyCellStickyOffset, PINNED_OFFSETS_CHANGE, type StickyOffsets } from '../shared/pin-order';
 import {
   applyStickyOffsets,
   clearStickyOffsets,
@@ -20,6 +22,7 @@ import {
   reorderColumnsForPinning,
   type GroupEndAdjustments,
   type SplitGroupState,
+  type StickyOffsetsResult,
 } from './pinned-columns';
 import type { PinnedColumnsConfig, PinnedPosition } from './types';
 
@@ -127,6 +130,12 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
         description: 'Contributes pin/unpin items to the header context menu',
       },
     ],
+    events: [
+      {
+        type: PINNED_OFFSETS_CHANGE,
+        description: 'Emitted on the plugin bus when the measured sticky offsets change',
+      },
+    ],
   };
 
   /** @internal */
@@ -157,6 +166,8 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
    * next `processColumns` pass (issue #272).
    */
   #seededFromAttr = new WeakSet<HTMLElement>();
+  /** `getStickyOffsets` response, built once per offset change instead of per query. */
+  #offsetsSnapshot: StickyOffsets | null = null;
   // #endregion
 
   // #region Lifecycle
@@ -165,6 +176,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   override detach(): void {
     this.leftOffsets.clear();
     this.rightOffsets.clear();
+    this.#offsetsSnapshot = null;
     this.isApplied = false;
     this.#groupEndAdjustments = { addGroupEnd: new Set(), removeGroupEnd: new Set() };
     this.#splitGroups = [];
@@ -252,14 +264,20 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
     // Apply sticky offsets after a microtask to ensure DOM is ready. Offsets map header-group
     // `grid-column` tracks, which exist only for RENDERED columns (column windowing, #603).
     queueMicrotask(() => {
-      const result = applyStickyOffsets(host, [...this.visibleColumns]);
-      this.#groupEndAdjustments = result.groupEndAdjustments;
-      this.leftOffsets = result.leftOffsets;
-      this.rightOffsets = result.rightOffsets;
-      this.#splitGroups = result.splitGroups;
+      this.#storeOffsets(applyStickyOffsets(host, [...this.visibleColumns]));
       // Re-apply scroll-driven state (transfer + translateX) to the fresh DOM elements
       this.#updateSplitGroupScroll();
     });
+  }
+
+  /** Keep the measured offsets and tell offset-caching plugins (Pivot) that they changed. */
+  #storeOffsets(result: StickyOffsetsResult): void {
+    this.#groupEndAdjustments = result.groupEndAdjustments;
+    this.leftOffsets = result.leftOffsets;
+    this.rightOffsets = result.rightOffsets;
+    this.#splitGroups = result.splitGroups;
+    this.#offsetsSnapshot = null;
+    this.emitPluginEvent(PINNED_OFFSETS_CHANGE, null);
   }
 
   /**
@@ -275,23 +293,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
     const cellEl = context.cellElement;
 
     // Apply sticky positioning from cached offset maps
-    const leftOffset = this.leftOffsets.get(field);
-    if (leftOffset !== undefined) {
-      if (!cellEl.classList.contains(GridClasses.STICKY_LEFT)) {
-        cellEl.classList.add(GridClasses.STICKY_LEFT);
-      }
-      cellEl.style.position = 'sticky';
-      cellEl.style.left = leftOffset + 'px';
-    } else {
-      const rightOffset = this.rightOffsets.get(field);
-      if (rightOffset !== undefined) {
-        if (!cellEl.classList.contains(GridClasses.STICKY_RIGHT)) {
-          cellEl.classList.add(GridClasses.STICKY_RIGHT);
-        }
-        cellEl.style.position = 'sticky';
-        cellEl.style.right = rightOffset + 'px';
-      }
-    }
+    applyCellStickyOffset(cellEl, this.leftOffsets.get(field), this.rightOffsets.get(field));
 
     // Maintain group-end adjustments at pin boundaries
     if (this.#groupEndAdjustments.addGroupEnd.has(field)) {
@@ -353,7 +355,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
         this.#groupEndAdjustments.addGroupEnd.add(sg.pinnedField);
         host
           .querySelectorAll(
-            `.header-row .cell[data-field="${sg.pinnedField}"], .data-grid-row .cell[data-field="${sg.pinnedField}"]`,
+            `.header-row .cell${dataFieldSelector(sg.pinnedField)}, .data-grid-row .cell${dataFieldSelector(sg.pinnedField)}`,
           )
           .forEach((el) => el.classList.add('group-end'));
 
@@ -373,7 +375,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
         this.#groupEndAdjustments.addGroupEnd.delete(sg.pinnedField);
         host
           .querySelectorAll(
-            `.header-row .cell[data-field="${sg.pinnedField}"], .data-grid-row .cell[data-field="${sg.pinnedField}"]`,
+            `.header-row .cell${dataFieldSelector(sg.pinnedField)}, .data-grid-row .cell${dataFieldSelector(sg.pinnedField)}`,
           )
           .forEach((el) => el.classList.remove('group-end'));
 
@@ -415,11 +417,11 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
         return undefined; // Let other plugins or default behavior decide
       }
       case 'getStickyOffsets': {
-        // Return the calculated sticky offsets for column virtualization
-        return {
+        // Pivot re-applies these to its custom rows; the snapshot is rebuilt only when offsets change.
+        return (this.#offsetsSnapshot ??= {
           left: Object.fromEntries(this.leftOffsets),
           right: Object.fromEntries(this.rightOffsets),
-        };
+        });
       }
       case 'getContextMenuItems': {
         const params = query.context as ContextMenuParams;
@@ -548,11 +550,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
    * Re-apply sticky offsets (e.g., after column resize).
    */
   refreshStickyOffsets(): void {
-    const result = applyStickyOffsets(this.gridElement, [...this.visibleColumns]);
-    this.#groupEndAdjustments = result.groupEndAdjustments;
-    this.leftOffsets = result.leftOffsets;
-    this.rightOffsets = result.rightOffsets;
-    this.#splitGroups = result.splitGroups;
+    this.#storeOffsets(applyStickyOffsets(this.gridElement, [...this.visibleColumns]));
   }
 
   /**

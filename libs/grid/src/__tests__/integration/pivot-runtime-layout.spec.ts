@@ -3,12 +3,16 @@
  *
  * @vitest-environment happy-dom
  */
-import { afterEach, describe, expect, it } from 'vitest';
-import { createGrid, waitUpgrade } from '../../../test/helpers';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createGrid, stickySides, waitUpgrade } from '../../../test/helpers';
 import '../../lib/core/grid';
 import type { DataGridElement } from '../../lib/core/grid';
+import type { BaseGridPlugin } from '../../lib/core/plugin/base-plugin';
 import { ExportPlugin } from '../../lib/plugins/export/export-plugin';
+import { PinnedColumnsPlugin } from '../../lib/plugins/pinned-columns/pinned-columns-plugin';
+import type { PinnedPosition } from '../../lib/plugins/pinned-columns/types';
 import { PivotPlugin } from '../../lib/plugins/pivot/pivot-plugin';
+import { RowDragDropPlugin } from '../../lib/plugins/row-drag-drop/row-drag-drop-plugin';
 
 async function setup(hiddenField?: string) {
   const columns = Array.from({ length: 40 }, (_, i) => ({
@@ -222,6 +226,206 @@ describe('PivotPlugin runtime layout changes (#605)', () => {
       const { grid, pivot } = await setup('c2');
       await hide(grid, 'k0|c1');
       await expectHiddenSourceRestored(grid, pivot);
+    });
+  });
+
+  describe('pinned pivot columns (#613)', () => {
+    async function setupPinned(before: BaseGridPlugin[] = [], dir: 'ltr' | 'rtl' = 'ltr', keys = ['k0', 'k1']) {
+      const columns = ['c0', 'c1', 'c2', 'c3'].map((field) => ({ field, header: field.toUpperCase(), width: 100 }));
+      const rows = Array.from({ length: 4 }, (_, i) => ({
+        c0: 'A',
+        c1: i,
+        c2: keys[i % keys.length],
+        c3: i % 2 ? 'odd' : 'even',
+      }));
+      const pivot = new PivotPlugin({
+        rowGroupFields: ['c0'],
+        columnGroupFields: ['c2'],
+        valueFields: [{ field: 'c1', aggFunc: 'sum' }],
+        showToolPanel: false,
+        showGrandTotal: true,
+      });
+      const pinned = new PinnedColumnsPlugin();
+      const grid = createGrid();
+      if (dir === 'rtl') grid.setAttribute('dir', 'rtl');
+      grid.gridConfig = { columns, plugins: [...before, pivot, pinned] };
+      grid.rows = rows;
+      await waitUpgrade(grid);
+      return { grid, pivot, pinned };
+    }
+
+    const pinOf = (grid: DataGridElement, field: string) => grid.columns.find((c) => c.field === field)?.pinned;
+    /** Body cells of `field`: data rows + grand-total footer. */
+    const stickyCells = (grid: DataGridElement, field: string) => stickySides(grid, '.data-grid-row .cell', field);
+    const rerenderRows = (grid: DataGridElement) =>
+      grid._renderVisibleRows(0, grid.querySelectorAll('.rows .data-grid-row').length);
+
+    it('pins pivot columns whose grouping values hold quotes and backslashes', async () => {
+      const { grid, pinned } = await setupPinned([], 'ltr', ['24" monitor', 'a\\b']);
+      pinned.setPinPosition('24" monitor|c1', 'left');
+      await waitUpgrade(grid);
+      pinned.setPinPosition('a\\b|c1', 'right');
+      await waitUpgrade(grid);
+
+      expect(stickyCells(grid, '24" monitor|c1')).toEqual(['L0px', 'L0px']);
+      expect(stickyCells(grid, 'a\\b|c1')).toEqual(['R0px', 'R0px']);
+    });
+
+    it('shares one pin plan across pivot rows and skips it when nothing is pinned', async () => {
+      const { grid, pivot, pinned } = await setupPinned();
+      pivot.setRowGroupFields(['c3']);
+      await waitUpgrade(grid);
+      const query = vi.spyOn(grid, 'query');
+      const offsetQueries = () => query.mock.calls.filter(([type]) => type === 'getStickyOffsets').length;
+
+      rerenderRows(grid);
+      expect(offsetQueries()).toBe(0);
+
+      pinned.setPinPosition('k1|c1', 'left');
+      await waitUpgrade(grid);
+      query.mockClear();
+      rerenderRows(grid);
+      rerenderRows(grid);
+
+      expect(grid.querySelectorAll('.rows .pivot-leaf-row')).toHaveLength(2);
+      expect(offsetQueries()).toBe(1);
+    });
+
+    it('rebuilds the pin plan when PinnedColumns re-measures without a render', async () => {
+      const { grid, pinned } = await setupPinned();
+      pinned.setPinPosition('k0|c1', 'left');
+      await waitUpgrade(grid);
+      pinned.setPinPosition('k1|c1', 'left');
+      await waitUpgrade(grid);
+      const firstHeader = grid.querySelector<HTMLElement>('.header-row [data-field="k0|c1"]');
+      const measure = (width: number) => {
+        if (firstHeader) Object.defineProperty(firstHeader, 'offsetWidth', { value: width, configurable: true });
+        pinned.refreshStickyOffsets();
+        rerenderRows(grid);
+      };
+
+      measure(80);
+      measure(120);
+
+      expect(stickyCells(grid, 'k1|c1')).toEqual(['L120px', 'L120px']);
+    });
+
+    it('setPinPosition pins a pivot column and moves it to the edge', async () => {
+      const { grid, pinned } = await setupPinned();
+      expect(fields(grid)).toEqual(['__pivotLabel', 'k0|c1', 'k1|c1', '__pivotTotal']);
+
+      pinned.setPinPosition('k1|c1', 'left');
+      await waitUpgrade(grid);
+
+      expect(fields(grid)).toEqual(['k1|c1', '__pivotLabel', 'k0|c1', '__pivotTotal']);
+      expect(pinOf(grid, 'k1|c1')).toBe('left');
+      expect(grid.querySelector('.header-row [data-field="k1|c1"]')?.classList.contains('sticky-left')).toBe(true);
+      // Body row + grand-total footer stick with the header (custom pivot rows, PR #617 review).
+      expect(stickyCells(grid, 'k1|c1')).toEqual(['L0px', 'L0px']);
+    });
+
+    it('pinned pivot body cells stay sticky when rows re-render outside afterRender', async () => {
+      const { grid, pinned } = await setupPinned();
+      pinned.setPinPosition('__pivotTotal', 'right');
+      await waitUpgrade(grid);
+
+      rerenderRows(grid);
+
+      expect(stickyCells(grid, '__pivotTotal')).toEqual(['R0px', 'R0px']);
+    });
+
+    // The offset cache still holds the old side while the pivot rows re-render (PR #617 review).
+    it.each<[PinnedPosition, PinnedPosition, 'ltr' | 'rtl', string]>([
+      ['left', 'right', 'ltr', 'R0px'],
+      ['right', 'left', 'ltr', 'L0px'],
+      ['start', 'end', 'rtl', 'L0px'],
+    ])('switching a pinned pivot column %s → %s (%s) leaves one sticky side', async (from, to, dir, expected) => {
+      const { grid, pinned } = await setupPinned([], dir);
+      pinned.setPinPosition('k1|c1', from);
+      await waitUpgrade(grid);
+
+      pinned.setPinPosition('k1|c1', to);
+      await waitUpgrade(grid);
+
+      expect(stickyCells(grid, 'k1|c1')).toEqual([expected, expected]);
+    });
+
+    // Plan warmed in LTR keeps its column-array key across a direction change (PR #617 review).
+    it('a warmed pin plan follows a direction switch to one sticky side', async () => {
+      const { grid, pinned } = await setupPinned();
+      pinned.setPinPosition('k1|c1', 'start');
+      await waitUpgrade(grid);
+      rerenderRows(grid);
+      expect(stickyCells(grid, 'k1|c1')).toEqual(['L0px', 'L0px']);
+
+      // `render` fires after afterRender hooks but before PinnedColumns' re-measure microtask, so
+      // it shows what the rows rendered with: never the stale LTR side.
+      let rowsRendered: string[] = [];
+      grid.addEventListener(
+        'render',
+        () =>
+          (rowsRendered = [...grid.querySelectorAll<HTMLElement>('.rows .cell[data-field]')]
+            .filter((c) => c.getAttribute('data-field') === 'k1|c1')
+            .map((c) => c.className)),
+        { once: true },
+      );
+      grid.setAttribute('dir', 'rtl');
+      grid.requestRender();
+      await waitUpgrade(grid);
+
+      expect(rowsRendered).toEqual(['cell']);
+      expect(stickyCells(grid, 'k1|c1')).toEqual(['R0px', 'R0px']);
+    });
+
+    it('a pinned pivot column stays pinned across COLUMNS passes', async () => {
+      const { grid, pivot, pinned } = await setupPinned();
+      pinned.setPinPosition('k0|c1', 'right');
+      await waitUpgrade(grid);
+
+      grid.requestColumnsRender();
+      await waitUpgrade(grid);
+      pivot.setRowGroupFields(['c3']);
+      await waitUpgrade(grid);
+
+      expect(fields(grid)).toEqual(['__pivotLabel', 'k1|c1', '__pivotTotal', 'k0|c1']);
+      expect(pinOf(grid, 'k0|c1')).toBe('right');
+    });
+
+    it('unpinning restores the pivot column to its pivot position', async () => {
+      const { grid, pinned } = await setupPinned();
+      pinned.setPinPosition('k1|c1', 'left');
+      await waitUpgrade(grid);
+
+      pinned.setPinPosition('k1|c1', undefined);
+      await waitUpgrade(grid);
+      grid.requestColumnsRender();
+      await waitUpgrade(grid);
+
+      expect(fields(grid)).toEqual(['__pivotLabel', 'k0|c1', 'k1|c1', '__pivotTotal']);
+      expect(pinOf(grid, 'k1|c1')).toBeUndefined();
+      // PinnedColumns keeps its offset cache after the last unpin; recreated cells must ignore it.
+      rerenderRows(grid);
+      expect(stickyCells(grid, 'k1|c1')).toEqual(['-', '-']);
+    });
+
+    it('a pinned pivot column whose key no longer exists is dropped', async () => {
+      const { grid, pivot, pinned } = await setupPinned();
+      pinned.setPinPosition('k1|c1', 'left');
+      await waitUpgrade(grid);
+
+      pivot.setColumnGroupFields(['c3']);
+      await waitUpgrade(grid);
+
+      expect(fields(grid)).toEqual(['__pivotLabel', 'even|c1', 'odd|c1', '__pivotTotal']);
+    });
+
+    it('pinning keeps the processColumns order of plugins registered before Pivot', async () => {
+      const { grid, pinned } = await setupPinned([new RowDragDropPlugin()]);
+      pinned.setPinPosition('k1|c1', 'left');
+      await waitUpgrade(grid);
+
+      // Pivot regenerates over the drag-handle column, as it does without a pin.
+      expect(fields(grid)).toEqual(['k1|c1', '__pivotLabel', 'k0|c1', '__pivotTotal']);
     });
   });
 

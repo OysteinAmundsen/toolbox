@@ -30,16 +30,16 @@ Many former pitfalls were promoted to canonical locations because they describe 
 
 Use this index to jump to the relevant pitfalls when something fails. Each entry is numbered to match the list below.
 
-| Category                        | Pitfalls     |
-| ------------------------------- | ------------ |
-| **DOM structure & containers**  | 1, 6, 12, 13 |
-| **Touch & scroll**              | 2            |
-| **Icons & CSS variables**       | 3            |
-| **Custom rendering & cells**    | 4            |
-| **Plugin hook ordering**        | 5, 11        |
-| **Virtualized DOM recycling**   | 7            |
-| **Keyboard / clipboard / undo** | 8, 9         |
-| **Context menu targeting**      | 10           |
+| Category                        | Pitfalls         |
+| ------------------------------- | ---------------- |
+| **DOM structure & containers**  | 1, 6, 12, 13, 14 |
+| **Touch & scroll**              | 2                |
+| **Icons & CSS variables**       | 3                |
+| **Custom rendering & cells**    | 4                |
+| **Plugin hook ordering**        | 5, 11            |
+| **Virtualized DOM recycling**   | 7                |
+| **Keyboard / clipboard / undo** | 8, 9             |
+| **Context menu targeting**      | 10               |
 
 1. **Plugin container access — `children[0]` is unreliable** — Use `this.gridElement.querySelector('.tbw-grid-root')` to find the grid's root container. Light DOM children (e.g. `<tbw-grid-column>`) are re-appended before `.tbw-grid-root`, making `children[0]` unpredictable.
 2. **Touch scroll boundaries require `window.scrollBy`** — The grid sets `touch-action: none` on `.rows-viewport` and `.faux-vscroll`. Because this is evaluated at gesture start and cannot be changed mid-gesture, you **cannot** release scroll control back to the browser. Propagate surplus delta to the page via `window.scrollBy()`.
@@ -55,3 +55,4 @@ Use this index to jump to the relevant pitfalls when something fails. Each entry
 11. **`requestRender()` is batched, so render-derived state is stale right after it** — `this.requestRender()` schedules the render; it does not run it. Code that runs synchronously after the call and reads `grid._virtualization`, `datasource:viewport-mapping`, or row DOM sees the **pre-render** values. On a first load those values are empty. To act on the new layout, set a one-shot flag and consume it in `afterRender()`, which runs after the VIRTUALIZATION phase. `requestVirtualRefresh()` is the exception: it runs synchronously, so a sync read after it is already current. It fires `afterRender` only on the unvirtualized and ≤`bypassThreshold`-row paths, not on the normal virtualized path, so do not rely on it to trigger `afterRender`. ServerSidePlugin hit this in #507: a viewport taller than one block never loaded block 1 until the user scrolled.
 12. **`this.columns` includes hidden columns; CSS grid tracks do not** — `this.columns` (= `grid.columns`) is the full column model, hidden ones included, while header cells, group cells (`style.gridColumn = "N / span M"`) and `data-col` index only rendered, i.e. `this.visibleColumns`. Mapping a track index back with `this.columns[i]` / `.slice()` is silently off by one per preceding hidden column — and every test without a hidden column passes. Use `this.visibleColumns` (or filter `!col.hidden`) for any index math. PinnedColumnsPlugin hit this in #512: the group cell above a right-pinned column lost `sticky-right` whenever any column was hidden.
 13. **Descendant DOM queries reach a nested grid — anchor on your own container with `:scope >`; delegated events bubble up FROM it — guard with `isOwnTarget()`** — The grid renders in light DOM, so a `<tbw-grid>` inside a master-detail panel or a cell renderer lives INSIDE the parent's `.rows`. `gridElement.querySelectorAll('.data-grid-row')` / `'.cell'` / `'.cell-focus'` / `'[aria-selected]'` and `rowEl.querySelector('.cell[data-row]')` therefore also match the child grid's rows and cells, and index-based lookups (`rows[i]`) shift by the child's row count. Query `grid._bodyEl.querySelectorAll(':scope > .data-grid-row > .cell…')` (sticky clones: also the own `.tbw-sticky-rows` overlay), `rowEl.querySelector(':scope > .cell…')`. `core/internal/utils.ts#clearCellFocus(body)` is already scoped — pass `_bodyEl`. The inverse: every event inside the child bubbles through the parent's listeners on `_bodyEl` / the host / `.tbw-grid-root`, and `closest('.cell[data-col]')` happily resolves the CHILD's cell (its `data-row`/`data-col` index the child's rows). First line of any delegated handler: `if (!isOwnTarget(host, e)) return;` (`core/internal/utils.ts`; plugins: `this.isOwnTarget(e)`) — pass the EVENT, not `e.target`: ownership comes from `composedPath()` as it was at dispatch, so it survives a target the child's own (earlier) listener already detached and crosses shadow roots; the element form is only for `elementFromPoint` results. Native `dragstart` is the one case the event can't tell: it fires at the nearest `draggable` ancestor, so a press in a child grid inside a row-draggable parent row is an own dragstart — decide at `pointerdown`. Core does this for you in the hooks (`onCellClick`, `onCellMouseDown`, `onKeyDown`, …) — only your OWN `addEventListener` needs it. Hit four times: virtualization measurement (#513), SelectionPlugin paint (#582), keyboard focus + RowDragDrop (#581), delegated handlers (#585). Test fixtures that put rows directly under the host (`_hostElement`) but leave `_bodyEl` empty hide the bug — set `_bodyEl` to the row container; `test/nested-grid.ts` (`mountNestedGrid`, `ownCell`, `ownRows`) is the real-DOM harness.
+14. **Build field selectors with `dataFieldSelector(field)`, never `[data-field="${field}"]`** — Fields can come from data: Pivot keys are `${groupValue}|${valueField}`, so a `"`, `\` or line break in a grouping value makes `querySelector`/`querySelectorAll` throw `… is not a valid selector` and aborts the rest of the handler. `plugins/shared/data-field-selector.ts#dataFieldSelector` hex-escapes them (`"` → `\22 `). Do not use `\"` or `CSS.escape`: browsers accept both inside quotes, but happy-dom rejects them, so tests break. Or match without a selector (`getAttribute('data-field') === field`). Fixed on the PinnedColumns path in PR #617; the remaining sites are tracked in #620.

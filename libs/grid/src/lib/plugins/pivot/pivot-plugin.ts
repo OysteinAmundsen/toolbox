@@ -8,9 +8,11 @@
 
 import { announce, getA11yMessage } from '../../core/internal/aria';
 import { FORMAT_ERROR } from '../../core/internal/diagnostics';
+import { getDirection, resolveInlinePosition, type TextDirection } from '../../core/internal/utils';
 import {
   BaseGridPlugin,
   HeaderClickEvent,
+  type GridElement,
   type PluginDependency,
   type PluginManifest,
   type PluginQuery,
@@ -18,6 +20,14 @@ import {
 import type { ColumnConfig, ColumnInternal } from '../../core/types';
 import { isFormFieldKeyTarget } from '../shared/form-field-target';
 import { tryFormat } from '../shared/format-value';
+import {
+  applyCellStickyOffset,
+  getColumnPinned,
+  PINNED_OFFSETS_CHANGE,
+  reorderColumnsForPinning,
+  type PinnedCellOffset,
+  type StickyOffsets,
+} from '../shared/pin-order';
 import type { ToolPanelDefinition } from '../shell/types';
 import {
   buildPivot,
@@ -196,6 +206,8 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   private sourceColumns: ColumnConfig[] = [];
   /** Hidden pivot-generated columns by field, captured in `orderColumns` for `processColumns` to re-hide (#609). */
   private hiddenPivotColumns = new Map<string, ColumnInternal>();
+  /** Sticky offsets per pinned rendered field, shared by every pivot row; see `resolvePinPlan` (#613). */
+  private pinPlan: { columns: readonly ColumnConfig[]; cells: Map<string, PinnedCellOffset> } | null = null;
   private panelContainer: HTMLElement | null = null;
   private grandTotalFooter: HTMLElement | null = null;
   private previousVisibleKeys = new Set<string>();
@@ -231,6 +243,14 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   // #region Lifecycle
 
   /** @internal */
+  override attach(grid: GridElement): void {
+    super.attach(grid);
+    this.on(PINNED_OFFSETS_CHANGE, () => {
+      this.pinPlan = null;
+    });
+  }
+
+  /** @internal */
   override detach(): void {
     this.isActive = false;
     this.hasInitialized = false;
@@ -239,6 +259,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     this.originalColumns = [];
     this.sourceColumns = [];
     this.hiddenPivotColumns.clear();
+    this.pinPlan = null;
     this.panelContainer = null;
     this.cleanupGrandTotalFooter();
     this.previousVisibleKeys.clear();
@@ -281,6 +302,10 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
   /** @internal */
   override processRows(rows: readonly unknown[]): PivotDataRow[] {
+    // Rows render after this in every ROWS+ flush. Drop the pin plan first: a direction change
+    // keeps the column array, so its identity key would replay the old side (#613).
+    this.pinPlan = null;
+
     // Auto-enable pivot if config.active is true and we have valid pivot fields
     if (!this.hasInitialized && this.config.active !== false && this.hasValidPivotConfig()) {
       this.hasInitialized = true;
@@ -456,29 +481,51 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
       });
     }
 
-    // Core re-feeds the previous output each COLUMNS pass: keep runtime widths and visibility of surviving fields.
-    const sized = new Map<string, ColumnInternal>();
-    for (const col of [...(columns as readonly ColumnInternal[]), ...this.hiddenPivotColumns.values()]) {
-      if (col.__renderedWidth !== undefined) sized.set(col.field, col);
+    return this.carryRuntimeState(pivotColumns as ColumnInternal[], columns as readonly ColumnInternal[]);
+  }
+
+  /**
+   * Core re-feeds the previous output each COLUMNS pass: keep runtime widths, visibility and pin
+   * of surviving fields on the regenerated pivot columns.
+   */
+  private carryRuntimeState(pivotColumns: ColumnInternal[], columns: readonly ColumnInternal[]): ColumnConfig[] {
+    const previous = new Map<string, ColumnInternal>();
+    for (const col of [...columns, ...this.hiddenPivotColumns.values()]) {
+      previous.set(col.field, col);
     }
-    for (const col of pivotColumns as ColumnInternal[]) {
+    let pinned = false;
+    for (const col of pivotColumns) {
       // merge() never sees pivot columns, so seed the reset target here.
       col.__originalWidth = typeof col.width === 'number' ? col.width : undefined;
       if (this.hiddenPivotColumns.has(col.field)) col.hidden = true;
-      const prev = sized.get(col.field);
+      const prev = previous.get(col.field);
       if (!prev) continue;
+      if (prev.pinned != null) {
+        col.pinned = prev.pinned;
+        pinned = true;
+      }
+      if (prev.__renderedWidth === undefined) continue;
       col.width = prev.width;
       col.__renderedWidth = prev.__renderedWidth;
       col.__userResized = prev.__userResized;
     }
 
-    return pivotColumns;
+    // PinnedColumnsPlugin moved the pin to the edge before this hook ran, but regeneration
+    // restored pivot order. Re-apply the edge order here instead of changing hook priority,
+    // which would reorder other plugins' processColumns relative to Pivot (#613).
+    if (!pinned) return pivotColumns;
+    const host = this.gridElement;
+    return reorderColumnsForPinning(pivotColumns, host ? getDirection(host) : 'ltr');
   }
 
   /** @internal */
   override renderRow(row: Record<string, unknown>, rowEl: HTMLElement, rowIndex: number): boolean {
-    const pivotRow = row as PivotRowData;
+    if (!this.renderPivotRow(row as PivotRowData, rowEl, rowIndex)) return false;
+    this.applyPinnedOffsets(rowEl);
+    return true;
+  }
 
+  private renderPivotRow(pivotRow: PivotRowData, rowEl: HTMLElement, rowIndex: number): boolean {
     // Handle grand total row in row model (when grandTotalInRowModel is true)
     if (pivotRow.__pivotIsGrandTotal) {
       return renderPivotGrandTotalRow(pivotRow, rowEl, this.gridColumns, this.translate);
@@ -503,6 +550,53 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     this.cleanupPivotStyling(rowEl);
 
     return false;
+  }
+
+  /**
+   * Custom rows skip core's `afterCellRender`, so cells recreated outside `afterRender` (scroll
+   * recycling) would lose PinnedColumns' sticky styling. Re-apply its cached offsets from the
+   * shared pin plan; unpinned grids return after one identity check (#613).
+   */
+  private applyPinnedOffsets(rowEl: HTMLElement): void {
+    const plan = this.resolvePinPlan();
+    if (plan.size === 0) return;
+    for (const cell of rowEl.children) {
+      const field = cell.getAttribute('data-field');
+      const pin = field ? plan.get(field) : undefined;
+      if (pin) applyCellStickyOffset(cell as HTMLElement, pin.left, pin.right);
+    }
+  }
+
+  /**
+   * Sticky offset per pinned rendered field, for the side it is CURRENTLY pinned to: Pinned's
+   * cache keeps entries after an unpin and holds the old side after a side switch until its next
+   * measure, and `applyStickyOffsets` would not clear a replayed old side (#613). Rebuilt only when
+   * the rendered column array changes, Pinned re-measures (`PINNED_OFFSETS_CHANGE`), or a full
+   * render runs (`afterRender`, which also covers a direction change).
+   */
+  private resolvePinPlan(): ReadonlyMap<string, PinnedCellOffset> {
+    const columns = this.gridColumns;
+    if (this.pinPlan?.columns === columns) return this.pinPlan.cells;
+    const cells = new Map<string, PinnedCellOffset>();
+    let offsets: StickyOffsets | undefined;
+    let direction: TextDirection | undefined;
+    for (const col of columns) {
+      const pinned = getColumnPinned(col);
+      if (!pinned) continue;
+      offsets ??= this.grid?.query?.<StickyOffsets>('getStickyOffsets', null)?.[0];
+      if (!offsets) break;
+      // Only logical pins need the direction: one computed-style read per plan, none for left/right.
+      const host = this.gridElement;
+      const side =
+        pinned === 'left' || pinned === 'right'
+          ? pinned
+          : resolveInlinePosition(pinned, (direction ??= host ? getDirection(host) : 'ltr'));
+      const px = side === 'left' ? offsets.left[col.field] : offsets.right[col.field];
+      if (px === undefined) continue;
+      cells.set(col.field, side === 'left' ? { left: px, right: undefined } : { left: undefined, right: px });
+    }
+    this.pinPlan = { columns, cells };
+    return cells;
   }
 
   /**
@@ -681,6 +775,9 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
   /** @internal */
   override afterRender(): void {
+    // A full render can follow a direction change, which the pin plan's column key cannot see.
+    this.pinPlan = null;
+
     // Render grand total as a sticky pinned footer when pivot is active
     // Skip when grandTotalInRowModel is true (grand total is already in the row model)
     if (this.isActive && this.config.showGrandTotal && this.pivotResult && !this.config.grandTotalInRowModel) {

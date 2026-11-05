@@ -8,17 +8,11 @@
 
 import { GridClasses } from '../../core/constants';
 import { getDirection, resolveInlinePosition, type TextDirection } from '../../core/internal/utils';
+import { dataFieldSelector } from '../shared/data-field-selector';
+import { applyCellStickyOffset, getColumnPinned } from '../shared/pin-order';
 import type { PinnedPosition, ResolvedPinnedPosition } from './types';
 
-/**
- * Get the effective pinned position from a column.
- *
- * @param col - Column configuration object
- * @returns The pinned position, or undefined if not pinned
- */
-export function getColumnPinned(col: any): PinnedPosition | undefined {
-  return col.pinned ?? col.meta?.pinned;
-}
+export { getColumnPinned, reorderColumnsForPinning } from '../shared/pin-order';
 
 /**
  * Resolve a pinned position to a physical position based on text direction.
@@ -240,15 +234,11 @@ export function applyStickyOffsets(host: HTMLElement, allColumns: any[]): Sticky
       const cell = headerCells.find((c) => c.getAttribute('data-field') === col.field);
       if (cell) {
         leftOffsets.set(col.field, left);
-        cell.classList.add(GridClasses.STICKY_LEFT);
-        cell.style.position = 'sticky';
-        cell.style.left = left + 'px';
+        applyCellStickyOffset(cell, left, undefined);
         // Body cells: use data-field for reliable matching (data-col indices may differ
         // between _columns and _visibleColumns due to hidden/utility columns)
-        host.querySelectorAll(`.data-grid-row .cell[data-field="${col.field}"]`).forEach((el) => {
-          el.classList.add(GridClasses.STICKY_LEFT);
-          (el as HTMLElement).style.position = 'sticky';
-          (el as HTMLElement).style.left = left + 'px';
+        host.querySelectorAll<HTMLElement>(`.data-grid-row .cell${dataFieldSelector(col.field)}`).forEach((el) => {
+          applyCellStickyOffset(el, left, undefined);
         });
         left += cell.offsetWidth;
       }
@@ -262,14 +252,10 @@ export function applyStickyOffsets(host: HTMLElement, allColumns: any[]): Sticky
       const cell = headerCells.find((c) => c.getAttribute('data-field') === col.field);
       if (cell) {
         rightOffsets.set(col.field, right);
-        cell.classList.add(GridClasses.STICKY_RIGHT);
-        cell.style.position = 'sticky';
-        cell.style.right = right + 'px';
+        applyCellStickyOffset(cell, undefined, right);
         // Body cells: use data-field for reliable matching
-        host.querySelectorAll(`.data-grid-row .cell[data-field="${col.field}"]`).forEach((el) => {
-          el.classList.add(GridClasses.STICKY_RIGHT);
-          (el as HTMLElement).style.position = 'sticky';
-          (el as HTMLElement).style.right = right + 'px';
+        host.querySelectorAll<HTMLElement>(`.data-grid-row .cell${dataFieldSelector(col.field)}`).forEach((el) => {
+          applyCellStickyOffset(el, undefined, right);
         });
         right += cell.offsetWidth;
       }
@@ -285,14 +271,14 @@ export function applyStickyOffsets(host: HTMLElement, allColumns: any[]): Sticky
     for (const field of adjustments.addGroupEnd) {
       const hCell = headerCells.find((c) => c.getAttribute('data-field') === field);
       if (hCell) hCell.classList.add('group-end');
-      host.querySelectorAll(`.data-grid-row .cell[data-field="${field}"]`).forEach((el) => {
+      host.querySelectorAll(`.data-grid-row .cell${dataFieldSelector(field)}`).forEach((el) => {
         el.classList.add('group-end');
       });
     }
     for (const field of adjustments.removeGroupEnd) {
       const hCell = headerCells.find((c) => c.getAttribute('data-field') === field);
       if (hCell) hCell.classList.remove('group-end');
-      host.querySelectorAll(`.data-grid-row .cell[data-field="${field}"]`).forEach((el) => {
+      host.querySelectorAll(`.data-grid-row .cell${dataFieldSelector(field)}`).forEach((el) => {
         el.classList.remove('group-end');
       });
     }
@@ -645,33 +631,6 @@ function splitMixedPinExplicitGroup(
       floatOffset: 0,
     });
   }
-}
-
-/**
- * Reorder columns so that pinned-left columns come first and pinned-right columns come last.
- * Maintains the relative order within each group (left-pinned, unpinned, right-pinned).
- *
- * @param columns - Array of column configurations (in their current order)
- * @param direction - Text direction ('ltr' or 'rtl'), used to resolve logical positions
- * @returns New array with pinned columns moved to the edges
- */
-export function reorderColumnsForPinning(columns: readonly any[], direction: TextDirection = 'ltr'): any[] {
-  const left: any[] = [];
-  const middle: any[] = [];
-  const right: any[] = [];
-
-  for (const col of columns) {
-    const pinned = getColumnPinned(col);
-    if (pinned) {
-      const resolved = resolveStickyPosition(pinned, direction);
-      if (resolved === 'left') left.push(col);
-      else right.push(col);
-    } else {
-      middle.push(col);
-    }
-  }
-
-  return [...left, ...middle, ...right];
 }
 
 /**

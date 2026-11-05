@@ -7,6 +7,7 @@
  * IMPORTANT: These functions bypass the grid's normal cell rendering pipeline.
  * Column-level features (format, cellRenderer, cellClass) must be applied manually.
  * When adding new cell rendering logic, always check for `col.format` on value columns.
+ * Create cells with `createPivotCell`: PinnedColumns finds body cells by `data-field` (#613).
  */
 
 import type { ColumnConfig, GridIcons, Translate } from '../../core/types';
@@ -39,6 +40,22 @@ export interface RowRenderContext {
 }
 
 /**
+ * Create a pivot body cell. Every cell carries `data-field`: PinnedColumns finds body cells by
+ * it (#613). Grid rows (`rowIndex` given) also get `data-row` and `role=gridcell`.
+ */
+function createPivotCell(col: ColumnConfig, colIdx: number, rowIndex?: number): HTMLDivElement {
+  const cell = document.createElement('div');
+  cell.className = 'cell';
+  cell.setAttribute('data-col', String(colIdx));
+  cell.setAttribute('data-field', col.field);
+  if (rowIndex !== undefined) {
+    cell.setAttribute('data-row', String(rowIndex));
+    cell.setAttribute('role', 'gridcell');
+  }
+  return cell;
+}
+
+/**
  * Render a pivot group row (has children, can expand/collapse).
  */
 export function renderPivotGroupRow(row: PivotRowData, rowEl: HTMLElement, ctx: RowRenderContext): boolean {
@@ -51,11 +68,7 @@ export function renderPivotGroupRow(row: PivotRowData, rowEl: HTMLElement, ctx: 
   rowEl.innerHTML = '';
 
   ctx.columns.forEach((col, colIdx) => {
-    const cell = document.createElement('div');
-    cell.className = 'cell';
-    cell.setAttribute('data-col', String(colIdx));
-    cell.setAttribute('data-row', String(ctx.rowIndex));
-    cell.setAttribute('role', 'gridcell');
+    const cell = createPivotCell(col, colIdx, ctx.rowIndex);
 
     if (col.field === PIVOT_LABEL_FIELD) {
       // First column: indent + toggle + label + count
@@ -113,11 +126,7 @@ export function renderPivotLeafRow(
   rowEl.innerHTML = '';
 
   columns.forEach((col, colIdx) => {
-    const cell = document.createElement('div');
-    cell.className = 'cell';
-    cell.setAttribute('data-col', String(colIdx));
-    cell.setAttribute('data-row', String(rowIndex));
-    cell.setAttribute('role', 'gridcell');
+    const cell = createPivotCell(col, colIdx, rowIndex);
 
     if (col.field === PIVOT_LABEL_FIELD) {
       // First column: indent + label (no toggle for leaves)
@@ -155,10 +164,8 @@ export function renderPivotGrandTotalRow(
   rowEl.innerHTML = '';
 
   columns.forEach((col, colIdx) => {
-    const cell = document.createElement('div');
-    cell.className = 'cell';
-    cell.setAttribute('data-col', String(colIdx));
-    // No role attribute - parent row has role=presentation so children don't need grid semantics
+    // No rowIndex: the footer row has role=presentation, so its cells need no grid semantics
+    const cell = createPivotCell(col, colIdx);
 
     if (col.field === PIVOT_LABEL_FIELD) {
       // First column: Grand Total label

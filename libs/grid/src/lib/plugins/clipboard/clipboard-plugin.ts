@@ -18,6 +18,7 @@ import {
 } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
 import { readCellDisplayText } from '../shared/cell-text';
+import { dataFieldSelector } from '../shared/data-field-selector';
 import {
   formatDelimitedValue,
   formatValueAsText,
@@ -722,7 +723,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     if (rowIndex === -1) return null;
 
     // Query the rendered cell by row index and field name
-    const cell = host.querySelector<HTMLElement>(`.cell[data-row="${rowIndex}"][data-field="${field}"]`);
+    const cell = host.querySelector<HTMLElement>(`.cell[data-row="${rowIndex}"]${dataFieldSelector(field)}`);
     if (!cell) return null;
 
     return readCellDisplayText(cell);

@@ -214,6 +214,7 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
       { type: 'row-drag-start', description: 'Cross-grid drag started on this grid.', cancelable: true },
       { type: 'row-drag-end', description: 'Drag finished on this grid (regardless of outcome).' },
       { type: 'row-drop', description: 'Cross-grid drop landing on this grid.', cancelable: true },
+      { type: 'row-transfer', description: 'Cross-grid transfer completed (fires on both grids).' },
     ],
   };
 

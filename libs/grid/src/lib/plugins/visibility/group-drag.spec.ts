@@ -27,22 +27,22 @@ describe('VisibilityPlugin group drag-and-drop', async () => {
   // Track current column order — mutated by setColumnOrder
   let currentOrder: string[];
 
-  function makeColumns(order?: string[]) {
-    const colOrder = order ?? groupedColumns.map((c) => c.field);
+  function makeColumns(order?: string[], columns = groupedColumns) {
+    const colOrder = order ?? columns.map((c) => c.field);
     return colOrder.map((f) => {
-      const orig = groupedColumns.find((c) => c.field === f)!;
+      const orig = columns.find((c) => c.field === f)!;
       return { ...orig, visible: true };
     });
   }
 
-  function makeGroupInfo(): ColumnGroupInfo[] {
+  function makeGroupInfo(columns = groupedColumns): ColumnGroupInfo[] {
     // Return groups with fields in current display order
     const personalFields = currentOrder.filter((f) => {
-      const col = groupedColumns.find((c) => c.field === f);
+      const col = columns.find((c) => c.field === f);
       return col?.group && (col.group as { id: string }).id === 'personal';
     });
     const workFields = currentOrder.filter((f) => {
-      const col = groupedColumns.find((c) => c.field === f);
+      const col = columns.find((c) => c.field === f);
       return col?.group && (col.group as { id: string }).id === 'work';
     });
     const groups: ColumnGroupInfo[] = [];
@@ -59,8 +59,8 @@ describe('VisibilityPlugin group drag-and-drop', async () => {
     document.body.innerHTML = '';
   });
 
-  function createPlugin() {
-    currentOrder = groupedColumns.map((c) => c.field);
+  function createPlugin(columns = groupedColumns) {
+    currentOrder = columns.map((c) => c.field);
     const visPlugin = new VisibilityPlugin();
     const reorderPlugin = new ReorderPlugin();
     const el = document.createElement('div');
@@ -73,12 +73,12 @@ describe('VisibilityPlugin group drag-and-drop', async () => {
 
     const mockGrid = Object.assign(el, {
       _hostElement: el,
-      effectiveConfig: { columns: groupedColumns, plugins: [reorderPlugin, visPlugin] },
+      effectiveConfig: { columns, plugins: [reorderPlugin, visPlugin] },
       gridConfig: {},
       get columns() {
-        return groupedColumns;
+        return columns;
       },
-      getAllColumns: () => makeColumns(currentOrder),
+      getAllColumns: () => makeColumns(currentOrder, columns),
       getColumnOrder: () => [...currentOrder],
       getPluginByName: (name: string) => {
         if (name === 'reorder') return reorderPlugin;
@@ -89,7 +89,7 @@ describe('VisibilityPlugin group drag-and-drop', async () => {
         return null;
       },
       query: <T>(type: string, ctx?: any): T[] => {
-        if (type === 'getColumnGrouping') return [makeGroupInfo()] as T[];
+        if (type === 'getColumnGrouping') return [makeGroupInfo(columns)] as T[];
         if (type === 'canMoveColumn') {
           const col = ctx ?? {};
           if (col.lockPosition === true) return [false] as T[];
@@ -294,6 +294,26 @@ describe('VisibilityPlugin group drag-and-drop', async () => {
     expect((visPlugin as any).draggedGroupId).toBeNull();
     expect((visPlugin as any).draggedGroupFields).toEqual([]);
     expect((visPlugin as any).draggedField).toBe('notes');
+  });
+
+  it('keeps a quoted data-derived field marked while dragging over another row', () => {
+    const field = '24" monitor|c1';
+    const columns = groupedColumns.map((column, index) => (index === 0 ? { ...column, field } : column));
+    const { panelContainer } = createPlugin(columns);
+    const draggedRow = Array.from(panelContainer.querySelectorAll<HTMLElement>('.tbw-visibility-row')).find(
+      (row) => row.getAttribute('data-field') === field,
+    )!;
+    const targetRow = panelContainer.querySelector('.tbw-visibility-row[data-field="notes"]') as HTMLElement;
+
+    const dragStart = new Event('dragstart', { bubbles: true }) as any;
+    dragStart.dataTransfer = { effectAllowed: '', setData: vi.fn() };
+    draggedRow.dispatchEvent(dragStart);
+
+    const dragOver = new Event('dragover', { bubbles: true, cancelable: true }) as any;
+    targetRow.dispatchEvent(dragOver);
+
+    expect(draggedRow.classList.contains('dragging')).toBe(true);
+    expect(targetRow.classList.contains('drop-target')).toBe(true);
   });
 
   it('moves group before an ungrouped column', () => {

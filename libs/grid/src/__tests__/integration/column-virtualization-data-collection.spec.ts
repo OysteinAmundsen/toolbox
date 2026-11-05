@@ -619,3 +619,55 @@ describe('rendered-window index space vs full column list (#603 QA)', () => {
     expect(virtualization.getVisibleColumnRange().start).toBe(0);
   });
 });
+
+describe('ColumnVirtualization horizontal scroll cost (#598 release QA)', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  async function setupCountingRenders() {
+    const ctx = await setup();
+    const renders: number[] = [];
+    ctx.grid.addEventListener('render', (e) => renders.push((e as CustomEvent<{ phase: number }>).detail.phase));
+    return { ...ctx, renders };
+  }
+
+  it('re-renders on scroll only when the rendered window moves', async () => {
+    const { grid, virtualization, renders } = await setupCountingRenders();
+    let windowChanges = 0;
+    let last = virtualization.getVisibleColumnRange();
+    for (let x = 10; x <= 1_000; x += 10) {
+      scrollTo(virtualization, x);
+      await waitUpgrade(grid);
+      const range = virtualization.getVisibleColumnRange();
+      if (range.start !== last.start || range.end !== last.end) windowChanges++;
+      last = range;
+    }
+
+    expect(windowChanges).toBeGreaterThan(0);
+    expect(renders).toHaveLength(windowChanges);
+  });
+
+  it('re-windows on the next scroll after an in-place column resize', async () => {
+    const { grid, virtualization, renders } = await setupCountingRenders();
+    scrollTo(virtualization, 50);
+    await waitUpgrade(grid);
+    renders.length = 0;
+    // Column resize writes the width in place and only updates the template.
+    grid._columns.find((c) => c.field === 'c0')!.width = 400;
+
+    // 50 → 60 stays inside the window measured before the resize.
+    scrollTo(virtualization, 60);
+    await waitUpgrade(grid);
+
+    expect(renders).toHaveLength(1);
+    expect(virtualization.getTotalWidth()).toBe(COLUMN_COUNT * 100 + 300);
+  });
+
+  it('scrollToColumn scrolls the horizontal scroll container', async () => {
+    const { grid, virtualization } = await setup();
+    virtualization.scrollToColumn(50);
+
+    expect(grid.querySelector<HTMLElement>('.tbw-scroll-area')!.scrollLeft).toBe(5_000);
+  });
+});

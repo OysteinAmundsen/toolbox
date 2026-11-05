@@ -19,6 +19,7 @@ import {
   createDragAlternativeMenu,
   prefersInlineDragAlternative,
 } from '../shared/drag-alternative-menu';
+import { dataFieldSelector } from '../shared/data-field-selector';
 import { canMoveColumn, moveColumn } from './column-drag';
 import styles from './reorder.css?inline';
 import type { ColumnMoveDetail, ReorderConfig } from './types';
@@ -539,12 +540,12 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
         if (this.draggedGroupFields.length > 0) {
           for (const f of this.draggedGroupFields) {
             this.gridElement
-              ?.querySelector(`.header-row > .cell[data-field="${f}"]`)
+              ?.querySelector(`.header-row > .cell${dataFieldSelector(f)}`)
               ?.classList.add(GridClasses.DRAGGING);
           }
         } else if (this.draggedField) {
           this.gridElement
-            ?.querySelector(`.header-row > .cell[data-field="${this.draggedField}"]`)
+            ?.querySelector(`.header-row > .cell${dataFieldSelector(this.draggedField)}`)
             ?.classList.add(GridClasses.DRAGGING);
         }
         headerEl.classList.add('drop-target');
@@ -664,7 +665,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
         groupHeaderEl.classList.add(GridClasses.DRAGGING);
         // Also mark the individual column headers as dragging
         for (const f of fragmentFields) {
-          gridEl.querySelector(`.header-row > .cell[data-field="${f}"]`)?.classList.add(GridClasses.DRAGGING);
+          gridEl.querySelector(`.header-row > .cell${dataFieldSelector(f)}`)?.classList.add(GridClasses.DRAGGING);
         }
       });
 

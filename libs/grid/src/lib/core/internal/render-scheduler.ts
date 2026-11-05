@@ -78,6 +78,11 @@ export class RenderScheduler {
   /** RAF handle for cancellation */
   #rafHandle = 0;
 
+  /** A plugin `processRows` hook called `requestColumns` during this flush (see `runRowHooks`). */
+  #rowHookColumns = false;
+  #flushingRows = false;
+  #inRowHooks = false;
+
   /** Promise that resolves when current render completes */
   #readyPromise: Promise<void> | null = null;
   #readyResolve: (() => void) | null = null;
@@ -107,6 +112,33 @@ export class RenderScheduler {
     if (this.#rafHandle === 0) {
       this.#ensureReadyPromise();
       this.#rafHandle = requestAnimationFrame(() => this.#flush());
+    }
+  }
+
+  /**
+   * Plugin request to re-run the column steps (`grid.requestColumnsRender`). Made from a plugin
+   * `processRows` hook (e.g. new pivot column keys, #608), it joins the running flush, whose column
+   * steps have not run yet, instead of a second frame that would paint rows against stale columns.
+   */
+  requestColumns(source: string): void {
+    if (this.#inRowHooks) {
+      this.#rowHookColumns = true;
+      return;
+    }
+    this.requestPhase(RenderPhase.COLUMNS, source);
+  }
+
+  /**
+   * Run the plugin processRows hooks; see `requestColumns`. Only that request joins the running
+   * flush: anything else, e.g. `#setup()` from a consumer's `group-toggle` listener, may need
+   * `processRows` again and keeps its own flush.
+   */
+  runRowHooks<T>(hooks: () => T): T {
+    this.#inRowHooks = this.#flushingRows;
+    try {
+      return hooks();
+    } finally {
+      this.#inRowHooks = false;
     }
   }
 
@@ -194,7 +226,7 @@ export class RenderScheduler {
       return;
     }
 
-    const phase = this.#pendingPhase;
+    let phase = this.#pendingPhase;
     this.#pendingPhase = 0;
 
     // Execute phases in order (higher phases include lower phase work)
@@ -213,7 +245,13 @@ export class RenderScheduler {
     // NOTE: processRows MUST run before processColumns because tree plugin's
     // processColumns depends on flattenedRows populated by processRows
     if (phase >= RenderPhase.ROWS) {
-      this.#grid._schedulerProcessRows();
+      this.#flushingRows = true;
+      try {
+        this.#grid._schedulerProcessRows();
+      } finally {
+        this.#flushingRows = false;
+      }
+      phase = this.#serveRowHookRequest(phase);
     }
 
     // Phase 5 (COLUMNS): Process columns + update template
@@ -259,6 +297,16 @@ export class RenderScheduler {
     if (phase !== 0) {
       this.#dispatchRenderEvent(phase, initial);
     }
+  }
+
+  /** Escalate this flush to COLUMNS when a row hook called `requestColumns`. */
+  #serveRowHookRequest(phase: RenderPhase | 0): RenderPhase | 0 {
+    if (!this.#rowHookColumns) return phase;
+    this.#rowHookColumns = false;
+    if (phase >= RenderPhase.COLUMNS) return phase;
+    // A COLUMNS flush merges config before processRows; nothing changed the config since.
+    this.#grid._schedulerMergeConfig();
+    return RenderPhase.COLUMNS;
   }
 
   #dispatchRenderEvent(phase: RenderPhase, initial: boolean): void {

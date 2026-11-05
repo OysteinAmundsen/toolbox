@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createGrid, stickySides, waitUpgrade } from '../../../test/helpers';
 import '../../lib/core/grid';
 import type { DataGridElement } from '../../lib/core/grid';
+import { RenderPhase } from '../../lib/core/internal/render-scheduler';
 import type { BaseGridPlugin } from '../../lib/core/plugin/base-plugin';
 import { ExportPlugin } from '../../lib/plugins/export/export-plugin';
 import { PinnedColumnsPlugin } from '../../lib/plugins/pinned-columns/pinned-columns-plugin';
@@ -33,7 +34,7 @@ async function setup(hiddenField?: string) {
   grid.gridConfig = { columns, plugins: [pivot, exporter] };
   grid.rows = rows;
   await waitUpgrade(grid);
-  return { grid, pivot, exporter };
+  return { grid, pivot, exporter, rows };
 }
 
 const fields = (grid: { columns: { field: string }[] }) => grid.columns.map((c) => c.field);
@@ -435,5 +436,96 @@ describe('PivotPlugin runtime layout changes (#605)', () => {
     await waitUpgrade(grid);
 
     expect(fields(grid)[0]).toBe('c0');
+  });
+
+  describe('row data changes (#608)', () => {
+    it('a new column key adds its pivot column in the same render', async () => {
+      const { grid, rows } = await setup();
+      const phases: number[] = [];
+      grid.addEventListener('render', (e) => phases.push((e as CustomEvent<{ phase: number }>).detail.phase));
+
+      grid.rows = [...rows, { c0: 'A', c1: 9, c2: 'NEW', c3: 'odd' }];
+      await waitUpgrade(grid);
+
+      expect(fields(grid)).toContain('NEW|c1');
+      expect(grid.querySelector('.header-row [data-field="NEW|c1"]')).not.toBeNull();
+      expect(phases).toEqual([RenderPhase.COLUMNS]);
+    });
+
+    it('a vanished column key drops its pivot column', async () => {
+      const { grid, rows } = await setup();
+      grid.rows = rows.filter((r) => r.c2 !== 'k0');
+      await waitUpgrade(grid);
+
+      expect(fields(grid)).not.toContain('k0|c1');
+      expect(fields(grid)[1]).toBe('k1|c1');
+    });
+
+    it('a row update with the same column keys stays a ROWS pass', async () => {
+      const { grid, pivot, rows } = await setup();
+      const processColumns = vi.spyOn(pivot, 'processColumns');
+
+      grid.rows = rows.map((r) => ({ ...r, c1: r.c1 + 1 }));
+      await waitUpgrade(grid);
+
+      expect(processColumns).not.toHaveBeenCalled();
+    });
+
+    it('surviving pivot columns keep their width when a key is added', async () => {
+      const { grid, rows } = await setup();
+      await setWidth(grid, 'k0|c1', 320);
+
+      grid.rows = [...rows, { c0: 'A', c1: 9, c2: 'NEW', c3: 'odd' }];
+      await waitUpgrade(grid);
+
+      expect(grid.columns.find((c) => c.field === 'k0|c1')?.width).toBe(320);
+    });
+
+    it('empty rows drop every value column', async () => {
+      const { grid } = await setup();
+      grid.rows = [];
+      await waitUpgrade(grid);
+
+      expect(fields(grid)).toEqual(['__pivotLabel', '__pivotTotal']);
+    });
+
+    it('a collapsed group stays collapsed when a key is added', async () => {
+      const pivot = new PivotPlugin({
+        rowGroupFields: ['c0', 'c3'],
+        columnGroupFields: ['c2'],
+        valueFields: [{ field: 'c1', aggFunc: 'sum' }],
+        showToolPanel: false,
+      });
+      const grid = createGrid();
+      const rows = [{ c0: 'A', c1: 1, c2: 'k0', c3: 'odd' }];
+      grid.gridConfig = {
+        columns: [{ field: 'c0' }, { field: 'c1' }, { field: 'c2' }, { field: 'c3' }],
+        plugins: [pivot],
+      };
+      grid.rows = rows;
+      await waitUpgrade(grid);
+      const groupKey = pivot.getPivotResult()?.rows[0].rowKey ?? '';
+      pivot.collapse(groupKey);
+      await waitUpgrade(grid);
+      expect(groupKey).not.toBe('');
+
+      grid.rows = [...rows, { c0: 'A', c1: 9, c2: 'NEW', c3: 'odd' }];
+      await waitUpgrade(grid);
+
+      expect(fields(grid)).toContain('NEW|c1');
+      expect(pivot.isExpanded(groupKey)).toBe(false);
+    });
+
+    it('a ROWS request from a data-change listener still re-runs processRows', async () => {
+      const { grid, pivot, rows } = await setup();
+      const processRows = vi.spyOn(pivot, 'processRows');
+      grid.addEventListener('data-change', () => grid.requestRender(), { once: true });
+
+      grid.rows = [...rows, { c0: 'A', c1: 9, c2: 'NEW', c3: 'odd' }];
+      await waitUpgrade(grid);
+      await waitUpgrade(grid);
+
+      expect(processRows).toHaveBeenCalledTimes(2);
+    });
   });
 });

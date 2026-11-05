@@ -234,6 +234,10 @@ or cached state.
    forms are "fewer columns ⇒ scroll pass", "same fields ⇒ feedback", or a cache keyed on length or identity.
    Construct a concrete input that satisfies the condition but means the other thing, and the reverse. Read the
    defaults that shape that input (e.g. `showTotals`, `overscan`, `threshold`).
+   Time windows are classifiers too: "requested during `processRows`" also catches user callbacks fired inside
+   that step (`data-change` is emitted inside `_schedulerProcessRows`, and plugins broadcast events from their hooks,
+   e.g. GroupingRows `group-toggle`), so listener requests were absorbed and lost (#608 QA, PR #623). List every
+   event dispatched inside the window before trusting it, and prefer narrowing by API over narrowing by phase.
 4. **Staleness of stored state.** For each new or changed field that caches derived state, list every event that
    must refresh it and confirm each path does. Events to check: config replaced (larger _and_ smaller), runtime
    setters, hide/show, row data change, plugin detach, and a re-run in each render phase.

@@ -1003,7 +1003,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @internal Plugin API
    */
   requestColumnsRender(): void {
-    this.#scheduler.requestPhase(RenderPhase.COLUMNS, 'plugin:requestColumnsRender');
+    this.#scheduler.requestColumns('plugin:requestColumnsRender');
   }
 
   /**
@@ -2093,7 +2093,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Let plugins process rows (they may add, remove, transform rows)
     // Plugins can add markers for specialized rendering via the renderRow hook
-    const processedRows = this.#pluginManager?.processRows(sortedRows) ?? sortedRows;
+    const pluginManager = this.#pluginManager;
+    const processedRows = pluginManager
+      ? this.#scheduler.runRowHooks(() => pluginManager.processRows(sortedRows))
+      : sortedRows;
 
     // Store processed rows for rendering
     // Note: processedRows may contain group markers that plugins handle via renderRow hook

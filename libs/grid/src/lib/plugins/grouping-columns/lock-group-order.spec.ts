@@ -5,7 +5,7 @@
  * Validates that column moves breaking group contiguity are prevented.
  */
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 describe('GroupingColumnsPlugin.lockGroupOrder', async () => {
   const { GroupingColumnsPlugin } = await import('./grouping-columns-plugin');
@@ -22,16 +22,30 @@ describe('GroupingColumnsPlugin.lockGroupOrder', async () => {
     document.body.innerHTML = '';
   });
 
-  function createAttachedPlugin(config: { lockGroupOrder: boolean }, columnOrder?: string[]) {
+  function createAttachedPlugin(
+    config: { lockGroupOrder: boolean },
+    columnOrder?: string[],
+    columns = groupedColumns,
+  ) {
     const plugin = new GroupingColumnsPlugin(config);
     const el = document.createElement('div');
     const abortController = new AbortController();
-    const defaultOrder = groupedColumns.map((c) => c.field);
+    const defaultOrder = columns.map((c) => c.field);
+    const headerRow = document.createElement('div');
+    headerRow.className = 'header-row';
+    for (const column of columns) {
+      const cell = document.createElement('div');
+      cell.setAttribute('part', 'header-cell');
+      cell.setAttribute('data-field', column.field);
+      Object.defineProperty(cell, 'animate', { value: vi.fn(), configurable: true });
+      headerRow.appendChild(cell);
+    }
+    el.appendChild(headerRow);
     const mockGrid = Object.assign(el, {
       _hostElement: el,
-      effectiveConfig: { columns: groupedColumns },
+      effectiveConfig: { columns },
       gridConfig: {},
-      getAllColumns: () => groupedColumns.map((c) => ({ ...c, visible: true })),
+      getAllColumns: () => columns.map((c) => ({ ...c, visible: true })),
       getColumnOrder: () => columnOrder ?? defaultOrder,
       getPluginByName: () => null,
       query: () => [],
@@ -40,7 +54,7 @@ describe('GroupingColumnsPlugin.lockGroupOrder', async () => {
       disconnectSignal: abortController.signal,
     });
     plugin.attach(mockGrid as any);
-    plugin.processColumns(groupedColumns);
+    plugin.processColumns(columns);
     return { plugin, el, abortController, mockGrid };
   }
 
@@ -60,6 +74,25 @@ describe('GroupingColumnsPlugin.lockGroupOrder', async () => {
     // Move 'name' to after 'dept' — breaks personal group: [email, dept, name, title, notes]
     const prevented = fireColumnMove(el, 'name', ['email', 'dept', 'name', 'title', 'notes']);
     expect(prevented).toBe(true);
+  });
+
+  it('flashes a header for a quoted data-derived field when blocking a move', () => {
+    const field = '24" monitor|c1';
+    const columns = [
+      { field, header: 'Monitor', group: { id: 'personal', label: 'Personal' } },
+      { field: 'email', header: 'Email', group: { id: 'personal', label: 'Personal' } },
+      { field: 'dept', header: 'Department', group: { id: 'work', label: 'Work' } },
+      { field: 'title', header: 'Title', group: { id: 'work', label: 'Work' } },
+      { field: 'notes', header: 'Notes' },
+    ];
+    const { el } = createAttachedPlugin({ lockGroupOrder: true }, undefined, columns);
+    const headerCell = el.querySelector('.header-row [data-field]') as HTMLElement;
+    const animate = vi.fn();
+    Object.defineProperty(headerCell, 'animate', { value: animate, configurable: true });
+
+    expect(fireColumnMove(el, field, ['email', 'dept', field, 'title', 'notes'])).toBe(true);
+    expect(headerCell.getAttribute('data-field')).toBe(field);
+    expect(animate).toHaveBeenCalled();
   });
 
   it('allows moves within the same group', () => {

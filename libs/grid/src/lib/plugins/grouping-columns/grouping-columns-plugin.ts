@@ -12,6 +12,7 @@ import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import { type CollectHeaderRowsContext, type HeaderRowCell, type HeaderRowContribution } from '../../core/plugin/types';
 import type { ColumnConfig } from '../../core/types';
 import type { ColumnGroupInfo } from '../visibility/types';
+import { dataFieldSelector } from '../shared/data-field-selector';
 import {
   applyGroupedHeaderCellClasses,
   buildGroupHeaderRow,
@@ -264,7 +265,7 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
    */
   #flashHeaderCell(field: string): void {
     const headerCell = this.gridElement?.querySelector(
-      `.header-row [part~="header-cell"][data-field="${field}"]`,
+      `.header-row [part~="header-cell"]${dataFieldSelector(field)}`,
     ) as HTMLElement;
     if (!headerCell) return;
 

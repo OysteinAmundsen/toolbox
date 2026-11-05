@@ -604,10 +604,10 @@ describe('ReorderPlugin (class)', () => {
 
   // #region Group Header Drag
   describe('group header drag', () => {
-    function createGroupedGridMock() {
+    function createGroupedGridMock(firstField = 'firstName') {
       const columns = [
         { field: 'id', header: 'ID' },
-        { field: 'firstName', header: 'First', meta: { group: 'personal' } },
+        { field: firstField, header: 'First', meta: { group: 'personal' } },
         { field: 'lastName', header: 'Last', meta: { group: 'personal' } },
         { field: 'dept', header: 'Dept', meta: { group: 'org' } },
         { field: 'title', header: 'Title', meta: { group: 'org' } },
@@ -694,6 +694,25 @@ describe('ReorderPlugin (class)', () => {
 
       // The header should get 'dragging' class
       expect(personalHeader.classList.contains('dragging')).toBe(true);
+    });
+
+    it('should mark quoted data-derived fields when a group header drag starts', async () => {
+      const field = '24" monitor|c1';
+      const { grid } = createGroupedGridMock(field);
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+      plugin.afterRender();
+      await new Promise<void>((resolve) => queueMicrotask(resolve));
+
+      const personalHeader = grid._hostElement.querySelector('.cell[data-group="personal"]') as HTMLElement;
+      const draggedHeader = Array.from(grid._hostElement.querySelectorAll<HTMLElement>('.header-row > .cell')).find(
+        (header) => header.getAttribute('data-field') === field,
+      )!;
+      const dragstart = new Event('dragstart', { bubbles: true }) as any;
+      dragstart.dataTransfer = { effectAllowed: '', setData: vi.fn() };
+      personalHeader.dispatchEvent(dragstart);
+
+      expect(draggedHeader.classList.contains('dragging')).toBe(true);
     });
 
     it('should move group as block on drop', async () => {
@@ -894,6 +913,29 @@ describe('ReorderPlugin (class)', () => {
 
       expect(nameCell.classList.contains('dragging')).toBe(true);
       expect(event.dataTransfer.setData).toHaveBeenCalledWith('text/plain', 'name');
+    });
+
+    it('should keep a quoted data-derived field marked while dragging over another header', () => {
+      const field = '24" monitor|c1';
+      const plugin = new ReorderPlugin();
+      const grid = createGridMock([{ field }, { field: 'other|c1' }]);
+      plugin.attach(grid as any);
+      plugin.afterRender();
+
+      const headers = Array.from(grid._hostElement.querySelectorAll<HTMLElement>('.header-row > .cell'));
+      const draggedHeader = headers.find((header) => header.getAttribute('data-field') === field)!;
+      const targetHeader = headers.find((header) => header.getAttribute('data-field') === 'other|c1')!;
+
+      const startEvent = new Event('dragstart', { bubbles: true }) as any;
+      startEvent.dataTransfer = { effectAllowed: '', setData: vi.fn() };
+      draggedHeader.dispatchEvent(startEvent);
+
+      const overEvent = new Event('dragover', { bubbles: true, cancelable: true }) as any;
+      overEvent.clientX = 0;
+      targetHeader.dispatchEvent(overEvent);
+
+      expect(draggedHeader.classList.contains('dragging')).toBe(true);
+      expect(targetHeader.classList.contains('drop-target')).toBe(true);
     });
 
     it('should handle dragend to clean up', () => {

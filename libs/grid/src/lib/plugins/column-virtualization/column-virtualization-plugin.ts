@@ -92,6 +92,8 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
   #leftPadding = 0;
   /** Whether afterRender wrote padding/width styles that must be cleared once virtualization turns off. */
   #stylesApplied = false;
+  /** Visible columns the current window was computed from: live objects, so in-place width changes show. */
+  #windowSource: readonly ColumnConfig[] = [];
   // #endregion
 
   // #region Lifecycle
@@ -115,6 +117,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     this.columnOffsets = [];
     this.#leftPadding = 0;
     this.#stylesApplied = false;
+    this.#windowSource = [];
     this.isVirtualized = false;
     this.startCol = 0;
     this.endCol = 0;
@@ -175,8 +178,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     if (target === this.scrollLeft) return false;
 
     this.scrollLeft = target;
-    const scrollArea = this.gridElement?.querySelector<HTMLElement>('.tbw-scroll-area');
-    if (scrollArea) scrollArea.scrollLeft = target;
+    this.#scrollAreaTo(target);
     this.grid._invalidateVisibleColumnsCache();
     this.requestColumnsRender();
     return true;
@@ -189,6 +191,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
    * @internal
    */
   override windowColumns(columns: readonly ColumnConfig[]): readonly ColumnConfig[] {
+    this.#windowSource = columns;
     this.#measure(columns);
     this.isVirtualized =
       shouldVirtualize(columns.length, this.config.threshold ?? 30, this.config.autoEnable ?? true) ?? false;
@@ -287,12 +290,34 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     const scrollDelta = Math.abs(event.scrollLeft - this.scrollLeft);
     if (scrollDelta < 1) return;
     this.scrollLeft = event.scrollLeft;
-    if (!this.isVirtualized) return;
+    if (!this.isVirtualized || !this.#windowMoves()) return;
 
-    // Recalculate visible columns and request re-render.
     // COLUMNS phase rebuilds `_columns`, which invalidates `_visibleColumns` and re-runs
     // windowColumns; requestRender() (ROWS phase) would keep the stale window.
     this.requestColumnsRender();
+  }
+
+  /**
+   * Whether the current scroll position needs a different window. A COLUMNS pass rebuilds the cells
+   * of every pooled row, so scroll frames that stay inside the rendered window must not request one.
+   * A width change since the last window (in-place column resize) always re-windows.
+   */
+  #windowMoves(): boolean {
+    if (computeTotalWidth(this.#windowSource) !== this.totalWidth) return true;
+    const { startCol, endCol } = getVisibleColumnRange(
+      this.scrollLeft,
+      this.grid?.clientWidth || 800,
+      this.columnOffsets,
+      this.columnWidths,
+      this.config.overscan ?? 3,
+    );
+    return startCol !== this.startCol || endCol !== this.endCol;
+  }
+
+  /** Scroll the grid's horizontal scroll container (`.tbw-scroll-area`; the host itself never scrolls). */
+  #scrollAreaTo(scrollLeft: number): void {
+    const scrollArea = this.gridElement?.querySelector<HTMLElement>('.tbw-scroll-area');
+    if (scrollArea) scrollArea.scrollLeft = scrollLeft;
   }
   // #endregion
 
@@ -317,10 +342,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
    * @param columnIndex - Index of the column to scroll to
    */
   scrollToColumn(columnIndex: number): void {
-    const offset = this.columnOffsets[columnIndex] ?? 0;
-    const gridEl = this.gridElement;
-    // Scroll the grid element itself (it's the scroll container)
-    if (gridEl) gridEl.scrollLeft = offset;
+    this.#scrollAreaTo(this.columnOffsets[columnIndex] ?? 0);
   }
 
   /**

@@ -164,8 +164,16 @@ them on screen.
 Virtualization only limits which columns are **rendered**. `grid.columns` and every column API
 (`setColumnVisible()`, pinning, reordering, …) keep working on the full column list, including the
 columns scrolled out of view. The [Export](/grid/plugins/export/) and
-[Clipboard](/grid/plugins/clipboard/) plugins therefore include every column. A copy of a
-cell-range selection covers only the selected columns.
+[Clipboard](/grid/plugins/clipboard/) plugins therefore include every column when you export or copy
+without a cell selection, or pass `columns` explicitly.
+
+:::caution[Known limitation: cell selections]
+Cell-range selections are tracked by rendered position
+([#633](https://github.com/OysteinAmundsen/toolbox/issues/633)). After a horizontal scroll moves the
+window, a range points at different columns, and `selectAll()` spans only the rendered window.
+Copying a selection while virtualized can therefore copy the wrong columns or only part of them. Use
+`copy({ columns })` or the Export plugin for complete data.
+:::
 
 The rendered window is computed **after** every other column plugin (pinning, grouping, pivot),
 whatever their order in `plugins`, from their final output. Pinned order, group header rows, and

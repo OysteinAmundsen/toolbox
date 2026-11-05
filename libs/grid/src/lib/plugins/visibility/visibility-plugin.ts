@@ -27,6 +27,7 @@ import {
   type DragAlternativeAction,
   type DragAlternativeMenu,
 } from '../shared/drag-alternative-menu';
+import { dataFieldSelector } from '../shared/data-field-selector';
 import type { ToolPanelDefinition } from '../shell/types';
 import type { ColumnGroupInfo, ColumnReorderRequestDetail, VisibilityConfig } from './types';
 import styles from './visibility.css?inline';
@@ -1057,7 +1058,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
         });
       } else if (this.draggedField) {
         columnList
-          .querySelector(`.tbw-visibility-row[data-field="${this.draggedField}"]`)
+          .querySelector(`.tbw-visibility-row${dataFieldSelector(this.draggedField)}`)
           ?.classList.add(GridClasses.DRAGGING);
       }
 

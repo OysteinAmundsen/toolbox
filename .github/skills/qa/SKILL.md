@@ -283,7 +283,11 @@ or cached state.
      (#616 QA: 0 calls exposed a `TBW001` throw in `mergeConfig`, filed as #626.)
    - When a finding is fixed, prove the new test guards it with
      `bun .github/skills/qa/scripts/mutation-check.ts --file <src> --spec <filter> --find <fixed> --replace <broken>`.
-     It must print `KILLED`.
+     It must print `KILLED`. A fix with several guards (e.g. "window moved" OR "width changed") needs one mutant
+     per guard, and each test must use an input that ONLY its guard catches. In the #598 release QA, the first
+     resize test survived because its scroll also moved the window.
+   - Hot paths (scroll, resize): count the work, not just the end state. Log `render` event phases per step
+     next to the state change that should cause them (#598 release QA: 100 COLUMNS passes for 17 window moves).
 6. **Re-review review-driven code first.** Code written to answer an earlier review comment is where the next
    comment lands. Run step 3 on it before anything else.
 

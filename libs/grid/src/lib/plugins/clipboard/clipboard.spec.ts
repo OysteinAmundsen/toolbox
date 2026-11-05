@@ -1702,6 +1702,29 @@ describe('clipboard', () => {
       expect(text).toBe('Active Badge');
     });
 
+    it('should read renderer text for a quoted data-derived field', () => {
+      const field = '24" monitor|c1';
+      const columns: ColumnConfig[] = [
+        { field, header: 'Monitor', renderer: () => document.createElement('span') },
+      ];
+      const rows = [{ [field]: 'active' }];
+      const host = document.createElement('div');
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.setAttribute('data-row', '0');
+      cell.setAttribute('data-field', field);
+      cell.textContent = 'Active Badge';
+      host.appendChild(cell);
+      const grid = {
+        ...createGridMockForPlugin(rows, columns),
+        _hostElement: host,
+      };
+      const plugin = new ClipboardPlugin();
+      plugin.attach(grid as any);
+
+      expect(plugin.getSelectionAsText()).toBe('Active Badge');
+    });
+
     it('should exclude a custom cell loader from DOM text of a loading renderer cell', () => {
       const columns: ColumnConfig[] = [
         { field: 'status', header: 'Status', renderer: () => document.createElement('span') },

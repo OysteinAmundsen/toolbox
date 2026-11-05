@@ -198,6 +198,21 @@ describe('sticky-columns', () => {
       expect(bodyCell.classList.contains('sticky-right')).toBe(true);
     });
 
+    it('replaces a stale opposite side on header and body cells (#619)', () => {
+      const cells = [...host.querySelectorAll<HTMLElement>('.cell[data-field="c"]')];
+      for (const cell of cells) {
+        cell.classList.add('sticky-left');
+        cell.style.left = '40px';
+      }
+
+      applyStickyOffsets(host, [{ field: 'a' }, { field: 'b' }, { field: 'c', pinned: 'right' }]);
+
+      expect(cells.map((c) => [c.className, c.style.left, c.style.right])).toEqual([
+        ['cell sticky-right', '', '0px'],
+        ['cell sticky-right', '', '0px'],
+      ]);
+    });
+
     it('does nothing if no header cells found', () => {
       const emptyHost = document.createElement('div');
       // With light DOM, an empty element has no cells

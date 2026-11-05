@@ -69,3 +69,18 @@ export function withDispatchPath<E extends Event>(event: E, target: EventTarget)
   Object.defineProperty(event, 'composedPath', { value: () => path.slice(), configurable: true });
   return event;
 }
+
+/**
+ * Sticky state of pinned-column cells whose `data-field` equals `field`, in DOM order:
+ * `L<left>`, `R<right>`, both (`L…R…`, a defect), or `-`. Matched by attribute, not selector,
+ * so data-derived fields holding quotes or backslashes work.
+ */
+export function stickySides(root: ParentNode, selector: string, field: string): string[] {
+  return [...root.querySelectorAll<HTMLElement>(`${selector}[data-field]`)]
+    .filter((c) => c.getAttribute('data-field') === field)
+    .map((c) => {
+      const left = c.classList.contains('sticky-left') ? `L${c.style.left}` : '';
+      const right = c.classList.contains('sticky-right') ? `R${c.style.right}` : '';
+      return left + right || '-';
+    });
+}

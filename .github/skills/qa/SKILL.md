@@ -226,7 +226,10 @@ or cached state.
    - cloning (`{ ...col }` breaks identity);
    - reordering (pinning), including hidden columns;
    - utility columns rebuilt on every pass;
-   - feedback loops (core re-seeds `#baseColumns` from processed `_columns`).
+   - feedback loops (core re-seeds `#baseColumns` from processed `_columns`);
+   - `hookPriority` changes: ties run in array order, so a new priority moves the plugin past EVERY
+     equal-priority plugin registered on the other side, not just the one targeted. Probe `[X, changed]` with a
+     utility-column plugin as X (#613 QA: Pivot `processColumns: -15` added empty expander/drag columns, #616).
 3. **Falsify every classifier.** Every condition the diff adds that sorts inputs into kinds is a hypothesis. Typical
    forms are "fewer columns ⇒ scroll pass", "same fields ⇒ feedback", or a cache keyed on length or identity.
    Construct a concrete input that satisfies the condition but means the other thing, and the reverse. Read the
@@ -237,7 +240,12 @@ or cached state.
    - **Flag flips.** When the diff makes a mode flag recompute more often (e.g. `isVirtualized` recounted every
      pass), anything written under the ON branch (inline styles, cached offsets, skipped input like `scrollLeft`)
      must be torn down or kept current on the OFF branch. Probe ON → OFF → ON (#603 QA: stale 1700px header
-     padding after hiding columns below the threshold).
+     padding after hiding columns below the threshold). Value switches count too, not just on/off: a pin moved
+     `left → right` replays the cached OLD side until the next recompute (PR #617 round 2, #619). Make test helpers
+     report every state class, not the first match, or a cell in both states passes as one. When a fix has a
+     cache layer AND a self-correcting layer (e.g. a later re-measure), the end state hides the cache layer: assert
+     the intermediate state in the grid's public `render` event, which fires after `afterRender` hooks but before
+     their queued microtasks (PR #617 round 4).
    - **Index spaces.** When a list's meaning widens (window → full list), grep every consumer that writes an
      index into another list's space (`_focusCol = <order index>`, `data-col`, selection ranges). Follow aliases
      to their call sites (#607: Pivot's `get gridColumns() { return this.grid.columns }` fed `renderRow`).
@@ -245,10 +253,18 @@ or cached state.
    - Write only the probe body: `it(...)` blocks that `console.log('PROBE …')` the measured values.
    - Run `bun .github/skills/qa/scripts/probe.ts --from <existing integration spec> --body <file> --name <topic>`.
      It copies the spec for its helpers, skips its suites, runs yours, prints the `PROBE` lines and deletes the file.
+     The body shares the spec's module scope: never re-import a symbol the spec already imports (duplicate
+     binding → `Transform failed`, no tests run). happy-dom has no layout (`offsetWidth` = 0), so a probe can
+     prove sticky classes/side but not offset arithmetic (every pin reads `0px`); say so in **Evidence**. To
+     exercise real offsets, stub `offsetWidth` on the measured element
+     (`Object.defineProperty(el, 'offsetWidth', { value: 80, configurable: true })`). happy-dom also rejects `\"` and
+     `CSS.escape` output inside a quoted attribute selector; use hex escapes (`\22 `) — `dataFieldSelector`.
    - Only measured defects become findings; put the numbers in **Evidence**.
    - Always measure a **control** too: the same probe without the changed plugin or flag. A defect that reproduces
      anyway is pre-existing: file it as a bug issue (delivery-workflow), unless the diff widens its reach, in which
-     case it is a finding.
+     case it is a finding. To control against the unchanged source, back up the file, write HEAD with
+     `cmd /c "git show HEAD:<path> > <path-with-backslashes>"` (byte-exact; `Set-Content -NoNewline` joins the
+     lines and breaks the module), run the probe, and restore the backup in a `finally`.
    - Drive the state through an API that actually carries it before trusting a negative result. `ColumnState` has no
      `pinned`, so `applyColumnState({ pinned })` is a silent no-op; use `PinnedColumnsPlugin.setPinPosition` (#613).
    - When a finding is fixed, prove the new test guards it with

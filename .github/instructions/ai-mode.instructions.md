@@ -21,8 +21,8 @@ rules.
 - Do **not** run tests, lint, builds, or debugging unless explicitly asked. Instead, hand off the
   exact command for the user to run and mark those steps "deferred to user (saving mode)". Handoff
   examples:
-  - Tests / build / lint: `bun nx run-many -t lint test build --projects=<project>`
-  - Cross-project: `bun nx affected -t lint test build`
+  - Tests / build / lint: `bun nx affected -t lint test build`
+  - Narrow iteration on one project: `bun nx run-many -t lint test build --projects=<project>`
 - Stop after the implementation edit; do not proactively verify, profile, or expand scope.
 - Minimize tool calls, file inspection, and analysis to only what the requested edit strictly
   requires.
@@ -37,8 +37,7 @@ When `saving`, tighten the mandatory delivery checklist as follows — still cre
 implement, and end with the Step 7 commit suggestion, but defer the credit-heavy steps:
 
 - **Step 3 (Test)** and **Step 4 (Build & lint)** — do not run. Hand off
-  `bun nx run-many -t lint test build --projects=<project>` (or `bun nx affected -t lint test build`
-  for cross-project changes) and mark each step "deferred to user (saving mode)".
+  `bun nx affected -t lint test build` and mark each step "deferred to user (saving mode)".
 - **Debugging / profiling / e2e / benchmarking** — do not initiate autonomously; hand off the
   command (e.g. `bun nx e2e <project>`, `bun run bench`).
 - **Steps 1, 5, 6 (knowledge read / docs / retrospective)** — keep lightweight: read only the

@@ -155,10 +155,12 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   /** Split explicit-group state for scroll-driven label transfer. */
   #splitGroups: SplitGroupState[] = [];
   /**
-   * Snapshot of the column field order before the first context-menu pin.
-   * Used to restore original positions when unpinning.
+   * Field order before the columns were pinned, re-synced with the column set on every
+   * `setPinPosition`. Used to restore original positions when unpinning.
    */
   #originalColumnOrder: string[] = [];
+  /** Fields pinned as of the last `setPinPosition`, including pins absent from the current layout. */
+  #pinnedFields = new Set<string>();
   /**
    * Light-DOM elements whose `pinned` attribute has already seeded a column.
    * The attribute supplies the INITIAL pin only — seeding once guarantees a
@@ -181,6 +183,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
     this.#groupEndAdjustments = { addGroupEnd: new Set(), removeGroupEnd: new Set() };
     this.#splitGroups = [];
     this.#originalColumnOrder = [];
+    this.#pinnedFields.clear();
     // Reset seeded elements so a re-attached instance re-seeds from the same
     // light-DOM `pinned` attributes instead of permanently ignoring them (#272).
     this.#seededFromAttr = new WeakSet<HTMLElement>();
@@ -244,6 +247,67 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
     const host = this.gridElement;
     const direction = host ? getDirection(host) : 'ltr';
     return reorderColumnsForPinning(cols, direction) as ColumnConfig[];
+  }
+
+  /**
+   * Rebuild the unpin snapshot from the current columns: unpinned columns in their current order,
+   * each pinned column after the unpinned column that preceded it in the previous snapshot (or in
+   * the current order, for pins the snapshot hasn't seen). So column-set and order changes
+   * (pivot toggle, `columns` replacement, reorder) can't leave it stale (#615). A pin keeps the
+   * absent fields since its last present unpinned predecessor, and an absent pin (e.g. a source
+   * column during pivot) keeps its own slot too, so either still restores after a round-trip,
+   * hidden or not. Other absent fields are dropped, keeping the snapshot bounded by the layout.
+   */
+  #syncOriginalOrder(columns: readonly ColumnConfig[]): void {
+    const present = new Set<string>();
+    const pinned = new Set<string>();
+    const hiddenPins = new Set<string>();
+    const unpinned: string[] = [];
+    for (const c of columns) {
+      present.add(c.field);
+      if (!getColumnPinned(c)) unpinned.push(c.field);
+      else {
+        pinned.add(c.field);
+        if (c.hidden) hiddenPins.add(c.field);
+      }
+    }
+    const unpinnedSet = new Set(unpinned);
+    const stillPinned = new Set(pinned);
+    const byAnchor = new Map<string | null, string[]>(); // null = leading edge
+    const place = (prev: string | null, fields: string[]) => {
+      const list = byAnchor.get(prev);
+      if (list) list.push(...fields);
+      else byAnchor.set(prev, fields);
+    };
+    let prev: string | null = null;
+    let run: string[] = []; // absent unpinned fields since `prev`, kept only as anchors of a pin
+    for (const f of this.#originalColumnOrder) {
+      if (unpinnedSet.has(f)) {
+        prev = f;
+        run = [];
+        continue;
+      }
+      const isAbsent = !present.has(f);
+      if (!pinned.delete(f) && !(isAbsent && this.#pinnedFields.has(f))) {
+        if (isAbsent) run.push(f);
+        continue;
+      }
+      // Only hidden or absent pins return to a source slot; a visible pin is a persistent column.
+      const keepRun = isAbsent || hiddenPins.has(f);
+      place(prev, keepRun ? [...run, f] : [f]);
+      if (keepRun) run = [];
+      stillPinned.add(f);
+    }
+    prev = null;
+    for (const { field } of columns) {
+      if (unpinnedSet.has(field)) prev = field;
+      else if (pinned.delete(field)) place(prev, [field]);
+    }
+    this.#pinnedFields = stillPinned;
+    this.#originalColumnOrder = [
+      ...(byAnchor.get(null) ?? []),
+      ...unpinned.flatMap((f) => [f, ...(byAnchor.get(f) ?? [])]),
+    ];
   }
 
   /** @internal */
@@ -490,14 +554,10 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
     if (currentIndex === -1) return;
 
     const gridEl = this.gridElement as HTMLElement & { columns?: ColumnConfig[] };
+    this.#syncOriginalOrder(currentColumns);
 
     if (position) {
-      // PINNING: snapshot original column order if this is the first context-menu pin.
-      // The snapshot lets us restore columns to their original positions on unpin.
-      if (this.#originalColumnOrder.length === 0) {
-        this.#originalColumnOrder = currentColumns.map((c) => c.field);
-      }
-
+      this.#pinnedFields.add(field);
       // Set the pinned property; processColumns will reorder on next render
       const updated = currentColumns.map((col) => {
         if (col.field !== field) return col;
@@ -509,6 +569,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
       gridEl.columns = updated;
     } else {
       // UNPINNING: restore column to its original position
+      this.#pinnedFields.delete(field);
       const col = currentColumns[currentIndex];
       const copy = { ...col };
       delete (copy as ColumnConfig & { pinned?: PinnedPosition }).pinned;
@@ -517,30 +578,17 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
       const remaining = [...currentColumns];
       remaining.splice(currentIndex, 1);
 
-      // Find the best insertion point using the original order snapshot
+      // Insert before the first unpinned column whose original position is after this one.
       const originalIndex = this.#originalColumnOrder.indexOf(field);
-      if (originalIndex >= 0) {
-        // Scan remaining non-pinned columns and find the first whose original
-        // position is greater than this column's original position.
-        let insertIndex = remaining.length;
-        for (let i = 0; i < remaining.length; i++) {
-          if (getColumnPinned(remaining[i])) continue; // skip pinned columns
-          const otherOriginal = this.#originalColumnOrder.indexOf(remaining[i].field);
-          if (otherOriginal > originalIndex) {
-            insertIndex = i;
-            break;
-          }
+      let insertIndex = remaining.length;
+      for (let i = 0; i < remaining.length; i++) {
+        if (getColumnPinned(remaining[i])) continue;
+        if (this.#originalColumnOrder.indexOf(remaining[i].field) > originalIndex) {
+          insertIndex = i;
+          break;
         }
-        remaining.splice(insertIndex, 0, copy);
-      } else {
-        // Original position unknown — keep at current index
-        remaining.splice(Math.min(currentIndex, remaining.length), 0, copy);
       }
-
-      // If no more pinned columns remain, clear the snapshot
-      if (!remaining.some((c) => getColumnPinned(c) != null)) {
-        this.#originalColumnOrder = [];
-      }
+      remaining.splice(insertIndex, 0, copy);
 
       gridEl.columns = remaining;
     }

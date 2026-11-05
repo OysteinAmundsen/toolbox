@@ -3,7 +3,7 @@
  * @vitest-environment happy-dom
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   applyStickyOffsets,
   calculateLeftStickyOffsets,
@@ -1069,6 +1069,82 @@ describe('setPinPosition with reordering', () => {
 
     // Verify no errors and columns are restored
     expect(grid._processed.map((c: any) => c.field)).toEqual(['a', 'b']);
+  });
+
+  describe('column set changes under a pin (#615)', () => {
+    const order = (grid: any) => grid._processed.map((c: any) => c.field);
+
+    it('restores a column after the snapshotted columns were replaced', () => {
+      const grid = attachWithColumns([{ field: 'x' }, { field: 'y' }]);
+      plugin.setPinPosition('y', 'left');
+      grid.columns = [{ field: 'a' }, { field: 'b' }, { field: 'c' }];
+
+      plugin.setPinPosition('c', 'left');
+      plugin.setPinPosition('c', undefined);
+
+      expect(order(grid)).toEqual(['a', 'b', 'c']);
+    });
+
+    it('keeps a surviving pin restorable and slots a new column by its unpinned neighbour', () => {
+      const grid = attachWithColumns([{ field: 'a' }, { field: 'b' }, { field: 'c' }]);
+      plugin.setPinPosition('b', 'left');
+      grid.columns = [{ field: 'n' }, ...grid._processed.filter((c: any) => c.field !== 'c'), { field: 'd' }];
+      expect(order(grid)).toEqual(['b', 'n', 'a', 'd']);
+
+      plugin.setPinPosition('d', 'right');
+      plugin.setPinPosition('b', undefined);
+      plugin.setPinPosition('d', undefined);
+
+      expect(order(grid)).toEqual(['n', 'a', 'b', 'd']);
+    });
+
+    it('takes the order of a columns replacement that dropped every pin', () => {
+      const grid = attachWithColumns([{ field: 'a' }, { field: 'b' }, { field: 'c' }]);
+      plugin.setPinPosition('c', 'left');
+      grid.columns = [{ field: 'c' }, { field: 'b' }, { field: 'a' }];
+
+      plugin.setPinPosition('a', 'left');
+      plugin.setPinPosition('a', undefined);
+
+      expect(order(grid)).toEqual(['c', 'b', 'a']);
+    });
+
+    it('unpins after its original predecessor when the unpinned columns were reordered', () => {
+      const grid = attachWithColumns([{ field: 'a' }, { field: 'b' }, { field: 'c' }, { field: 'd' }]);
+      plugin.setPinPosition('c', 'left');
+      const [pinnedC, a, b, d] = grid._processed;
+      grid.columns = [pinnedC, d, a, b];
+
+      plugin.setPinPosition('c', undefined);
+
+      expect(order(grid)).toEqual(['d', 'a', 'b', 'c']);
+    });
+
+    it.each([
+      ['no pin', [], 5],
+      ['a persistent visible pin', [{ field: 'actions', pinned: 'right' }], 6],
+    ])(
+      'drops absent fields from the snapshot once no pin needs them, with %s (PR #625 review)',
+      (_name, extra, size) => {
+        const layout = (k: number) => [...Array.from({ length: 5 }, (_, i) => ({ field: `l${k}c${i}` })), ...extra];
+        const grid = attachWithColumns(layout(0));
+        for (let k = 1; k <= 20; k++) {
+          grid.columns = layout(k);
+          plugin.setPinPosition(`l${k}c1`, 'left');
+          plugin.setPinPosition(`l${k}c1`, undefined);
+        }
+
+        // The unpin scan calls `indexOf` on the snapshot, so its receivers expose the snapshot size.
+        const indexOf = vi.spyOn(Array.prototype, 'indexOf');
+        plugin.setPinPosition('l20c3', 'left');
+        plugin.setPinPosition('l20c3', undefined);
+        const sizes = indexOf.mock.contexts.map((arr) => (arr as unknown[]).length);
+        indexOf.mockRestore();
+
+        expect(order(grid).slice(0, 5)).toEqual(['l20c0', 'l20c1', 'l20c2', 'l20c3', 'l20c4']);
+        expect(Math.max(...sizes)).toBe(size);
+      },
+    );
   });
 });
 

@@ -7,7 +7,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { GridClasses } from '../../core/constants';
-import { getDirection, resolveInlinePosition, type TextDirection } from '../../core/internal/utils';
+import { getDirection, isOwnTarget, resolveInlinePosition, type TextDirection } from '../../core/internal/utils';
 import { dataFieldSelector } from '../shared/data-field-selector';
 import { applyCellStickyOffset, getColumnPinned } from '../shared/pin-order';
 import type { PinnedPosition, ResolvedPinnedPosition } from './types';
@@ -167,6 +167,8 @@ export interface StickyOffsetsResult {
   leftOffsets: Map<string, number>;
   rightOffsets: Map<string, number>;
   splitGroups: SplitGroupState[];
+  /** Text direction the offsets were measured in (resolves logical pins to a side). */
+  direction: TextDirection;
 }
 
 /**
@@ -205,23 +207,23 @@ export interface SplitGroupState {
  * @returns Sticky offsets result with group-end adjustments and measured offset maps
  */
 export function applyStickyOffsets(host: HTMLElement, allColumns: any[]): StickyOffsetsResult {
+  // Detect text direction from the host element
+  const direction = getDirection(host);
   const emptyResult: StickyOffsetsResult = {
     groupEndAdjustments: { addGroupEnd: new Set(), removeGroupEnd: new Set() },
     leftOffsets: new Map(),
     rightOffsets: new Map(),
     splitGroups: [],
+    direction,
   };
 
   // Group header cells address columns by `grid-column` track index, and only visible
   // columns get a track — so hidden columns must not shift the index mapping (#512).
   const columns = allColumns.filter((col) => !col.hidden);
 
-  // With light DOM, query the host element directly
-  const headerCells = Array.from(host.querySelectorAll('.header-row .cell')) as HTMLElement[];
+  // Own header cells only: a nested grid's header cells share field names (grid-pitfalls #13).
+  const headerCells = queryOwn(host, '.header-row .cell');
   if (!headerCells.length) return emptyResult;
-
-  // Detect text direction from the host element
-  const direction = getDirection(host);
 
   // Collect measured offsets for caching in the plugin
   const leftOffsets = new Map<string, number>();
@@ -237,9 +239,9 @@ export function applyStickyOffsets(host: HTMLElement, allColumns: any[]): Sticky
         applyCellStickyOffset(cell, left, undefined);
         // Body cells: use data-field for reliable matching (data-col indices may differ
         // between _columns and _visibleColumns due to hidden/utility columns)
-        host.querySelectorAll<HTMLElement>(`.data-grid-row .cell${dataFieldSelector(col.field)}`).forEach((el) => {
+        for (const el of queryOwn(host, `.data-grid-row .cell${dataFieldSelector(col.field)}`)) {
           applyCellStickyOffset(el, left, undefined);
-        });
+        }
         left += cell.offsetWidth;
       }
     }
@@ -254,9 +256,9 @@ export function applyStickyOffsets(host: HTMLElement, allColumns: any[]): Sticky
         rightOffsets.set(col.field, right);
         applyCellStickyOffset(cell, undefined, right);
         // Body cells: use data-field for reliable matching
-        host.querySelectorAll<HTMLElement>(`.data-grid-row .cell${dataFieldSelector(col.field)}`).forEach((el) => {
+        for (const el of queryOwn(host, `.data-grid-row .cell${dataFieldSelector(col.field)}`)) {
           applyCellStickyOffset(el, undefined, right);
-        });
+        }
         right += cell.offsetWidth;
       }
     }
@@ -271,20 +273,20 @@ export function applyStickyOffsets(host: HTMLElement, allColumns: any[]): Sticky
     for (const field of adjustments.addGroupEnd) {
       const hCell = headerCells.find((c) => c.getAttribute('data-field') === field);
       if (hCell) hCell.classList.add('group-end');
-      host.querySelectorAll(`.data-grid-row .cell${dataFieldSelector(field)}`).forEach((el) => {
+      for (const el of queryOwn(host, `.data-grid-row .cell${dataFieldSelector(field)}`)) {
         el.classList.add('group-end');
-      });
+      }
     }
     for (const field of adjustments.removeGroupEnd) {
       const hCell = headerCells.find((c) => c.getAttribute('data-field') === field);
       if (hCell) hCell.classList.remove('group-end');
-      host.querySelectorAll(`.data-grid-row .cell${dataFieldSelector(field)}`).forEach((el) => {
+      for (const el of queryOwn(host, `.data-grid-row .cell${dataFieldSelector(field)}`)) {
         el.classList.remove('group-end');
-      });
+      }
     }
   }
 
-  return { groupEndAdjustments: adjustments, leftOffsets, rightOffsets, splitGroups };
+  return { groupEndAdjustments: adjustments, leftOffsets, rightOffsets, splitGroups, direction };
 }
 
 /**
@@ -307,7 +309,7 @@ function applyGroupHeaderStickyOffsets(
   splitGroups: SplitGroupState[],
 ): GroupEndAdjustments {
   const adjustments: GroupEndAdjustments = { addGroupEnd: new Set(), removeGroupEnd: new Set() };
-  const groupCells = Array.from(host.querySelectorAll('.header-group-row .header-group-cell')) as HTMLElement[];
+  const groupCells = queryOwn(host, '.header-group-row .header-group-cell');
   if (!groupCells.length) return adjustments;
 
   for (const groupCell of groupCells) {
@@ -639,12 +641,32 @@ function splitMixedPinExplicitGroup(
  * @param host - The grid host element (render root for DOM queries)
  */
 export function clearStickyOffsets(host: HTMLElement): void {
-  // With light DOM, query the host element directly
-  const cells = host.querySelectorAll(`.${GridClasses.STICKY_LEFT}, .${GridClasses.STICKY_RIGHT}`);
-  cells.forEach((cell) => {
-    cell.classList.remove(GridClasses.STICKY_LEFT, GridClasses.STICKY_RIGHT);
-    (cell as HTMLElement).style.position = '';
-    (cell as HTMLElement).style.left = '';
-    (cell as HTMLElement).style.right = '';
-  });
+  queryOwn(host, `.${GridClasses.STICKY_LEFT}, .${GridClasses.STICKY_RIGHT}`).forEach(clearCellStickyOffset);
+}
+
+/**
+ * The host grid's own elements matching `selector`. The grid renders in light DOM, so a nested
+ * grid (MasterDetail panel, cell renderer) sits inside the parent's `.rows`, and a descendant
+ * query also reaches its cells, which share field names (grid-pitfalls #13).
+ *
+ * @param host - The grid host element (render root for DOM queries)
+ * @param selector - CSS selector for the descendants to collect
+ * @returns Matching elements whose nearest grid is `host`
+ */
+export function queryOwn(host: HTMLElement, selector: string): HTMLElement[] {
+  const own: HTMLElement[] = [];
+  for (const el of host.querySelectorAll<HTMLElement>(selector)) if (isOwnTarget(host, el)) own.push(el);
+  return own;
+}
+
+/**
+ * Remove sticky positioning (both sides' class and inset) from one cell.
+ *
+ * @param cell - The cell element (header or body)
+ */
+export function clearCellStickyOffset(cell: HTMLElement): void {
+  cell.classList.remove(GridClasses.STICKY_LEFT, GridClasses.STICKY_RIGHT);
+  cell.style.position = '';
+  cell.style.left = '';
+  cell.style.right = '';
 }

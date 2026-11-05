@@ -6,7 +6,7 @@
 
 import { GridClasses } from '../../core/constants';
 import { applyInitialOrder } from '../../core/internal/columns';
-import { getDirection } from '../../core/internal/utils';
+import { getDirection, resolveInlinePosition, type TextDirection } from '../../core/internal/utils';
 import type { AfterCellRenderContext, PluginManifest, PluginQuery, ScrollEvent } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, ColumnInternal } from '../../core/types';
@@ -15,11 +15,13 @@ import { dataFieldSelector } from '../shared/data-field-selector';
 import { applyCellStickyOffset, PINNED_OFFSETS_CHANGE, type StickyOffsets } from '../shared/pin-order';
 import {
   applyStickyOffsets,
+  clearCellStickyOffset,
   clearStickyOffsets,
   getColumnPinned,
   getLeftStickyColumns,
   getRightStickyColumns,
   hasStickyColumns,
+  queryOwn,
   reorderColumnsForPinning,
   type GroupEndAdjustments,
   type SplitGroupState,
@@ -151,6 +153,8 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   private isApplied = false;
   private leftOffsets = new Map<string, number>();
   private rightOffsets = new Map<string, number>();
+  /** Direction the offset maps were measured in; resolves logical pins per cell without a style read. */
+  #offsetsDirection: TextDirection = 'ltr';
   /** Group-end adjustments for pin boundaries within implicit groups. */
   #groupEndAdjustments: GroupEndAdjustments = { addGroupEnd: new Set(), removeGroupEnd: new Set() };
   /** Split explicit-group state for scroll-driven label transfer. */
@@ -345,12 +349,35 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
 
   /** Keep the measured offsets and tell offset-caching plugins (Pivot) that they changed. */
   #storeOffsets(result: StickyOffsetsResult): void {
+    this.#clearLostPins(this.leftOffsets, result);
+    this.#clearLostPins(this.rightOffsets, result);
     this.#groupEndAdjustments = result.groupEndAdjustments;
     this.leftOffsets = result.leftOffsets;
     this.rightOffsets = result.rightOffsets;
+    this.#offsetsDirection = result.direction;
     this.#splitGroups = result.splitGroups;
     this.#offsetsSnapshot = null;
     this.emitPluginEvent(PINNED_OFFSETS_CHANGE, null);
+  }
+
+  /**
+   * Clear body cells of fields that were sticky in the previous measure but not in this one.
+   * `afterCellRender` clears most of them during the render, but core skips it for cells with an
+   * active editor, and the re-measure only visits columns that are still pinned (PR #630).
+   */
+  #clearLostPins(previous: ReadonlyMap<string, number>, result: StickyOffsetsResult): void {
+    for (const field of previous.keys()) {
+      if (result.leftOffsets.has(field) || result.rightOffsets.has(field)) continue;
+      for (const el of queryOwn(this.gridElement, `.data-grid-row .cell${dataFieldSelector(field)}`)) {
+        clearCellStickyOffset(el);
+      }
+    }
+  }
+
+  /** This grid's own header and body cells of `field` (never a nested grid's). */
+  #ownFieldCells(field: string): HTMLElement[] {
+    const sel = dataFieldSelector(field);
+    return queryOwn(this.gridElement, `.header-row .cell${sel}, .data-grid-row .cell${sel}`);
   }
 
   /**
@@ -358,15 +385,28 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
    * When virtualization recycles row pool elements, newly rendered cells lack the
    * inline sticky styles applied by `applyStickyOffsets` in `afterRender`. This hook
    * ensures every cell gets correct sticky positioning using the cached offset maps.
+   *
+   * The maps are only re-measured after the render, so a cached offset is replayed only for
+   * the column's CURRENT side. A cell whose field is cached for a side it no longer has
+   * (re-pinned to the other side #619, or unpinned #621) is cleared instead; core patches
+   * cells in place, and the re-measure only visits columns that are still pinned.
    * @internal
    */
   override afterCellRender(context: AfterCellRenderContext): void {
     if (!this.isApplied) return;
-    const field = context.column.field;
+    const column = context.column;
+    const field = column.field;
     const cellEl = context.cellElement;
 
-    // Apply sticky positioning from cached offset maps
-    applyCellStickyOffset(cellEl, this.leftOffsets.get(field), this.rightOffsets.get(field));
+    const pinned = getColumnPinned(column);
+    const side = pinned ? resolveInlinePosition(pinned, this.#offsetsDirection) : undefined;
+    const left = side === 'left' ? this.leftOffsets.get(field) : undefined;
+    const right = side === 'right' ? this.rightOffsets.get(field) : undefined;
+    if (left !== undefined || right !== undefined) {
+      applyCellStickyOffset(cellEl, left, right);
+    } else if (this.leftOffsets.has(field) || this.rightOffsets.has(field)) {
+      clearCellStickyOffset(cellEl);
+    }
 
     // Maintain group-end adjustments at pin boundaries
     if (this.#groupEndAdjustments.addGroupEnd.has(field)) {
@@ -403,8 +443,6 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   #updateSplitGroupScroll(): void {
     if (!this.isApplied || this.#splitGroups.length === 0) return;
 
-    const host = this.gridElement;
-
     for (const sg of this.#splitGroups) {
       const pinnedRect = sg.pinnedFragment.getBoundingClientRect();
       const scrollableRect = sg.scrollableFragment.getBoundingClientRect();
@@ -426,11 +464,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
 
         // Add group-end to pinned column header + body cells
         this.#groupEndAdjustments.addGroupEnd.add(sg.pinnedField);
-        host
-          .querySelectorAll(
-            `.header-row .cell${dataFieldSelector(sg.pinnedField)}, .data-grid-row .cell${dataFieldSelector(sg.pinnedField)}`,
-          )
-          .forEach((el) => el.classList.add('group-end'));
+        for (const el of this.#ownFieldCells(sg.pinnedField)) el.classList.add('group-end');
 
         sg.isTransferred = true;
       } else if (!shouldTransfer && sg.isTransferred) {
@@ -446,11 +480,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
 
         // Remove group-end from pinned column cells
         this.#groupEndAdjustments.addGroupEnd.delete(sg.pinnedField);
-        host
-          .querySelectorAll(
-            `.header-row .cell${dataFieldSelector(sg.pinnedField)}, .data-grid-row .cell${dataFieldSelector(sg.pinnedField)}`,
-          )
-          .forEach((el) => el.classList.remove('group-end'));
+        for (const el of this.#ownFieldCells(sg.pinnedField)) el.classList.remove('group-end');
 
         sg.isTransferred = false;
       }
@@ -669,9 +699,9 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
     let right = 0;
 
     if (rowEl) {
-      // Calculate from rendered cells in the row
-      const stickyLeftCells = rowEl.querySelectorAll(`.${GridClasses.STICKY_LEFT}`);
-      const stickyRightCells = rowEl.querySelectorAll(`.${GridClasses.STICKY_RIGHT}`);
+      // Calculate from the row's own cells (a nested grid in a cell renderer has its own pins)
+      const stickyLeftCells = rowEl.querySelectorAll(`:scope > .${GridClasses.STICKY_LEFT}`);
+      const stickyRightCells = rowEl.querySelectorAll(`:scope > .${GridClasses.STICKY_RIGHT}`);
       stickyLeftCells.forEach((el) => {
         left += (el as HTMLElement).offsetWidth;
       });
@@ -680,8 +710,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
       });
     } else {
       // Fall back to header row if no row element provided
-      const host = this.gridElement;
-      const headerCells = host.querySelectorAll('.header-row .cell');
+      const headerCells = queryOwn(this.gridElement, '.header-row .cell');
       headerCells.forEach((cell) => {
         if (cell.classList.contains(GridClasses.STICKY_LEFT)) {
           left += (cell as HTMLElement).offsetWidth;

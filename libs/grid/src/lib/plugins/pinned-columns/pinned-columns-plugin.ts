@@ -5,6 +5,7 @@
  */
 
 import { GridClasses } from '../../core/constants';
+import { applyInitialOrder } from '../../core/internal/columns';
 import { getDirection } from '../../core/internal/utils';
 import type { AfterCellRenderContext, PluginManifest, PluginQuery, ScrollEvent } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
@@ -162,6 +163,13 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   /** Fields pinned as of the last `setPinPosition`, including pins absent from the current layout. */
   #pinnedFields = new Set<string>();
   /**
+   * The list the last `setPinPosition` assigned to `grid.columns`, in the order processing will give it,
+   * and the `effectiveConfig.columns` array at that moment. The grid applies the assignment in a
+   * microtask, so until that array is replaced the next same-tick call must build on this list, not
+   * the stale `this.columns` (#618).
+   */
+  #pendingColumns: { columns: ColumnConfig[]; base: readonly ColumnConfig[] } | null = null;
+  /**
    * Light-DOM elements whose `pinned` attribute has already seeded a column.
    * The attribute supplies the INITIAL pin only — seeding once guarantees a
    * later runtime unpin (which clears `col.pinned`) is not re-applied on the
@@ -184,6 +192,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
     this.#splitGroups = [];
     this.#originalColumnOrder = [];
     this.#pinnedFields.clear();
+    this.#pendingColumns = null;
     // Reset seeded elements so a re-attached instance re-seeds from the same
     // light-DOM `pinned` attributes instead of permanently ignoring them (#272).
     this.#seededFromAttr = new WeakSet<HTMLElement>();
@@ -545,34 +554,26 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
    * @param position - The pin position (`'left'`, `'right'`, `'start'`, `'end'`), or `undefined` to unpin
    */
   setPinPosition(field: string, position: PinnedPosition | undefined): void {
-    // The full post-processColumns list (hidden included, never the render-only
-    // column window — #606) is the authoritative column set.
-    const currentColumns = this.columns;
+    const currentColumns = this.#latestColumns();
     if (!currentColumns?.length) return;
 
     const currentIndex = currentColumns.findIndex((col) => col.field === field);
     if (currentIndex === -1) return;
 
-    const gridEl = this.gridElement as HTMLElement & { columns?: ColumnConfig[] };
     this.#syncOriginalOrder(currentColumns);
 
+    // Pin the live column in place, like `setColumnVisible` writes `hidden`: a copy would drop
+    // runtime changes made to the live column before the grid applies the list (PR #628).
+    const col = currentColumns[currentIndex] as ColumnConfig & { pinned?: PinnedPosition };
     if (position) {
       this.#pinnedFields.add(field);
-      // Set the pinned property; processColumns will reorder on next render
-      const updated = currentColumns.map((col) => {
-        if (col.field !== field) return col;
-        const copy = { ...col };
-        (copy as ColumnConfig & { pinned?: PinnedPosition }).pinned = position;
-        return copy;
-      });
-
-      gridEl.columns = updated;
+      col.pinned = position;
+      // processColumns moves it to the edge on the next render
+      this.#assignColumns([...currentColumns]);
     } else {
       // UNPINNING: restore column to its original position
       this.#pinnedFields.delete(field);
-      const col = currentColumns[currentIndex];
-      const copy = { ...col };
-      delete (copy as ColumnConfig & { pinned?: PinnedPosition }).pinned;
+      delete col.pinned;
 
       // Remove from current position
       const remaining = [...currentColumns];
@@ -588,10 +589,35 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
           break;
         }
       }
-      remaining.splice(insertIndex, 0, copy);
+      remaining.splice(insertIndex, 0, col);
 
-      gridEl.columns = remaining;
+      this.#assignColumns(remaining);
     }
+  }
+
+  /**
+   * The full column list to build a pin change on: the post-processColumns list (hidden included,
+   * never the render-only column window — #606), or the list a same-tick `setPinPosition` queued (#618).
+   */
+  #latestColumns(): ColumnConfig[] {
+    const pending = this.#pendingColumns;
+    if (pending && pending.base === this.grid?.effectiveConfig?.columns) return pending.columns;
+    this.#pendingColumns = null;
+    return this.columns;
+  }
+
+  #assignColumns(columns: ColumnConfig[]): void {
+    const host = this.gridElement as HTMLElement & { columns?: ColumnConfig[] };
+    const base = this.grid?.effectiveConfig?.columns;
+    host.columns = columns;
+    // Order the pending list as `merge()` + `orderColumns` will, but assign the source unordered:
+    // pre-partitioning it would shift where `applyInitialOrder` places `order` columns (PR #628).
+    this.#pendingColumns = base
+      ? {
+          columns: reorderColumnsForPinning(applyInitialOrder([...columns] as ColumnInternal[]), getDirection(host)),
+          base,
+        }
+      : null;
   }
 
   /**

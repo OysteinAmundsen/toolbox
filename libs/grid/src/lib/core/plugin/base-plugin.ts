@@ -930,6 +930,16 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   }
 
   /**
+   * Request a re-window of the rendered columns: the plugin's `windowColumns` result changed
+   * (e.g. a scroll moved the window) while the processed columns did not. Rebuilds the template,
+   * header and row cells without re-running `processRows` / `processColumns`.
+   * @internal
+   */
+  protected requestColumnWindowRender(): void {
+    (this.grid as { requestColumnWindowRender?: () => void })?.requestColumnWindowRender?.();
+  }
+
+  /**
    * Request a re-render and restore focus styling afterward.
    * Use this when a plugin action (like expand/collapse) triggers a render
    * but needs to maintain keyboard navigation focus.
@@ -1822,6 +1832,12 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   // #endregion
 
   // #region Column State Hooks
+
+  /**
+   * Called after column state changes the field order.
+   * @internal
+   */
+  onColumnStateOrderApplied?(): void;
 
   /**
    * Contribute plugin-specific state for a column.

@@ -1,11 +1,11 @@
 ---
 domain: grid-plugin-pivot
-related: [grid-plugins-catalog-data, grid-plugins, grid-core, grid-render-pipeline]
+related: [grid-plugins-catalog-data, grid-plugin-pinned-columns, grid-plugins, grid-core, grid-render-pipeline]
 ---
 
 # Pivot Plugin
 
-> Pivot replaces BOTH rows (`processRows`) and columns (`processColumns`). Plugin system (hooks, priorities, queries) → grid-plugins.md · PinnedColumns, MultiSort, Filtering, row-identity rule → grid-plugins-catalog-data.md · `interleaveHiddenColumns`, column pipeline → grid-core.md.
+> Pivot replaces BOTH rows (`processRows`) and columns (`processColumns`). Plugin system (hooks, priorities, queries) → grid-plugins.md · PinnedColumns → grid-plugin-pinned-columns.md · MultiSort, Filtering, row-identity rule → grid-plugins-catalog-data.md · `interleaveHiddenColumns`, column pipeline → grid-core.md.
 >
 > Read order for "pivot column lost state across a COLUMNS pass": #610/#609/#613 INVARIANT → #605 DECIDED. For "empty/extra column in pivot mode": #616 DECIDED. For "sticky pin wrong on pivot rows": PR #617 INVARIANT.
 

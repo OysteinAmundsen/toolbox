@@ -1007,6 +1007,18 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
+   * Request a re-window of the rendered columns: the `windowColumns` result changed (e.g. a
+   * horizontal scroll moved ColumnVirtualization's window) but the processed columns did not.
+   * Rebuilds the template, header and row cells without re-running `mergeConfig`, `processRows`
+   * or `processColumns`.
+   * @group Rendering
+   * @internal Plugin API
+   */
+  requestColumnWindowRender(): void {
+    this.#scheduler.requestWindow('plugin:requestColumnWindowRender');
+  }
+
+  /**
    * Request a full re-render and restore focus styling afterward.
    * Use this when a plugin action (like expand/collapse) triggers a render
    * but needs to maintain keyboard navigation focus.
@@ -1974,6 +1986,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#initialColumnState = undefined;
       const plugins = (this.#pluginManager?.getAll() ?? []) as BaseGridPlugin[];
       this.#configManager.applyState(pendingInitialState, plugins);
+      this.#baseColumns = [...this.#configManager.columns];
     }
 
     // Ask plugins whether the structural DOM signature changed (shell header
@@ -2222,6 +2235,16 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   /** @internal Update CSS grid template (COLUMNS phase). */
   _schedulerUpdateTemplate(): void {
+    updateTemplate(this);
+  }
+
+  /**
+   * @internal Re-window the rendered columns (HEADER-phase flush after `requestColumnWindowRender`):
+   * drop the cached window, rebuild every pooled row's cells (epoch) and the template.
+   */
+  _schedulerRewindow(): void {
+    this.#visibleColumnsCache = undefined;
+    this.__rowRenderEpoch++;
     updateTemplate(this);
   }
 

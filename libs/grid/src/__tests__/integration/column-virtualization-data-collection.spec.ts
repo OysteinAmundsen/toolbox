@@ -7,8 +7,12 @@
  *
  * @vitest-environment happy-dom
  */
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createGrid, waitUpgrade } from '../../../test/helpers';
+import { mountNestedGrid, own, useParentGrid, type Order } from '../../../test/nested-grid';
 import '../../lib/core/grid';
 import type { BaseGridPlugin } from '../../lib/core/plugin/base-plugin';
 import type { HeaderRowContribution } from '../../lib/core/plugin/types';
@@ -23,6 +27,7 @@ import { PinnedColumnsPlugin } from '../../lib/plugins/pinned-columns/pinned-col
 import { PivotPlugin } from '../../lib/plugins/pivot/pivot-plugin';
 import { ReorderPlugin } from '../../lib/plugins/reorder-columns/reorder-plugin';
 import { ROW_DRAG_HANDLE_FIELD, RowDragDropPlugin } from '../../lib/plugins/row-drag-drop/row-drag-drop-plugin';
+import { SelectionPlugin } from '../../lib/plugins/selection/selection-plugin';
 import { TreePlugin } from '../../lib/plugins/tree/tree-plugin';
 
 vi.mock('../../lib/plugins/export/csv', async (importOriginal) => {
@@ -418,9 +423,7 @@ describe('core never feeds the rendered column window back into processColumns (
       const renderedKeys = renderedFields(grid).filter((f) => f.includes('|'));
       const keep = new Set(renderedKeys.map((f) => f.split('|')[0]));
       grid.rows = rows.filter((r) => keep.has(r.c2));
-      await waitUpgrade(grid);
-      // Pivot only rebuilds its columns on the next COLUMNS pass (#605) — the scroll provides it.
-      scrollTo(virtualization, 1);
+      // Row data that changes the column keys rebuilds the pivot columns in the same flush (#608).
       await waitUpgrade(grid);
 
       expect(exporter.getResolvedColumns().map((c) => c.field)).toEqual(renderedKeys);
@@ -618,6 +621,94 @@ describe('rendered-window index space vs full column list (#603 QA)', () => {
     expect(virtualization.getIsVirtualized()).toBe(true);
     expect(virtualization.getVisibleColumnRange().start).toBe(0);
   });
+
+  it('publishes the window offset for rows other plugins rebuild, whatever their order', async () => {
+    const columns = makeColumns();
+    const groups = new GroupingColumnsPlugin({
+      columnGroups: [{ id: 'g', header: 'G', children: columns.map((c) => c.field) }],
+    });
+    // Registered after ColumnVirtualization: its afterRender rebuilds the group row last.
+    const { grid, virtualization } = await setup(columns, [groups]);
+    const offset = () => grid.style.getPropertyValue('--tbw-column-window-offset');
+    scrollTo(virtualization, 5_000);
+    await waitUpgrade(grid);
+
+    expect(grid.querySelector('.header-group-row')).not.toBeNull();
+    expect(offset()).not.toBe('0px');
+    expect(offset()).toBe(grid.querySelector<HTMLElement>('.header-row')!.style.paddingLeft);
+
+    for (const c of columns.slice(20)) grid.setColumnVisible(c.field, false);
+    await waitUpgrade(grid);
+    expect(virtualization.getIsVirtualized()).toBe(false);
+    expect(offset()).toBe('');
+  });
+
+  describe('paste targets', () => {
+    function paste(grid: HTMLElement, width: number): string[] {
+      let fields: string[] = [];
+      // The native `paste` event shares the type; only the plugin's CustomEvent carries a detail.
+      const listener = (e: Event) => {
+        const detail = (e as CustomEvent<{ fields: string[] } | null>).detail;
+        if (detail) fields = detail.fields;
+      };
+      grid.addEventListener('paste', listener);
+      const text = Array.from({ length: width }, (_, i) => `v${i}`).join('\t');
+      const event = new Event('paste', { bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'clipboardData', {
+        value: { getData: (type: string) => (type === 'text/plain' ? text : '') },
+      });
+      grid.dispatchEvent(event);
+      grid.removeEventListener('paste', listener);
+      return fields;
+    }
+
+    it('continue past the window edge instead of jumping into a pinned-right column', async () => {
+      const columns = makeColumns();
+      columns[179] = { ...columns[179], pinned: 'right' } as ColumnConfig;
+      const { grid } = await setup(columns, [new PinnedColumnsPlugin()]);
+      expect(grid._visibleColumns.at(-1)?.field).toBe('c179');
+
+      expect(paste(grid, 15)).toEqual(columns.slice(0, 15).map((c) => c.field));
+    });
+
+    it('reach columns past the window without any pin', async () => {
+      const { grid } = await setup();
+      expect(grid._visibleColumns.length).toBeLessThan(15);
+
+      expect(paste(grid, 15)).toEqual(
+        makeColumns()
+          .slice(0, 15)
+          .map((c) => c.field),
+      );
+    });
+
+    it('keep a bounded fill selection to the cells it shows', async () => {
+      const columns = makeColumns();
+      columns[179] = { ...columns[179], pinned: 'right' } as ColumnConfig;
+      const grid = createGrid();
+      Object.defineProperty(grid, 'clientWidth', { configurable: true, value: 800 });
+      const selection = new SelectionPlugin({ mode: 'range' });
+      grid.gridConfig = {
+        columns,
+        fitMode: 'fixed',
+        plugins: [
+          new ColumnVirtualizationPlugin(),
+          new PinnedColumnsPlugin(),
+          selection,
+          new ClipboardPlugin({ fillSelection: true }),
+        ],
+      };
+      grid.rows = [Object.fromEntries(columns.map((c) => [c.field, `${c.field}-v`]))];
+      await waitUpgrade(grid);
+      // The window ends at c10, so the pinned c179 renders right next to it.
+      const at = grid._visibleColumns.findIndex((c) => c.field === 'c10');
+      expect(grid._visibleColumns[at + 1]?.field).toBe('c179');
+
+      selection.setRanges([{ from: { row: 0, col: at }, to: { row: 0, col: at + 1 } }]);
+
+      expect(paste(grid, 1)).toEqual(['c10', 'c179']);
+    });
+  });
 });
 
 describe('ColumnVirtualization horizontal scroll cost (#598 release QA)', () => {
@@ -669,5 +760,161 @@ describe('ColumnVirtualization horizontal scroll cost (#598 release QA)', () => 
     virtualization.scrollToColumn(50);
 
     expect(grid.querySelector<HTMLElement>('.tbw-scroll-area')!.scrollLeft).toBe(5_000);
+  });
+
+  it('re-windows without re-running the row or column pipeline', async () => {
+    const { grid, virtualization, renders } = await setupCountingRenders();
+    const merge = vi.spyOn(grid, '_schedulerMergeConfig');
+    const rows = vi.spyOn(grid, '_schedulerProcessRows');
+    const columns = vi.spyOn(grid, '_schedulerProcessColumns');
+    renders.length = 0;
+
+    scrollTo(virtualization, 5_000);
+    await waitUpgrade(grid);
+
+    const rendered = grid._visibleColumns.map((c) => c.field);
+    expect(rendered[0]).not.toBe('c0');
+    expect(renders).toHaveLength(1);
+    expect([merge, rows, columns].map((spy) => spy.mock.calls.length)).toEqual([0, 0, 0]);
+    const fieldsOf = (selector: string) =>
+      [...grid.querySelectorAll<HTMLElement>(selector)].map((cell) => cell.dataset.field);
+    expect(fieldsOf('.header-row .cell[data-field]')).toEqual(rendered);
+    expect(fieldsOf('.rows .data-grid-row > .cell')).toEqual(rendered);
+  });
+
+  describe('group-end body boundaries', () => {
+    /** Fields of the body cells marked `group-end`, deduplicated across rows, in DOM order. */
+    const bodyGroupEnds = (grid: HTMLElement) => [
+      ...new Set(
+        [...grid.querySelectorAll<HTMLElement>('.rows .data-grid-row > .cell.group-end')].map((c) => c.dataset.field),
+      ),
+    ];
+
+    /** 20 columns in two groups of ten (not virtualized), with c4 then moved into g1 in place. */
+    async function setupLiveGroupEdit() {
+      const columns = makeColumns().slice(0, 20);
+      const groups = new GroupingColumnsPlugin({
+        columnGroups: [
+          { id: 'g0', header: 'G0', children: columns.slice(0, 10).map((c) => c.field) },
+          { id: 'g1', header: 'G1', children: columns.slice(10).map((c) => c.field) },
+        ],
+      });
+      const { grid } = await setup(columns, [groups]);
+      expect(bodyGroupEnds(grid)).toEqual(['c9']);
+      // A live edit keeps the rendered column array.
+      const c4 = grid._columns.find((c) => c.field === 'c4');
+      if (c4) c4.group = { id: 'g1', label: 'G1' };
+      return { grid, groups };
+    }
+
+    it('follow the new window after a re-window', async () => {
+      const columns = makeColumns();
+      const groups = new GroupingColumnsPlugin({
+        columnGroups: Array.from({ length: 18 }, (_, g) => ({
+          id: `g${g}`,
+          header: `G${g}`,
+          children: columns.slice(g * 10, g * 10 + 10).map((c) => c.field),
+        })),
+      });
+      const { grid, virtualization } = await setup(columns, [groups]);
+      expect(bodyGroupEnds(grid)).toEqual(['c9']);
+
+      scrollTo(virtualization, 5_000);
+      await waitUpgrade(grid);
+
+      // Window c47…c60: every rendered group's last column except the last rendered group's.
+      expect([grid._visibleColumns[0].field, grid._visibleColumns.at(-1)?.field]).toEqual(['c47', 'c60']);
+      expect(bodyGroupEnds(grid)).toEqual(['c49', 'c59']);
+    });
+
+    it('move on the first refresh() after a live group edit', async () => {
+      const { grid, groups } = await setupLiveGroupEdit();
+
+      groups.refresh();
+      await waitUpgrade(grid);
+
+      expect(bodyGroupEnds(grid)).toEqual(['c3', 'c4', 'c9']);
+    });
+
+    it('are recomputed by afterRender for the same rendered array', async () => {
+      const { grid } = await setupLiveGroupEdit();
+
+      // Without refresh(): the first row render paints the old boundaries, afterRender recomputes
+      // them from the live groups, and the next row render paints the new ones.
+      grid.rows = [...grid.rows];
+      await waitUpgrade(grid);
+      grid.rows = [...grid.rows];
+      await waitUpgrade(grid);
+
+      expect(bodyGroupEnds(grid)).toEqual(['c3', 'c4', 'c9']);
+    });
+  });
+});
+
+describe('ColumnVirtualization with a nested grid', () => {
+  const ctx = useParentGrid();
+
+  it('keeps a nested child grid at its own zero column offset', async () => {
+    const virtualization = new ColumnVirtualizationPlugin();
+    Object.defineProperty(ctx.parent, 'clientWidth', { configurable: true, value: 800 });
+    const child = await mountNestedGrid(ctx.parent, {
+      parentPlugins: [virtualization],
+      parentColumns: Array.from({ length: 60 }, (_, i) => ({
+        field: i === 0 ? 'id' : `p${i}`,
+        width: 100,
+      })) as ColumnConfig<Order>[],
+      childPlugins: [new GroupingColumnsPlugin({ columnGroups: [{ id: 'g', header: 'G', children: ['sku', 'qty'] }] })],
+    });
+    scrollTo(virtualization, 2_000);
+    await waitUpgrade(ctx.parent);
+
+    expect(ctx.parent.style.getPropertyValue('--tbw-column-window-offset')).not.toBe('');
+    expect(own<HTMLElement>(ctx.parent, '.data-grid-row')[0].style.paddingLeft).not.toBe('');
+    // The child does not virtualize: none of its rows take the parent's padding.
+    expect(own<HTMLElement>(child, '.data-grid-row').map((row) => row.style.paddingLeft)).toEqual(['', '', '']);
+    // The offset custom property inherits, so every stylesheet consuming it resets it per grid host,
+    // including hosts of OTHER bundle versions (`tbw-grid-v…`, whose own CSS may predate the reset).
+    // happy-dom does not resolve inherited custom properties, so check the source rule's selector.
+    const pluginsDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../lib/plugins');
+    const olderBundleChild = document.createElement('tbw-grid-v1-0-0');
+    olderBundleChild.setAttribute('data-tbw-grid', '');
+    for (const file of ['grouping-columns/grouping-columns.css', 'pinned-rows/pinned-rows.css']) {
+      const css = readFileSync(resolve(pluginsDir, file), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+      const selector = /([^{}]*)\{\s*--tbw-column-window-offset:\s*0px;\s*\}/.exec(css)?.[1].trim() ?? '';
+      expect(selector, file).not.toBe('');
+      expect(document.createElement('tbw-grid').matches(selector), file).toBe(true);
+      expect(olderBundleChild.matches(selector), file).toBe(true);
+      expect(document.createElement('div').matches(selector), file).toBe(false);
+    }
+  });
+
+  it('leaves the rows of a version-suffixed nested grid (`[data-tbw-grid]`) alone', async () => {
+    const virtualization = new ColumnVirtualizationPlugin();
+    Object.defineProperty(ctx.parent, 'clientWidth', { configurable: true, value: 800 });
+    // A `tbw-grid-v…` host from another bundle version carries `data-tbw-grid` instead of the bare tag.
+    const detail = new MasterDetailPlugin({
+      detailRenderer: () => {
+        const host = document.createElement('div');
+        host.setAttribute('data-tbw-grid', '');
+        const row = document.createElement('div');
+        row.className = 'data-grid-row suffixed-child-row';
+        host.appendChild(row);
+        return host;
+      },
+    });
+    ctx.parent.gridConfig = {
+      columns: Array.from({ length: 60 }, (_, i) => ({ field: i === 0 ? 'id' : `p${i}`, width: 100 })),
+      fitMode: 'fixed',
+      plugins: [detail, virtualization],
+    };
+    ctx.parent.rows = [{ id: 1, items: [] }];
+    await waitUpgrade(ctx.parent);
+    detail.expand(0);
+    await waitUpgrade(ctx.parent);
+    scrollTo(virtualization, 2_000);
+    await waitUpgrade(ctx.parent);
+
+    expect(own<HTMLElement>(ctx.parent, '.rows > .data-grid-row')[0].style.paddingLeft).not.toBe('');
+    expect(ctx.parent.querySelector<HTMLElement>('.suffixed-child-row')?.style.paddingLeft).toBe('');
   });
 });

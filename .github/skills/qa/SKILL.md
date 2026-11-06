@@ -238,6 +238,9 @@ or cached state.
    that step (`data-change` is emitted inside `_schedulerProcessRows`, and plugins broadcast events from their hooks,
    e.g. GroupingRows `group-toggle`), so listener requests were absorbed and lost (#608 QA, PR #623). List every
    event dispatched inside the window before trusting it, and prefer narrowing by API over narrowing by phase.
+   Exemptions are classifiers too. If disabling one with `mutation-check.ts` SURVIVES every suite, probe whether its
+   intended input can reach it at all before "scoping" it. In PR #639 round 12, a field-keyed pending-pin exemption
+   could only match a newer fresh replacement, which was the bug itself, so it was deleted.
 4. **Staleness of stored state.** For each new or changed field that caches derived state, list every event that
    must refresh it and confirm each path does. Events to check: config replaced (larger _and_ smaller), runtime
    setters, hide/show, row data change, plugin detach, and a re-run in each render phase.
@@ -262,6 +265,8 @@ or cached state.
    - Write only the probe body: `it(...)` blocks that `console.log('PROBE …')` the measured values.
    - Run `bun .github/skills/qa/scripts/probe.ts --from <existing integration spec> --body <file> --name <topic>`.
      It copies the spec for its helpers, skips its suites, runs yours, prints the `PROBE` lines and deletes the file.
+     `grid.ready()` is the one-shot INITIAL-ready promise: after any later change (scroll, setter, API call) await
+     `waitUpgrade(grid)`, or the probe reads pre-flush state and reports zero work (release QA: 0 passes for 47 window moves).
      The body shares the spec's module scope: never re-import a symbol the spec already imports (duplicate
      binding → `Transform failed`, no tests run). happy-dom has no layout (`offsetWidth` = 0), so a probe can
      prove sticky classes/side but not offset arithmetic (every pin reads `0px`); say so in **Evidence**. To
@@ -283,7 +288,9 @@ or cached state.
      (#616 QA: 0 calls exposed a `TBW001` throw in `mergeConfig`, filed as #626.)
    - When a finding is fixed, prove the new test guards it with
      `bun .github/skills/qa/scripts/mutation-check.ts --file <src> --spec <filter> --find <fixed> --replace <broken>`.
-     It must print `KILLED`. A fix with several guards (e.g. "window moved" OR "width changed") needs one mutant
+     It must print `KILLED`. `--spec` takes space-separated patterns; runs bypass the Nx cache (a replayed
+     verdict for an identical mutant reported a false `SURVIVED` in PR #639), and a filter matching no file exits 2.
+     A fix with several guards (e.g. "window moved" OR "width changed") needs one mutant
      per guard, and each test must use an input that ONLY its guard catches. In the #598 release QA, the first
      resize test survived because its scroll also moved the window.
    - Hot paths (scroll, resize): count the work, not just the end state. Log `render` event phases per step

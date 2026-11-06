@@ -299,6 +299,7 @@ Some columns exist to support grid behaviour rather than to display user data �
 | Export (CSV/JSON/XLSX) | Skipped by `ExportPlugin` |
 | Range / row selection | Click does not extend selection |
 | Filter UI | No filter button, no filter model entry |
+| Plugin-property validation | Plugin-owned properties (e.g. `pinned`) never throw [`TBW001`](/grid/errors/#tbw001) when the plugin is missing — they are ignored |
 | Cell rendering | **Rendered normally** — your renderer runs |
 
 > **Naming convention:** Prefix the field with `__` (e.g. `__actions`, `__status`) so it cannot collide with a real data field.

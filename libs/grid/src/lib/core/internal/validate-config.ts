@@ -174,6 +174,7 @@ function hasPlugin(plugins: readonly BaseGridPlugin[], pluginName: string): bool
 // #region Property Validation
 /**
  * Validate that column properties requiring plugins have those plugins loaded.
+ * Columns marked `utility: true` are skipped (#626).
  *
  * @param config - The merged grid configuration
  * @param plugins - The array of loaded plugins
@@ -228,6 +229,10 @@ export function validatePluginProperties<T>(
   const columns = config.columns;
   if (columns && columns.length > 0) {
     for (const column of columns) {
+      // Utility columns are system columns (plugin-generated, e.g. Selection's
+      // `pinned: 'left'` checkbox) and reach here via later no-op merges or
+      // `gridConfig` round-trips — never treat them as user misconfiguration (#626).
+      if ((column as ColumnConfig).utility === true) continue;
       for (const def of columnProps) {
         const value = (column as unknown as Record<string, unknown>)[def.property];
         // Use custom isUsed check if provided, otherwise check for defined value

@@ -15,6 +15,7 @@ import { PinnedColumnsPlugin } from '../../lib/plugins/pinned-columns/pinned-col
 import type { PinnedPosition } from '../../lib/plugins/pinned-columns/types';
 import { PivotPlugin } from '../../lib/plugins/pivot/pivot-plugin';
 import { RowDragDropPlugin } from '../../lib/plugins/row-drag-drop/row-drag-drop-plugin';
+import { SelectionPlugin } from '../../lib/plugins/selection/selection-plugin';
 
 async function setup(hiddenField?: string) {
   const columns = Array.from({ length: 40 }, (_, i) => ({
@@ -486,13 +487,16 @@ describe('PivotPlugin runtime layout changes (#605)', () => {
         () => new MasterDetailPlugin({ showExpandColumn: true, detailRenderer: () => 'detail' }),
       ],
       ['RowDragDrop', '__tbw_row_drag', () => new RowDragDropPlugin()],
+      // Checkbox column carries `pinned: 'left'` with no PinnedColumns loaded (#626).
+      ['Selection(checkbox)', '__tbw_checkbox', () => new SelectionPlugin({ mode: 'row', checkbox: true })],
     ];
     const pivotLayout = ['__pivotLabel', 'k0|c1', 'k1|c1', '__pivotTotal'];
 
-    async function setupUtility(utility: BaseGridPlugin, pivotFirst: boolean) {
+    async function setupUtility(utility: BaseGridPlugin, pivotFirst: boolean, active = true) {
       const columns = ['c0', 'c1', 'c2', 'c3'].map((field) => ({ field, header: field.toUpperCase(), width: 100 }));
       const rows = Array.from({ length: 4 }, (_, i) => ({ c0: 'A', c1: i, c2: `k${i % 2}`, c3: i }));
       const pivot = new PivotPlugin({
+        active,
         rowGroupFields: ['c0'],
         columnGroupFields: ['c2'],
         valueFields: [{ field: 'c1', aggFunc: 'sum' }],
@@ -520,6 +524,15 @@ describe('PivotPlugin runtime layout changes (#605)', () => {
 
         pivot.disablePivot();
         await waitUpgrade(grid);
+        expect(fields(grid)).toEqual([utilityField, 'c0', 'c1', 'c2', 'c3']);
+
+        pivot.enablePivot();
+        await waitUpgrade(grid);
+        expect(fields(grid)).toEqual(pivotLayout);
+      });
+
+      it('first enablePivot() on an inactive pivot pivots', async () => {
+        const { grid, pivot } = await setupUtility(create(), true, false);
         expect(fields(grid)).toEqual([utilityField, 'c0', 'c1', 'c2', 'c3']);
 
         pivot.enablePivot();

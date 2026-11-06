@@ -502,6 +502,36 @@ describe('applyInitialOrder', () => {
     // b goes to index 2: a, c, b, d
     expect(cols.map((c: any) => c.field)).toEqual(['a', 'c', 'b', 'd']);
   });
+
+  it('keeps a runtime column already placed by its unchanged order where it is (#629)', () => {
+    // Pinned `d` moved to the front after `b` was placed at index 1.
+    const cols: any = [{ field: 'd' }, { field: 'a' }, { field: 'b', order: 1, __placedOrder: 1 }, { field: 'c' }];
+    applyInitialOrder(cols);
+    expect(cols.map((c: any) => c.field)).toEqual(['d', 'a', 'b', 'c']);
+  });
+
+  it('re-applies an order that changed since the column was placed', () => {
+    const cols: any = [{ field: 'a' }, { field: 'b' }, { field: 'c', order: 0, __placedOrder: 2 }];
+    applyInitialOrder(cols);
+    expect(cols.map((c: any) => c.field)).toEqual(['c', 'a', 'b']);
+  });
+
+  it('keeps tied orders in declaration order (PR #639)', () => {
+    const cols: any = [{ field: 'a' }, { field: 'b', order: 0 }, { field: 'c', order: 0 }, { field: 'd' }];
+    applyInitialOrder(cols);
+    expect(cols.map((c: any) => c.field)).toEqual(['b', 'c', 'a', 'd']);
+  });
+
+  it.each([
+    ['ties', [{ field: 'a' }, { field: 'b', order: 1 }, { field: 'c', order: 1 }, { field: 'd', order: 2 }]],
+    ['out-of-bounds ties', [{ field: 'a', order: 9 }, { field: 'b', order: 9 }, { field: 'c' }]],
+  ])('is idempotent with %s, so re-placing a placed list is a no-op (PR #639)', (_, input) => {
+    const once: any = applyInitialOrder(input.map((c) => ({ ...c })) as any).map((c: any) => c.field);
+    const twice: any = applyInitialOrder(applyInitialOrder(input.map((c) => ({ ...c })) as any)).map(
+      (c: any) => c.field,
+    );
+    expect(twice).toEqual(once);
+  });
 });
 
 describe('interleaveHiddenColumns', () => {

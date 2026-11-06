@@ -201,9 +201,10 @@ reorders** it to the appropriate edge of the grid:
 - `pinned: 'left'` → moved to the leftmost position (after other left-pinned columns)
 - `pinned: 'right'` → moved to the rightmost position (before other right-pinned columns)
 
-When a column is unpinned via the context menu, it is restored to its **original position**
-in the column order: right after the unpinned column that preceded it. This holds even if the
-other columns were reordered or replaced while it was pinned (for example by toggling pivot mode).
+When a column is unpinned (via the context menu or `setPinPosition(field, undefined)`), it is
+restored to its **original position** in the column order: right after the unpinned column that
+preceded it. A column pinned in the config returns to the slot it was declared in. This holds even
+if the other columns were reordered or replaced while it was pinned (for example by toggling pivot mode).
 
 This ensures pinned columns are always visible at the grid edges without requiring the user
 to scroll.

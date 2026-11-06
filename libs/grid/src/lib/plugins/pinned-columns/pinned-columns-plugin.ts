@@ -161,10 +161,11 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   #splitGroups: SplitGroupState[] = [];
   /**
    * Field order before the columns were pinned, re-synced with the column set on every
-   * `setPinPosition`. Used to restore original positions when unpinning.
+   * `setPinPosition` and whenever `orderColumns` first sees a pin. Used to restore original
+   * positions when unpinning.
    */
   #originalColumnOrder: string[] = [];
-  /** Fields pinned as of the last `setPinPosition`, including pins absent from the current layout. */
+  /** Fields pinned as of the last snapshot sync, including pins absent from the current layout. */
   #pinnedFields = new Set<string>();
   /**
    * The list the last `setPinPosition` assigned to `grid.columns`, in the order processing will give it,
@@ -245,7 +246,21 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   override orderColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
     const cols = [...columns];
     this.#seedFromAttributes(cols);
-    if (!hasStickyColumns(cols)) return cols;
+    // Nothing moves a pin to the edge before this hook first sees it, so record a new pin's declared
+    // slot now: later passes re-feed the partitioned list (unchanged-source merges, applyColumnState,
+    // a pivot layout), which no longer has it (#624). A field seen unpinned is no longer a known pin,
+    // so a later re-pin is recorded too; absent fields (e.g. pins of a pivot layout) are kept.
+    let hasPin = false;
+    let newPin = false;
+    for (const c of cols) {
+      if (!getColumnPinned(c)) this.#pinnedFields.delete(c.field);
+      else {
+        hasPin = true;
+        if (!this.#pinnedFields.has(c.field)) newPin = true;
+      }
+    }
+    if (!hasPin) return cols;
+    if (newPin) this.#syncOriginalOrder(cols);
     const host = this.gridElement;
     return reorderColumnsForPinning(cols, host ? getDirection(host) : 'ltr') as ColumnConfig[];
   }
@@ -264,8 +279,8 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
 
   /**
    * Rebuild the unpin snapshot from the current columns: unpinned columns in their current order,
-   * each pinned column after the unpinned column that preceded it in the previous snapshot (or in
-   * the current order, for pins the snapshot hasn't seen). So column-set and order changes
+   * each known pin (`#pinnedFields`) after the unpinned column that preceded it in the previous
+   * snapshot, and each new pin right after the column before it in the current order. So column-set and order changes
    * (pivot toggle, `columns` replacement, reorder) can't leave it stale (#615). A pin keeps the
    * absent fields since its last present unpinned predecessor, and an absent pin (e.g. a source
    * column during pivot) keeps its own slot too, so either still restores after a round-trip,
@@ -301,7 +316,9 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
         continue;
       }
       const isAbsent = !present.has(f);
-      if (!pinned.delete(f) && !(isAbsent && this.#pinnedFields.has(f))) {
+      // Only a known pin keeps its old anchor: a field the snapshot knew unpinned was (re-)pinned since,
+      // so its slot comes from the current order below (PR #637 review).
+      if (!this.#pinnedFields.has(f) || (!pinned.delete(f) && !isAbsent)) {
         if (isAbsent) run.push(f);
         continue;
       }
@@ -311,16 +328,16 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
       if (keepRun) run = [];
       stillPinned.add(f);
     }
-    prev = null;
-    for (const { field } of columns) {
-      if (unpinnedSet.has(field)) prev = field;
-      else if (pinned.delete(field)) place(prev, [field]);
-    }
     this.#pinnedFields = stillPinned;
-    this.#originalColumnOrder = [
-      ...(byAnchor.get(null) ?? []),
-      ...unpinned.flatMap((f) => [f, ...(byAnchor.get(f) ?? [])]),
-    ];
+    const order = [...(byAnchor.get(null) ?? []), ...unpinned.flatMap((f) => [f, ...(byAnchor.get(f) ?? [])])];
+    // New pins (left in `pinned`) go right after the column before them in the current order, pinned
+    // or not, so they keep their declared place next to known pins too (PR #637 review).
+    let before: string | null = null;
+    for (const { field } of columns) {
+      if (pinned.has(field)) order.splice(before === null ? 0 : order.indexOf(before) + 1, 0, field);
+      before = field;
+    }
+    this.#originalColumnOrder = order;
   }
 
   /** @internal */
@@ -604,6 +621,13 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
       // UNPINNING: restore column to its original position
       this.#pinnedFields.delete(field);
       delete col.pinned;
+      // Drop the deprecated `meta.pinned` fallback too, or `getColumnPinned` keeps the pin (#624).
+      // Copy `meta` first: it may be the user's config object.
+      if (col.meta?.pinned != null) {
+        const meta = { ...col.meta };
+        delete meta.pinned;
+        col.meta = meta;
+      }
 
       // Remove from current position
       const remaining = [...currentColumns];

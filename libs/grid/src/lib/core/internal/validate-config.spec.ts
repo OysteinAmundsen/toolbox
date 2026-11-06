@@ -353,6 +353,27 @@ describe('validatePluginProperties', () => {
       }).not.toThrow(/EditingPlugin/);
     });
   });
+
+  describe('utility columns (#626)', () => {
+    it('does not throw for a utility column using a plugin-owned property', () => {
+      const config: GridConfig = {
+        columns: [{ field: '__tbw_checkbox', utility: true, pinned: 'left' }, { field: 'name' }],
+      } as GridConfig;
+
+      expect(() => validatePluginProperties(config, [])).not.toThrow();
+    });
+
+    it('still throws for a non-utility column in the same config', () => {
+      const config: GridConfig = {
+        columns: [
+          { field: '__tbw_checkbox', utility: true, pinned: 'left' },
+          { field: 'name', pinned: 'right' },
+        ],
+      } as GridConfig;
+
+      expect(() => validatePluginProperties(config, [])).toThrow(/Column\(s\) \[name\]/);
+    });
+  });
 });
 // Mock plugins for dependency testing - using classes to support static dependencies
 

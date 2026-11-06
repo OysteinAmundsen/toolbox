@@ -1093,6 +1093,9 @@ export interface BaseColumnConfig<TRow = any, TValue = any, TField extends strin
    * - **Export** (CSV / JSON / Excel) — skipped by `ExportPlugin`
    * - **Range / row selection** — clicks land on the column but selection ignores it
    * - **Filter UI** — no filter button rendered, no filter model entry
+   * - **Plugin-property validation** — plugin-owned properties (e.g. `pinned`) on a
+   *   utility column do not throw `TBW001` when the owning plugin is absent; the
+   *   property is simply ignored
    *
    * The column is still rendered in the grid and still receives `cellRenderer` /
    * `viewRenderer` / `headerRenderer` callbacks — it is "hidden from the system,

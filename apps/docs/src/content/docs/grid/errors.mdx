@@ -15,7 +15,7 @@ Every warning and error in `@toolbox-web/grid` includes a **diagnostic code** (e
 
 ### TBW001 — Missing Plugin (Column Property)
 
-A column uses a property (like `editable`, `editor`, `pinned`, or `group`) that requires a plugin, but that plugin isn't loaded.
+A column uses a property (like `editable`, `editor`, `pinned`, or `group`) that requires a plugin, but that plugin isn't loaded. Columns marked `utility: true` (system columns, including the ones plugins generate) are exempt — their plugin-owned properties are ignored instead.
 
 **Fix:** Import and add the required plugin:
 

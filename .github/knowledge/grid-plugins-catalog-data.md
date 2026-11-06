@@ -70,7 +70,7 @@ OWNS: `sortModel[]`, cached sort result. HOOKS: processRows, onHeaderClick. QUER
 
 ### Filtering
 
-OWNS: `filterModels` Map, cached unique values. HOOKS: processRows, afterRender, onHeaderClick, afterCellRender. EVENTS: `filter-change`.
+OWNS: `filterModels` Map, cached unique values. HOOKS: processRows, afterRender, onHeaderClick, afterCellRender. EVENTS: `filter-change`. Generated-field filters (`rows:is-generated-field`) skip `processRows`; the generator asks `filter:get-predicate` (#622 → grid-plugin-pivot.md).
 
 - INVARIANT: numeric ops (`greaterThan`/`>=`/`<`/`<=`/`between`) MUST exclude blanks (null/undefined/''/NaN) before coercion (`null >= 0` is true, `Number('') === 0`). Blanks match ONLY the explicit `blank` operator; NaN counts as blank.
 - DECIDED (Apr 2026): the number filter panel's Apply clears the filter when both bounds are still data-derived defaults (else `between(dataMin,dataMax)` excludes blank rows).

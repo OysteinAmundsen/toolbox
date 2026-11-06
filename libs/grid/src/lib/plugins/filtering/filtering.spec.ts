@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   BLANK_FILTER_VALUE,
+  compileFilters,
   computeFilterCacheKey,
   filterRows,
   getUniqueValues,
@@ -683,6 +684,29 @@ describe('filter-model', () => {
       const notBlankFilter: FilterModel = { field: 'totalQty', type: 'number', operator: 'notBlank', value: '' };
       expect(matchesFilter(rows[0] as Record<string, unknown>, notBlankFilter, false, qtyExtractor)).toBe(true);
       expect(matchesFilter(rows[1] as Record<string, unknown>, notBlankFilter, false, qtyExtractor)).toBe(false);
+    });
+  });
+
+  describe('compileFilters', () => {
+    it('combines filters with AND logic into one predicate', () => {
+      const match = compileFilters([
+        { field: 'age', type: 'number', operator: 'greaterThan', value: 26 },
+        { field: 'city', type: 'text', operator: 'equals', value: 'new york' },
+      ]);
+      expect(sampleRows.filter(match).map((r) => r.name)).toEqual(['Alice', 'Diana']);
+    });
+
+    it('honours caseSensitive and per-field extractors', () => {
+      expect(
+        compileFilters([{ field: 'name', type: 'text', operator: 'equals', value: 'alice' }], true)(sampleRows[0]),
+      ).toBe(false);
+      const extractors = new Map([['name', (_v: unknown, row: Record<string, unknown>) => `x${row.name}`]]);
+      const match = compileFilters(
+        [{ field: 'name', type: 'text', operator: 'equals', value: 'xBob' }],
+        false,
+        extractors,
+      );
+      expect(sampleRows.filter(match).map((r) => r.name)).toEqual(['Bob']);
     });
   });
 

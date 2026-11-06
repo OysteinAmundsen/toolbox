@@ -413,6 +413,37 @@ export function calculateTotals(
 }
 
 /**
+ * The fields a pivot row shows in the grid (label, value and total columns), keyed by column field.
+ */
+export function pivotRowFields(row: PivotRow): PivotDataRow {
+  return { __pivotLabel: row.rowLabel, __pivotTotal: row.total, ...row.values };
+}
+
+/**
+ * Keep the pivot rows that match `keep`, plus the ancestors of every match so the hierarchy
+ * stays readable. Returns `rows` itself when nothing is removed; a row whose children were
+ * pruned is shallow-copied, so the built pivot tree is never mutated.
+ */
+export function filterPivotRows(rows: PivotRow[], keep: (row: PivotRow) => boolean): PivotRow[] {
+  const result: PivotRow[] = [];
+  let changed = false;
+  for (const row of rows) {
+    const children = row.children && filterPivotRows(row.children, keep);
+    if (!children?.length && !keep(row)) {
+      changed = true;
+      continue;
+    }
+    if (children === row.children) {
+      result.push(row);
+    } else {
+      changed = true;
+      result.push({ ...row, children });
+    }
+  }
+  return changed ? result : rows;
+}
+
+/**
  * Flatten hierarchical pivot rows for rendering.
  * Respects expanded state - only includes children of expanded groups.
  */

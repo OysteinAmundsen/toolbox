@@ -17,7 +17,7 @@ import {
   type PluginManifest,
   type PluginQuery,
 } from '../../core/plugin/base-plugin';
-import type { ColumnConfig, ColumnInternal } from '../../core/types';
+import type { ColumnConfig, ColumnInternal, GridConfig } from '../../core/types';
 import { isFormFieldKeyTarget } from '../shared/form-field-target';
 import { tryFormat } from '../shared/format-value';
 import {
@@ -31,9 +31,11 @@ import {
 import type { ToolPanelDefinition } from '../shell/types';
 import {
   buildPivot,
+  filterPivotRows,
   flattenPivotRows,
   getAllGroupKeys,
   getColumnTotals,
+  pivotRowFields,
   resolveDefaultExpanded,
   sortPivotMulti,
   type PivotDataRow,
@@ -47,6 +49,7 @@ import type {
   PivotConfig,
   PivotConfigChangeDetail,
   PivotResult,
+  PivotRow,
   PivotSortConfig,
   PivotSortDir,
   PivotStateChangeDetail,
@@ -59,6 +62,25 @@ import styles from './pivot.css?inline';
 
 function sameKeys(a: readonly string[] | null, b: readonly string[]): boolean {
   return a !== null && a.length === b.length && a.every((key, i) => key === b[i]);
+}
+
+/**
+ * Whether any row exposes `field`, as a literal key or a dotted path (`readCellField` semantics).
+ * Uses `in`, so inherited getters and non-enumerable properties count.
+ */
+function readsSourceField(rows: readonly unknown[], field: string): boolean {
+  if (rows.some((row) => row != null && typeof row === 'object' && field in row)) return true;
+  if (!field.includes('.')) return false;
+  const path = field.split('.');
+  return rows.some((row) => {
+    let value: unknown = row;
+    for (const segment of path) {
+      if (segment === '__proto__' || segment === 'constructor' || segment === 'prototype') return false;
+      if (value == null || typeof value !== 'object' || !(segment in value)) return false;
+      value = (value as Record<string, unknown>)[segment];
+    }
+    return true;
+  });
 }
 
 /**
@@ -158,6 +180,14 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
         type: 'columns:is-replaced',
         description: 'True while pivot replaces the whole column layout, so per-row utility columns are omitted',
       },
+      {
+        type: 'rows:is-generated-field',
+        description: 'True for a pivot output field (label, value, total), which only exists on pivot rows',
+      },
+      {
+        type: 'rows:generated-rows',
+        description: 'Every built pivot row as a field map, unfiltered and ignoring expansion (filter panel values)',
+      },
     ],
   };
 
@@ -166,6 +196,8 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
    *
    * - `multiSort` (optional): when present, Pivot queries its sort model to
    *   apply sorting to pivot columns.
+   * - `filtering` (optional): Pivot queries `filter:get-predicate` to filter its
+   *   rows by filters on pivot columns, which source rows cannot match (#622).
    * - `shell` (optional, warn): only when the pivot tool panel is enabled
    *   (`showToolPanel: true`, the default) does Pivot need a shell host for
    *   its panel. Soft dependency — recommends but does not require. The shell
@@ -174,6 +206,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
    */
   static override readonly dependencies: PluginDependency[] = [
     { name: 'multiSort', required: false, reason: 'Queries sort model for pivot column sorting' },
+    { name: 'filtering', required: false, reason: 'Queries filter:get-predicate to filter pivot rows' },
     {
       name: 'shell',
       required: false,
@@ -216,6 +249,11 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   private originalColumns: Array<{ field: string; header: string }> = [];
   /** Pre-pivot column configs, restored on disable (COLUMNS passes re-seed from pivot output). */
   private sourceColumns: ColumnConfig[] = [];
+  /** Source fields are snapshotted before the first row pass, then refreshed by orderColumns. */
+  private sourceColumnFields = new Set<string>();
+  private sourceFieldRows: readonly unknown[] | null = null;
+  /** Per-field "readable on a source row" result (hits AND misses) for `sourceFieldRows` (#622). */
+  private sourceFieldOwnership = new Map<string, boolean>();
   /** Hidden pivot-generated columns by field, captured in `orderColumns` for `processColumns` to re-hide (#609). */
   private hiddenPivotColumns = new Map<string, ColumnInternal>();
   /** Sticky offsets per pinned rendered field, shared by every pivot row; see `resolvePinPlan` (#613). */
@@ -257,9 +295,22 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   /** @internal */
   override attach(grid: GridElement): void {
     super.attach(grid);
+    this.sourceColumnFields = new Set(grid.effectiveConfig.columns?.map((column) => column.field) ?? []);
     this.on(PINNED_OFFSETS_CHANGE, () => {
       this.pinPlan = null;
     });
+    // Rows mutated in place keep the array identity: drop the ownership cache on editor commits and
+    // rollbacks (plugin bus only, no DOM `cell-change`) and on every `updateRow`/`updateRows`.
+    const forgetSourceFields = () => {
+      this.sourceFieldRows = null;
+    };
+    this.on('cell-edit-committed', forgetSourceFields);
+    this.on('cell-edit-reverted', forgetSourceFields);
+    this.gridElement?.addEventListener('cell-change', forgetSourceFields, { signal: this.disconnectSignal });
+  }
+
+  override processConfig(config: GridConfig): void {
+    this.sourceColumnFields = new Set(config.columns?.map((column) => column.field) ?? []);
   }
 
   /** @internal */
@@ -271,6 +322,9 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     this.fieldHeaderMap.clear();
     this.originalColumns = [];
     this.sourceColumns = [];
+    this.sourceColumnFields.clear();
+    this.sourceFieldRows = null;
+    this.sourceFieldOwnership.clear();
     this.hiddenPivotColumns.clear();
     this.pinPlan = null;
     this.panelContainer = null;
@@ -372,7 +426,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     const indentWidth = this.config.indentWidth ?? 20;
     const flattenedDefExpanded = this.defaultExpanded === true || this.defaultExpanded === undefined;
     const flatRows: PivotDataRow[] = flattenPivotRows(
-      this.pivotResult.rows,
+      this.filterPivotTree(this.pivotResult),
       this.expandedKeys,
       flattenedDefExpanded,
     ).map((pr) => ({
@@ -426,11 +480,13 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     this.hiddenPivotColumns.clear();
     if (!columns.some((c) => c.field === '__pivotLabel')) {
       this.sourceColumns = [...columns];
+      this.sourceColumnFields = new Set(columns.map((column) => column.field));
       return [...columns];
     }
     // Hidden source columns ride along in pivot output; adopt their latest objects (applyColumnState clones).
     const current = new Map(columns.map((c) => [c.field, c]));
     this.sourceColumns = this.sourceColumns.map((c) => current.get(c.field) ?? c);
+    this.sourceColumnFields = new Set(this.sourceColumns.map((column) => column.field));
     // processRows already ran this flush, so pivotResult reflects the current config.
     const pivoting = this.isActive && this.pivotResult !== null;
     if (!pivoting) {
@@ -675,7 +731,63 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     // Pivot rows are aggregates drawn by renderRow, so a utility column added after Pivot's
     // processColumns (expander, drag handle) would be an empty cell; its owner skips it (#616).
     if (query.type === 'columns:is-replaced') return this.replacesColumns();
+    // Filtering applies filters on these fields to pivot rows, not source rows (#622).
+    if (query.type === 'rows:is-generated-field') return this.isGeneratedField(query.context as string);
+    if (query.type === 'rows:generated-rows') {
+      const result = this.replacesColumns() ? this.pivotResult : null;
+      return result ? flattenPivotRows(result.rows).map(pivotRowFields) : undefined;
+    }
     return undefined;
+  }
+
+  /**
+   * A pivot output field exists only on pivot rows. Answered while pivot is off too, so a filter
+   * on one stays dormant instead of emptying the source rows. A source field wins a name clash.
+   */
+  private isGeneratedField(field: string): boolean {
+    if (!this.isPivotField(field)) return false;
+    return !this.sourceColumnFields.has(field) && !this.hasSourceDataField(field);
+  }
+
+  /**
+   * Cached per field for the current source-row array, so a miss (every generated field) scans the
+   * rows once, not on every Filtering query. Row inserts/removes replace the array; in-place
+   * updates and edits drop the cache (see `attach`), as does `refresh()`.
+   */
+  private hasSourceDataField(field: string): boolean {
+    const rows = this.sourceRows;
+    if (rows !== this.sourceFieldRows) {
+      this.sourceFieldRows = rows;
+      this.sourceFieldOwnership.clear();
+    }
+    let owned = this.sourceFieldOwnership.get(field);
+    if (owned === undefined) {
+      owned = readsSourceField(rows, field);
+      this.sourceFieldOwnership.set(field, owned);
+    }
+    return owned;
+  }
+
+  /**
+   * Apply filters on pivot output fields after aggregation; Filtering skips them on source rows
+   * (#622). Only fields the current build outputs count, so a filter on a column key that left
+   * the data cannot hide every row.
+   */
+  private filterPivotTree(result: PivotResult): PivotRow[] {
+    let outputFields: Set<string> | undefined;
+    const select = (field: string) => (outputFields ??= this.getOutputFields(result)).has(field);
+    const keep = this.grid?.query?.<(row: PivotDataRow) => boolean>('filter:get-predicate', select)?.[0];
+    return keep ? filterPivotRows(result.rows, (row) => keep(pivotRowFields(row))) : result.rows;
+  }
+
+  private getOutputFields(result: PivotResult): Set<string> {
+    const fields = new Set(['__pivotLabel']);
+    if (this.config.showTotals) fields.add('__pivotTotal');
+    const valueFields = this.config.valueFields ?? [];
+    for (const colKey of result.columnKeys) {
+      for (const key of createValueKeys([colKey], valueFields)) fields.add(key);
+    }
+    return fields;
   }
 
   /** Whether `processColumns` replaces the columns; processRows already ran on COLUMNS flushes. */
@@ -1140,6 +1252,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
    */
   refresh(): void {
     this.pivotResult = null;
+    this.sourceFieldRows = null;
     // The pivot columns derive from the rebuilt result, so processColumns must re-run (#605).
     this.requestColumnsRender();
   }

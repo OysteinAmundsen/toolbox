@@ -341,6 +341,26 @@ features: {
 `sortRows` accepts `{ by: 'label' | 'value', direction: 'asc' | 'desc', valueField?: string }`.
 When `by` is `'value'`, rows are sorted by their total (or by a specific `valueField`).
 
+## Filtering
+
+With the [Filtering plugin](/grid/plugins/filtering/) loaded, filters on pivot columns (the row label,
+value and total columns) apply to the **aggregated pivot rows**, after the pivot is built. A filter on
+`Q1|sales` keeps the pivot rows whose `Q1` sales aggregate matches; the pivot columns stay. The parent
+groups of a matching row are kept so the hierarchy stays readable, and the filter panel lists the
+aggregate values. Filters on source fields still narrow the source rows **before** they are aggregated.
+
+```ts
+const filtering = grid.getPluginByName('filtering');
+filtering.setFilter('Q1|sales', { type: 'number', operator: 'greaterThan', value: 1000 }); // pivot rows
+filtering.setFilter('region', { type: 'text', operator: 'equals', value: 'North' }); // source rows
+```
+
+A filter on a pivot column that is no longer generated (its column key left the data, or pivot is
+disabled) has no effect until that column returns.
+
+Pivot-column filters only hide rows: group subtotals, the grand total and the `percentOf*` display
+modes still aggregate every source row. To change what is aggregated, filter a source field.
+
 ## Default Expanded
 
 Control which groups start expanded:

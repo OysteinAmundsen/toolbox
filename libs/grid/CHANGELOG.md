@@ -1,5 +1,25 @@
 # Changelog
 
+## [3.11.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.11.0...grid-3.11.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **clipboard/grouping-columns/reorder-columns/visibility:** escape data-derived field selectors ([#620](https://github.com/OysteinAmundsen/toolbox/issues/620)) ([#632](https://github.com/OysteinAmundsen/toolbox/issues/632)) ([8e72eab](https://github.com/OysteinAmundsen/toolbox/commit/8e72eab0c977ce80c7bb3254fe613c50cbff7fc7))
+* **filtering/pivot:** apply filters on pivot columns to the aggregated pivot rows ([#622](https://github.com/OysteinAmundsen/toolbox/issues/622)) ([#636](https://github.com/OysteinAmundsen/toolbox/issues/636)) ([a76c8aa](https://github.com/OysteinAmundsen/toolbox/commit/a76c8aa209a6ff38d8f32d102b52144060315b95))
+* **grid/pivot:** rebuild pivot columns when row data changes the column keys ([#608](https://github.com/OysteinAmundsen/toolbox/issues/608)) ([#623](https://github.com/OysteinAmundsen/toolbox/issues/623)) ([21e03c5](https://github.com/OysteinAmundsen/toolbox/commit/21e03c591f401de338b5bad3443c2c1188a579c5))
+* **grid:** align last column's resize indicator line with its header bar ([#597](https://github.com/OysteinAmundsen/toolbox/issues/597)) ([#600](https://github.com/OysteinAmundsen/toolbox/issues/600)) ([d104816](https://github.com/OysteinAmundsen/toolbox/commit/d104816c62bd98e419443d02b75d4f80cbafadc7))
+* **grid:** core feeds the rendered column window back into processcolumns columnvirtualization ([#603](https://github.com/OysteinAmundsen/toolbox/issues/603)) ([#607](https://github.com/OysteinAmundsen/toolbox/issues/607)) ([7686026](https://github.com/OysteinAmundsen/toolbox/commit/76860266904f6a16f89f24aade7f8be9a2aa655a))
+* **grid:** skip utility columns in plugin-property validation ([#626](https://github.com/OysteinAmundsen/toolbox/issues/626)) ([#638](https://github.com/OysteinAmundsen/toolbox/issues/638)) ([52eda14](https://github.com/OysteinAmundsen/toolbox/commit/52eda14b6460fbbcbba4f92f6a66f1445ab13064))
+* **pinned-columns:** compose same-tick setPinPosition calls ([#618](https://github.com/OysteinAmundsen/toolbox/issues/618)) ([#628](https://github.com/OysteinAmundsen/toolbox/issues/628)) ([cf2132b](https://github.com/OysteinAmundsen/toolbox/commit/cf2132bab78499bcfff42dec3ffd00f31fd0dc69))
+* **pinned-columns:** re-sync unpin snapshot when the column set changes ([#615](https://github.com/OysteinAmundsen/toolbox/issues/615)) ([#625](https://github.com/OysteinAmundsen/toolbox/issues/625)) ([a060c11](https://github.com/OysteinAmundsen/toolbox/commit/a060c1190e6dcf6d4e1cd998f7efbd2fcec8213a))
+* **pinned-columns:** replay sticky offsets only for the column's current side ([#619](https://github.com/OysteinAmundsen/toolbox/issues/619), [#621](https://github.com/OysteinAmundsen/toolbox/issues/621)) ([#630](https://github.com/OysteinAmundsen/toolbox/issues/630)) ([acf4938](https://github.com/OysteinAmundsen/toolbox/commit/acf4938b1af7729dbfb0423b7caa842f00a23a36))
+* **pinned-columns:** unpin legacy meta.pinned columns and restore config pins to their declared slot ([#624](https://github.com/OysteinAmundsen/toolbox/issues/624)) ([#637](https://github.com/OysteinAmundsen/toolbox/issues/637)) ([9ac9f42](https://github.com/OysteinAmundsen/toolbox/commit/9ac9f42571959e4a5369672e0e63f9e07c7c51f7))
+* **pivot/master-detail/row-drag-drop:** omit utility columns while pivoting regardless of plugin order ([#616](https://github.com/OysteinAmundsen/toolbox/issues/616)) ([#627](https://github.com/OysteinAmundsen/toolbox/issues/627)) ([ef995ba](https://github.com/OysteinAmundsen/toolbox/commit/ef995bad12c06894bdbfddadb0cf07df0273568a))
+* **pivot:** keep hidden state and width of pivot columns across COLUMNS passes ([#609](https://github.com/OysteinAmundsen/toolbox/issues/609)) ([#614](https://github.com/OysteinAmundsen/toolbox/issues/614)) ([420723a](https://github.com/OysteinAmundsen/toolbox/commit/420723a5bc8331db095bcad1580d8a39788a2888))
+* **pivot:** keep pinned state on pivot columns across COLUMNS passes ([#613](https://github.com/OysteinAmundsen/toolbox/issues/613)) ([#617](https://github.com/OysteinAmundsen/toolbox/issues/617)) ([e7feabb](https://github.com/OysteinAmundsen/toolbox/commit/e7feabb087af2a8be507e6a9b2b7bfaf632a7f82))
+* **pivot:** rebuild columns on runtime layout changes and restore source columns on disable ([#605](https://github.com/OysteinAmundsen/toolbox/issues/605)) ([#610](https://github.com/OysteinAmundsen/toolbox/issues/610)) ([20c30ec](https://github.com/OysteinAmundsen/toolbox/commit/20c30ec2cb844e24300f64d1cebf1b1e201e68be))
+
 ## [3.11.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.10.3...grid-3.11.0) (2026-11-02)
 
 

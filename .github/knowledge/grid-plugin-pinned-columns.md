@@ -1,0 +1,28 @@
+---
+domain: grid-plugin-pinned-columns
+related: [grid-plugins-catalog-data, grid-plugin-pivot, grid-plugins, grid-core]
+---
+
+# Pinned Columns Plugin
+
+> Scope: PinnedColumns owns pin lifecycle, sticky offsets, unpin snapshots, and Pivot interactions.
+>
+> - Plugin system → grid-plugins.md.
+> - Column config and ordering → grid-core.md.
+> - Other data plugins → grid-plugins-catalog-data.md.
+>
+> Read order for "unpin restores the wrong slot": `#syncOriginalOrder` invariants (#615/#624/#637) → `applyInitialOrder` placement (#629) → `setPinPosition` write-back (#618/#639).
+
+## PinnedColumns
+
+OWNS: pins, measured offset maps. HOOKS: `orderColumns` (`@internal`, full list incl. hidden; edge partition, #512), `processColumns` (-10; plugins that regenerate columns re-apply edge order, e.g. Pivot), `afterCellRender`. QUERY: `getStickyOffsets` (snapshot rebuilt per re-measure). EVENT: `PINNED_OFFSETS_CHANGE` from `#storeOffsets` (`afterRender` microtask + `refreshStickyOffsets`).
+
+- INVARIANT (#619/#621): all sticky writes (`applyStickyOffsets` header/body, `afterCellRender`) use `pin-order.ts#applyCellStickyOffset`, clearing the opposite side's class/inset. After render, offsets are re-measured; `afterCellRender` replays only the current side (`#offsetsDirection` captured with maps), and lost pins are cleared. Core patches cells in place; `_rowPool` is positional, so one stale pass reaches every pooled row. EXCEPT `.editing` cells skipped by core: `#storeOffsets` → `#clearLostPins` clears fields in old but not new maps (zero queries steady-state, PR #630). Tests: `integration/pinned-columns-side-switch.spec.ts` (render event precedes the re-measure).
+- INVARIANT (#512): header/group-cell `grid-column` uses VISIBLE-column indices while `this.columns` includes hidden columns; `applyStickyOffsets` filters hidden columns first.
+- INVARIANT (sticky-cell painting): `.sticky-left`/`.sticky-right` have opaque `--tbw-color-panel-bg` (`rows.css`) and `position: sticky; z-index: 25` (`base.css`). Repaint row tints with a foreground gradient; border overlays need row `z-index: 26` because cell `::after` is clipped. Canonical: `selection.css .data-grid-row.row-focus`.
+- TENSION (#631): a reorder during active edit leaves the edited row index-patched with stale `data-field`s. A direction switch replays the old side once; re-measure corrects it.
+- `setPinPosition` builds on full `this.columns` (#606). INVARIANT (#618): `grid.columns =` applies in a microtask, so subsequent calls build on the last assigned list while `effectiveConfig.columns` is still the old array. Pin the LIVE column (like `setColumnVisible` writes `hidden`) so same-tick runtime writes survive. Same-tick calls equal separate ticks (#628); tests: `integration/pinned-columns-same-tick.spec.ts`.
+- DECIDED (#639): Place changed `order` before syncing `#originalColumnOrder`. `orderColumns` groups by `Math.floor(order)`; a changed pinned-order cohort includes first-seen fields and all fresh-source ordered fields, preserving distinct fresh order slots, while unchanged consumed peers retain runtime positions. A fresh explicit order on a known pin retires its old anchor so the replacement's placed slot becomes authoritative; `#pinOrderAnchorRefreshed` prevents a pending pin operation's already-refreshed anchor from being reset again. Placement uses the full-list target. `setPinPosition` starts from the live runtime list and places all changed orders through `#placeChangedOrders` before syncing anchors. `#assignColumns` carries that completed layout through proxy sources whose `__placedOrder` reads are consumed by ConfigManager cloning while other properties stay live, so no marker is stamped onto the stale effective objects. `#pendingColumns.placedOrders` supports same-tick setters. Saved-state suppression binds to the effective column object references produced by that state application; `orderColumns` consumes it only for the matching set, and source merges invalidate it. Unconsumed suppression expires after STYLE-only rendering. Grid-config reassignment rebases `#baseColumns` from effective state. Missing/invalid orders retain anchors. Marker semantics → grid-core.md `DECIDED (#629/#639)`. Test: `integration/pinned-columns-explicit-order.spec.ts`.
+- INVARIANT (#615/#625): each `setPinPosition` rebuilds the unpin snapshot (`#syncOriginalOrder`): unpinned fields use current order; each known pin keeps its old unpinned predecessor. Absent fields survive only as known pins or runs before absent/hidden pins; a visible pin's run is dropped, keeping the snapshot bounded. Unpin inserts before the first unpinned field ranked later. Never reset when nothing is pinned (Selection's checkbox is always pinned).
+- INVARIANT (#624/#637): `orderColumns` first syncs when it sees a new pin; later passes re-feed the edge-partitioned list (unchanged-source merge, `applyState` clones, Pivot layout). `#pinnedFields` tracks known pins: retire present+unpinned fields, keep absent pins, and retain old anchors only for known pins; a replacement re-declares a slot. New pins splice after the preceding field in current order, including a pinned predecessor. RULED OUT: caching `orderColumns` input or column/effective-config identity (`applyState` clones). Unpin clears legacy `meta.pinned` on copied metadata because consumers still honor it. Tests: `integration/pinned-columns-config-unpin.spec.ts`.
+- DOM: all cell selectors use `dataFieldSelector`; every query uses `pinned-columns.ts#queryOwn` to exclude nested grids with same-named fields (pitfall 13; `getHorizontalScrollOffsets` uses `:scope >`, PR #630).

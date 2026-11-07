@@ -1,6 +1,6 @@
 ---
 domain: grid-features
-related: [grid-plugins, grid-plugins-catalog-data, grid-plugins-catalog-ui, grid-core]
+related: [grid-plugins, grid-plugins-catalog-data, grid-plugins-catalog-ui, grid-plugin-pinned-columns, grid-core]
 ---
 
 # Grid Features — Mental Model
@@ -81,7 +81,7 @@ export type _Augmentation = true; // type anchor
 | `tooltip`              | `TooltipConfig`                     | —         |
 | `shell`                | `boolean \| ShellConfig`            | —         |
 
-> Full plugin list (incl. `rowDragDrop`, `stickyRows`) → grid-plugins-catalog-data.md / grid-plugins-catalog-ui.md. Shell specifics → grid-plugins-shell.md.
+> Full plugin list → grid-plugins-catalog-data.md / grid-plugins-catalog-ui.md / grid-plugin-pinned-columns.md. Shell specifics → grid-plugins-shell.md.
 
 ## explicit feature opt-out (validator)
 

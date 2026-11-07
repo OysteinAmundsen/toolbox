@@ -283,7 +283,9 @@ or cached state.
      (#616 QA: 0 calls exposed a `TBW001` throw in `mergeConfig`, filed as #626.)
    - When a finding is fixed, prove the new test guards it with
      `bun .github/skills/qa/scripts/mutation-check.ts --file <src> --spec <filter> --find <fixed> --replace <broken>`.
-     It must print `KILLED`. A fix with several guards (e.g. "window moved" OR "width changed") needs one mutant
+     It must print `KILLED`. `--spec` takes space-separated patterns; runs bypass the Nx cache (a replayed
+     verdict for an identical mutant reported a false `SURVIVED` in PR #639), and a filter matching no file exits 2.
+     A fix with several guards (e.g. "window moved" OR "width changed") needs one mutant
      per guard, and each test must use an input that ONLY its guard catches. In the #598 release QA, the first
      resize test survived because its scroll also moved the window.
    - Hot paths (scroll, resize): count the work, not just the end state. Log `render` event phases per step

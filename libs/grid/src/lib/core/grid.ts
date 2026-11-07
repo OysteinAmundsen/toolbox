@@ -1974,6 +1974,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#initialColumnState = undefined;
       const plugins = (this.#pluginManager?.getAll() ?? []) as BaseGridPlugin[];
       this.#configManager.applyState(pendingInitialState, plugins);
+      this.#baseColumns = [...this.#configManager.columns];
     }
 
     // Ask plugins whether the structural DOM signature changed (shell header

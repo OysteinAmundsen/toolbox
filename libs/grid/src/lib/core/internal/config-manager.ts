@@ -307,7 +307,17 @@ export class ConfigManager<T = unknown> {
 
     // Deep clone columns (they may have runtime-mutable state)
     if (config.columns) {
-      clone.columns = config.columns.map((col) => ({ ...col }));
+      clone.columns = config.columns.map((col) => {
+        const c: ColumnInternal<T> = { ...col };
+        const freshOrder = c.order != null && c.__placedOrder !== c.order ? c.order : undefined;
+        // Record the `order` the clone is already placed by, so feeding runtime columns back as a
+        // source doesn't re-apply it to a pinned/reordered list (#629). Source objects stay unmarked.
+        if (c.order != null) c.__placedOrder = c.order;
+        else delete c.__placedOrder; // a cleared `order` set again later must count as a change
+        if (freshOrder != null) c.__freshOrder = freshOrder;
+        else delete c.__freshOrder;
+        return c;
+      });
     }
 
     // Deep clone shell if present
@@ -407,7 +417,14 @@ export class ConfigManager<T = unknown> {
     if (inferenceMode === 'merge' && rows.length) {
       // Always infer the full column set from data, then overlay provided columns by field.
       const inferred = inferColumns(rows as Record<string, unknown>[]).columns as ColumnInternal<T>[];
-      columns = overlayInferred(inferred, columns);
+      // The overlay rebuilds positions in data-key order, so no column still sits where `order` placed it.
+      // Strip the marker on copies: computed columns come back as the caller's objects (PR #639).
+      columns = overlayInferred(inferred, columns).map((c) => {
+        if (c.__placedOrder === undefined) return c;
+        const copy = { ...c };
+        delete copy.__placedOrder;
+        return copy;
+      });
     } else if (columns.length === 0 && rows.length) {
       // 'auto' (default): infer only when nothing was provided.
       const result = inferColumns(rows as Record<string, unknown>[]);
@@ -571,7 +588,6 @@ export class ConfigManager<T = unknown> {
       const orderB = stateMap.get(b.field)?.order ?? Infinity;
       return orderA - orderB;
     });
-
     this.columns = updatedColumns;
 
     // Apply sort state
@@ -598,6 +614,7 @@ export class ConfigManager<T = unknown> {
           plugin.applyColumnState(colState.field, colState);
         }
       }
+      plugin.onColumnStateOrderApplied?.();
     }
   }
 

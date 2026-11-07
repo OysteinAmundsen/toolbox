@@ -1824,6 +1824,12 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   // #region Column State Hooks
 
   /**
+   * Called after column state changes the field order.
+   * @internal
+   */
+  onColumnStateOrderApplied?(): void;
+
+  /**
    * Contribute plugin-specific state for a column.
    * Called by the grid when collecting column state for serialization.
    * Plugins can add their own properties to the column state.

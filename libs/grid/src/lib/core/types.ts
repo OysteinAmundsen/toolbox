@@ -962,7 +962,8 @@ export interface BaseColumnConfig<TRow = any, TValue = any, TField extends strin
    *
    * Sets the column's initial position in the grid declaratively. When `order` is set,
    * the column is repositioned at that index among the initial column array, _before_
-   * any saved column state is applied.
+   * any saved column state is applied. Columns sharing an `order` value keep their
+   * declaration order, starting at that index.
    *
    * **Precedence** (low → high):
    * ```
@@ -973,6 +974,11 @@ export interface BaseColumnConfig<TRow = any, TValue = any, TField extends strin
    * If the user supplies saved column state (`gridConfig.columnState`, `applyColumnState()`,
    * or runtime reorder via drag), that state **wins**. Use `resetColumnOrder()` to return
    * to the `order`-influenced initial order.
+   *
+   * Ordinary write-backs, such as reading `grid.columns` and assigning it back (as pinning does),
+   * keep runtime position; `order` is re-applied only when its value changed. The exception is
+   * `columnInference: 'merge'` with row data available: inference rebuilds columns in data-key
+   * order and re-applies `order` even when unchanged, which can override a runtime reorder.
    *
    * @example
    * ```typescript
@@ -1993,6 +1999,10 @@ export interface ColumnInternal<T = any> extends ColumnConfig<T> {
   __renderedWidth?: number;
   /** Original configured width (for reset on double-click) */
   __originalWidth?: number;
+  /** The `order` this runtime column was already placed by; `applyInitialOrder` skips it while unchanged (#629). */
+  __placedOrder?: number;
+  /** The `order` applied to a newly supplied source definition in the current merge. */
+  __freshOrder?: number;
   __viewTemplate?: HTMLElement;
   __editorTemplate?: HTMLElement;
   __headerTemplate?: HTMLElement;

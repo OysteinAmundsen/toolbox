@@ -16,6 +16,9 @@ import {
 } from './column-virtualization';
 import type { ColumnVirtualizationConfig } from './types';
 
+/** Host custom property carrying the window's left offset to rows rendered by other plugins. */
+const WINDOW_OFFSET_PROPERTY = '--tbw-column-window-offset';
+
 /**
  * Column Virtualization Plugin for tbw-grid
  *
@@ -131,6 +134,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
   #cleanupStyles(): void {
     const gridEl = this.gridElement;
     if (!gridEl) return;
+    gridEl.style.removeProperty(WINDOW_OFFSET_PROPERTY);
 
     const headerRow = gridEl.querySelector('.header-row') as HTMLElement | null;
     if (headerRow) {
@@ -138,9 +142,9 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
       headerRow.style.minWidth = '';
     }
 
-    const bodyRows = gridEl.querySelectorAll('.data-grid-row');
+    const bodyRows = this.#ownRows(gridEl);
     bodyRows.forEach((row) => {
-      (row as HTMLElement).style.paddingLeft = '';
+      row.style.paddingLeft = '';
     });
 
     const rowsContainer = gridEl.querySelector('.rows-viewport .rows') as HTMLElement | null;
@@ -180,7 +184,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     this.scrollLeft = target;
     this.#scrollAreaTo(target);
     this.grid._invalidateVisibleColumnsCache();
-    this.requestColumnsRender();
+    this.requestColumnWindowRender();
     return true;
   }
 
@@ -256,9 +260,12 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
 
     // Apply left padding to offset scrolled-out columns
     const leftPadding = this.#leftPadding;
+    // Rows other plugins rebuild in their own afterRender (GroupingColumns' group header row,
+    // PinnedRows' aggregation rows) pad themselves from this property, whatever the hook order.
+    gridEl.style.setProperty(WINDOW_OFFSET_PROPERTY, `${leftPadding}px`);
 
     const headerRow = gridEl.querySelector('.header-row') as HTMLElement | null;
-    const bodyRows = gridEl.querySelectorAll('.data-grid-row');
+    const bodyRows = this.#ownRows(gridEl);
 
     if (headerRow) {
       headerRow.style.paddingLeft = `${leftPadding}px`;
@@ -267,7 +274,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     }
 
     bodyRows.forEach((row) => {
-      (row as HTMLElement).style.paddingLeft = `${leftPadding}px`;
+      row.style.paddingLeft = `${leftPadding}px`;
     });
 
     // Set total width for horizontal scrolling on the rows container
@@ -292,13 +299,13 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     this.scrollLeft = event.scrollLeft;
     if (!this.isVirtualized || !this.#windowMoves()) return;
 
-    // COLUMNS phase rebuilds `_columns`, which invalidates `_visibleColumns` and re-runs
-    // windowColumns; requestRender() (ROWS phase) would keep the stale window.
-    this.requestColumnsRender();
+    // The window is a pure function of the processed columns and scrollLeft (#603): re-window
+    // only (template, header, row cells), without re-running mergeConfig/processRows/processColumns.
+    this.requestColumnWindowRender();
   }
 
   /**
-   * Whether the current scroll position needs a different window. A COLUMNS pass rebuilds the cells
+   * Whether the current scroll position needs a different window. A re-window rebuilds the cells
    * of every pooled row, so scroll frames that stay inside the rendered window must not request one.
    * A width change since the last window (in-place column resize) always re-windows.
    */
@@ -318,6 +325,11 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
   #scrollAreaTo(scrollLeft: number): void {
     const scrollArea = this.gridElement?.querySelector<HTMLElement>('.tbw-scroll-area');
     if (scrollArea) scrollArea.scrollLeft = scrollLeft;
+  }
+
+  /** This grid's own rows: a nested grid (e.g. a MasterDetail panel) keeps its own column offset. */
+  #ownRows(gridEl: HTMLElement): HTMLElement[] {
+    return [...gridEl.querySelectorAll<HTMLElement>('.data-grid-row')].filter((row) => this.isOwnTarget(row));
   }
   // #endregion
 

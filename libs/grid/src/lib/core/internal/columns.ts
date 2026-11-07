@@ -222,6 +222,10 @@ export function parseLightDomTypeDefaults(host: HTMLElement): Array<{
  * stay in their relative order, then columns with `order` are inserted (ascending by order value)
  * at their target indices in the final result.
  *
+ * A column whose `__placedOrder` equals its `order` is a runtime column fed back as a source
+ * (e.g. `setPinPosition` assigning `grid.columns`): it already sits where `order` put it, and the
+ * list may since have been pinned or reordered, so it keeps its position like an unordered one (#629).
+ *
  * @param columns - Column array to reorder (mutated in-place)
  * @returns The mutated columns array (same reference)
  *
@@ -235,7 +239,12 @@ export function applyInitialOrder<T>(columns: ColumnInternal<T>[]): ColumnIntern
   const unordered: ColumnInternal<T>[] = [];
 
   for (const col of columns) {
-    if (typeof col.order === 'number' && Number.isFinite(col.order) && col.order >= 0) {
+    if (
+      typeof col.order === 'number' &&
+      Number.isFinite(col.order) &&
+      col.order >= 0 &&
+      col.__placedOrder !== col.order
+    ) {
       ordered.push({ col, order: Math.floor(col.order) });
     } else {
       unordered.push(col);
@@ -246,12 +255,14 @@ export function applyInitialOrder<T>(columns: ColumnInternal<T>[]): ColumnIntern
     return columns; // No reordering needed
   }
 
-  // Sort ordered columns by their order value (stable sort, so duplicates preserve declaration order)
+  // Sort ordered columns by their order value (stable sort, so duplicates keep declaration order)
   ordered.sort((a, b) => a.order - b.order);
 
   // Build result: fill indices with unordered columns, then splice ordered at their positions
   const result: ColumnInternal<T>[] = [];
   let unorderedIndex = 0;
+  let prevOrder = -1;
+  let prevPos = -1;
 
   // Process each ordered column and insert it at its target index
   for (const { col, order } of ordered) {
@@ -260,9 +271,12 @@ export function applyInitialOrder<T>(columns: ColumnInternal<T>[]): ColumnIntern
       result.push(unordered[unorderedIndex++]);
     }
 
-    // Insert the ordered column at its target index (clamp to result.length if beyond bounds)
-    const insertPos = Math.min(order, result.length);
+    // Insert at the target index (clamped to result.length). A tie goes right after the previous
+    // column of the same order, keeping declaration order and making a re-run a no-op (PR #639).
+    const insertPos = order === prevOrder ? prevPos + 1 : Math.min(order, result.length);
     result.splice(insertPos, 0, col);
+    prevOrder = order;
+    prevPos = insertPos;
   }
 
   // Append remaining unordered columns

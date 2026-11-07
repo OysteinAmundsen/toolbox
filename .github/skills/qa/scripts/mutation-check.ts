@@ -12,7 +12,8 @@
  *     [--project grid] [--no-baseline]
  *
  * Exit 0 = mutant killed (the spec failed on the broken source). Exit 1 = mutant SURVIVED
- * (the spec does not guard the fix) or the baseline was red. Exit 2 = bad arguments.
+ * (the spec does not guard the fix) or the baseline was red. Exit 2 = bad arguments, or the
+ * `--spec` filter (space-separated patterns allowed) matched no test file.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fail, parseArgs, runNxTest, testSummary } from './lib';
@@ -34,11 +35,15 @@ const find = toFileEol(read('find', 'find-file'));
 const replace = toFileEol(read('replace', 'replace-file'));
 const hits = text.split(find).length - 1;
 if (hits !== 1) fail(`--find must match exactly once in ${file} (matched ${hits})`);
+const failIfNoTestFiles = (output: string) => {
+  if (/No test files found/.test(output)) fail(`--spec "${spec}" matched no test files — nothing was tested`);
+};
 
 if (!args['no-baseline']) {
   const base = runNxTest(project, spec);
   console.log('BASELINE (current source):');
   for (const l of testSummary(base.output)) console.log(`  ${l}`);
+  failIfNoTestFiles(base.output);
   if (base.code !== 0) {
     console.log('Baseline is red — fix the spec before judging the mutant.');
     process.exit(1);
@@ -56,6 +61,7 @@ if (!readFileSync(file).equals(original)) fail(`RESTORE FAILED — ${file} diffe
 
 console.log('MUTANT (broken source):');
 for (const l of testSummary(mutant.output)) console.log(`  ${l}`);
+failIfNoTestFiles(mutant.output);
 if (mutant.code === 0) {
   console.log('SURVIVED — the spec passes on the broken source, so it does not guard the fix.');
   process.exit(1);

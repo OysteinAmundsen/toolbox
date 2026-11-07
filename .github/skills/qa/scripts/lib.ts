@@ -29,7 +29,16 @@ export function runBun(args: string[]): { code: number; output: string } {
 
 /** `bun nx test <project> <filter>` with static output so Vitest results are not swallowed. */
 export function runNxTest(project: string, filter: string): { code: number; output: string } {
-  return runBun(['nx', 'test', project, filter, '--output-style=static']);
+  // One argv entry per pattern: `"a b"` as a single filter matches no file and passes vacuously.
+  // Never replay the Nx cache: a mutant identical to an earlier run would get that run's verdict.
+  return runBun([
+    'nx',
+    'test',
+    project,
+    ...filter.split(/\s+/).filter(Boolean),
+    '--output-style=static',
+    '--skip-nx-cache',
+  ]);
 }
 
 /** Lines worth showing from a Vitest run: failures, assertion messages and the totals. */

@@ -3,6 +3,7 @@ domain: grid-plugins-catalog-ui
 related:
   [
     grid-plugins,
+    grid-plugin-pinned-columns,
     grid-plugin-selection,
     grid-plugins-catalog-data,
     grid-plugin-responsive,
@@ -15,7 +16,7 @@ related:
 
 # Plugin Catalog — Interaction & Display Plugins
 
-> Architecture → grid-plugins.md · Selection & ContextMenu (incl. menu contribution `order` bands) → grid-plugin-selection.md · Shell → grid-plugins-shell.md · Editing/UndoRedo → grid-plugins-editing.md · Responsive → grid-plugin-responsive.md · row/column model, sorting, filtering, pinned rows, export → grid-plugins-catalog-data.md.
+> Architecture → grid-plugins.md · PinnedColumns → grid-plugin-pinned-columns.md · Selection/ContextMenu (menu `order`) → grid-plugin-selection.md · Shell → grid-plugins-shell.md · Editing/UndoRedo → grid-plugins-editing.md · Responsive → grid-plugin-responsive.md · Data plugins → grid-plugins-catalog-data.md.
 >
 > Read order for "a drag/reorder does the wrong thing": grid-input.md (pointer dispatch) → RowDragDrop → ReorderColumns `DECIDED` bullets (#449).
 

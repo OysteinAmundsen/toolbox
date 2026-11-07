@@ -49,6 +49,7 @@ related: [build-and-deploy, grid-core]
 - Custom/plugin styles: CSSStyleSheet via document.adoptedStyleSheets (survives DOM rebuilds)
 - Plugin styles registered via `grid.registerStyles(id, css)` → creates sheet → replaceSync → add to adopted
 - INVARIANT: plugin CSS is transformed **in isolation** (each plugin's own `?inline` build) and injected as a **standalone** adopted stylesheet. Any CSS lowering that depends on a companion `:root` rule (see lightningcss-light-dark below) breaks, because that root rule lives in a _different_ stylesheet.
+- INVARIANT (multi-version, PR #639): `rewriteTagSelectors` retargets `tbw-grid` to THIS bundle's tag only, but unscoped plugin rules (`.header-group-row`) style every bundle's DOM. A per-host reset must also select `[data-tbw-grid]` (stamped by every version, #339), e.g. `tbw-grid, [data-tbw-grid] { --tbw-column-window-offset: 0px }`.
 
 ## lightningcss-light-dark (build minifier gotcha)
 

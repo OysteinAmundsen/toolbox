@@ -32,6 +32,10 @@ import type { PinnedColumnsConfig, PinnedPosition } from './types';
 /** Query type constant for checking if a column can be moved */
 const QUERY_CAN_MOVE_COLUMN = 'canMoveColumn';
 
+function hasPlaceableOrder(order: number | undefined): order is number {
+  return typeof order === 'number' && Number.isFinite(order) && order >= 0;
+}
+
 /**
  * Pinned Columns Plugin for tbw-grid
  *
@@ -167,13 +171,19 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   #originalColumnOrder: string[] = [];
   /** Fields pinned as of the last snapshot sync, including pins absent from the current layout. */
   #pinnedFields = new Set<string>();
+  /** Last observed placeable order for each field; absent pins retain their source-order state. */
+  #columnOrders = new Map<string, number | undefined>();
+  #columnStateOrderColumns: readonly ColumnConfig[] | null = null;
   /**
-   * The list the last `setPinPosition` assigned to `grid.columns`, in the order processing will give it,
-   * and the `effectiveConfig.columns` array at that moment. The grid applies the assignment in a
-   * microtask, so until that array is replaced the next same-tick call must build on this list, not
-   * the stale `this.columns` (#618).
+   * The post-ordering list the last `setPinPosition` assigned and the `effectiveConfig.columns` array
+   * at that moment. The grid applies the assignment in a microtask, so until that array is replaced the
+   * next same-tick call must build on this list, not the stale `this.columns` (#618).
    */
-  #pendingColumns: { columns: ColumnConfig[]; base: readonly ColumnConfig[] } | null = null;
+  #pendingColumns: {
+    columns: ColumnConfig[];
+    placedOrders: Map<ColumnConfig, number | undefined>;
+    base: readonly ColumnConfig[];
+  } | null = null;
   /**
    * Light-DOM elements whose `pinned` attribute has already seeded a column.
    * The attribute supplies the INITIAL pin only — seeding once guarantees a
@@ -197,6 +207,8 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
     this.#splitGroups = [];
     this.#originalColumnOrder = [];
     this.#pinnedFields.clear();
+    this.#columnOrders.clear();
+    this.#columnStateOrderColumns = null;
     this.#pendingColumns = null;
     // Reset seeded elements so a re-attached instance re-seeds from the same
     // light-DOM `pinned` attributes instead of permanently ignoring them (#272).
@@ -245,6 +257,12 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
    */
   override orderColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
     const cols = [...columns];
+    const columnStateOrderColumns = this.#columnStateOrderColumns;
+    const columnStateOrderApplied =
+      columnStateOrderColumns !== null &&
+      columnStateOrderColumns.length === cols.length &&
+      cols.every((column, index) => column === columnStateOrderColumns[index]);
+    this.#columnStateOrderColumns = null;
     this.#seedFromAttributes(cols);
     // Nothing moves a pin to the edge before this hook first sees it, so record a new pin's declared
     // slot now: later passes re-feed the partitioned list (unchanged-source merges, applyColumnState,
@@ -252,17 +270,67 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
     // so a later re-pin is recorded too; absent fields (e.g. pins of a pivot layout) are kept.
     let hasPin = false;
     let newPin = false;
+    let changedPinnedOrder = false;
+    const changedPinnedOrderFields = new Set<string>();
+    const changedPinnedOrderValues = new Set<number>();
+    const freshOrderFields = new Set<string>();
+    const changedFieldOrders = new Map<string, number>();
+    const presentFields = new Set<string>();
     for (const c of cols) {
-      if (!getColumnPinned(c)) this.#pinnedFields.delete(c.field);
-      else {
-        hasPin = true;
-        if (!this.#pinnedFields.has(c.field)) newPin = true;
+      presentFields.add(c.field);
+      const order = hasPlaceableOrder(c.order) ? c.order : undefined;
+      const hasPreviousOrder = this.#columnOrders.has(c.field);
+      const orderChanged =
+        hasPreviousOrder && order !== undefined && !Object.is(this.#columnOrders.get(c.field), order);
+      const freshOrder = (c as ColumnInternal).__freshOrder;
+      if (order !== undefined && Object.is(freshOrder, c.order)) freshOrderFields.add(c.field);
+      if (order !== undefined && (!hasPreviousOrder || orderChanged || Object.is(freshOrder, c.order))) {
+        changedFieldOrders.set(c.field, Math.floor(order));
       }
+      delete (c as ColumnInternal).__freshOrder;
+      this.#columnOrders.set(c.field, order);
+
+      if (!getColumnPinned(c)) {
+        this.#pinnedFields.delete(c.field);
+        continue;
+      }
+      hasPin = true;
+      if (orderChanged && order !== undefined) {
+        changedPinnedOrderFields.add(c.field);
+        changedPinnedOrderValues.add(Math.floor(order));
+        if (this.#pinnedFields.has(c.field)) {
+          this.#pinnedFields.delete(c.field);
+          changedPinnedOrder = true;
+        }
+      }
+      // A fresh definition re-declares its slot. Columns `setPinPosition` assigns never look fresh
+      // (their `__placedOrder` equals `order`), so no pending-operation exemption is needed (PR #639).
+      if (order !== undefined && Object.is(freshOrder, c.order) && this.#pinnedFields.has(c.field)) {
+        this.#pinnedFields.delete(c.field);
+      }
+      if (!this.#pinnedFields.has(c.field)) newPin = true;
+    }
+    const changedOrderFields = new Set(changedPinnedOrderFields);
+    if (changedPinnedOrderValues.size) {
+      for (const field of freshOrderFields) changedOrderFields.add(field);
+    }
+    for (const [field, order] of changedFieldOrders) {
+      if (changedPinnedOrderValues.has(order)) changedOrderFields.add(field);
+    }
+    for (const field of this.#columnOrders.keys()) {
+      if (!presentFields.has(field) && !this.#pinnedFields.has(field)) this.#columnOrders.delete(field);
     }
     if (!hasPin) return cols;
-    if (newPin) this.#syncOriginalOrder(cols);
+    const ordered =
+      changedOrderFields.size && !columnStateOrderApplied ? this.#placeChangedOrders(cols, changedOrderFields) : cols;
+    if (newPin || changedPinnedOrder || columnStateOrderApplied) this.#syncOriginalOrder(ordered);
     const host = this.gridElement;
-    return reorderColumnsForPinning(cols, host ? getDirection(host) : 'ltr') as ColumnConfig[];
+    return reorderColumnsForPinning(ordered, host ? getDirection(host) : 'ltr') as ColumnConfig[];
+  }
+
+  /** @internal */
+  override onColumnStateOrderApplied(): void {
+    this.#columnStateOrderColumns = this.columns;
   }
 
   /** @internal */
@@ -340,8 +408,42 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
     this.#originalColumnOrder = order;
   }
 
+  #placeChangedOrders(
+    columns: readonly ColumnConfig[],
+    changedOrderFields: ReadonlySet<string>,
+    preserveColumnReferences = false,
+  ): ColumnConfig[] {
+    // Re-place only changed columns: unchanged peers may have been runtime-reordered after their
+    // order was consumed, and must retain that position.
+    const changed = columns
+      .flatMap((column, index) =>
+        changedOrderFields.has(column.field) && hasPlaceableOrder(column.order)
+          ? [{ column, index, order: Math.floor(column.order) }]
+          : [],
+      )
+      .sort((a, b) => a.order - b.order || a.index - b.index);
+    const ordered = columns.filter((column) => !changedOrderFields.has(column.field));
+    for (const { column, order } of changed) {
+      const placedColumn: ColumnInternal = preserveColumnReferences
+        ? (column as ColumnInternal)
+        : { ...column, __placedOrder: column.order };
+      if (!preserveColumnReferences) placedColumn.__placedOrder = column.order;
+      let tieIndex = -1;
+      for (let index = 0; index < ordered.length; index++) {
+        const peer = ordered[index];
+        const peerOrder = peer.order;
+        if (hasPlaceableOrder(peerOrder) && Math.floor(peerOrder) === order) tieIndex = index;
+      }
+      // `order` targets the full list, including pins before the insertion point.
+      const insertIndex = tieIndex >= 0 ? tieIndex + 1 : Math.min(order, ordered.length);
+      ordered.splice(insertIndex, 0, placedColumn);
+    }
+    return ordered;
+  }
+
   /** @internal */
   override afterRender(): void {
+    this.#columnStateOrderColumns = null;
     if (!this.isApplied) {
       return;
     }
@@ -601,11 +703,69 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
    * @param position - The pin position (`'left'`, `'right'`, `'start'`, `'end'`), or `undefined` to unpin
    */
   setPinPosition(field: string, position: PinnedPosition | undefined): void {
-    const currentColumns = this.#latestColumns();
-    if (!currentColumns?.length) return;
+    const pending = this.#pendingColumns;
+    const buildingOnPending = pending !== null && pending.base === this.grid?.effectiveConfig?.columns;
+    const latest = this.#latestColumns();
+    if (!latest?.length) return;
+    // Apply core initial ordering to committed columns; a pending assignment already carries its placement.
+    let currentColumns = buildingOnPending ? [...latest] : applyInitialOrder([...latest] as ColumnInternal[]);
 
-    const currentIndex = currentColumns.findIndex((col) => col.field === field);
+    let currentIndex = currentColumns.findIndex((col) => col.field === field);
     if (currentIndex === -1) return;
+
+    const changedFieldOrders = new Map<string, number>();
+    const changedPinnedOrderValues = new Set<number>();
+    let hasPendingOrderChange = false;
+    // A known pin keeps its old return anchor unless its explicit order changed; then its newly
+    // placed slot becomes the return position, even when this pin operation targets another field.
+    for (const column of currentColumns) {
+      const order = hasPlaceableOrder(column.order) ? column.order : undefined;
+      const hasPreviousOrder = this.#columnOrders.has(column.field);
+      const orderChanged =
+        hasPreviousOrder && order !== undefined && !Object.is(this.#columnOrders.get(column.field), order);
+      const freshOrder = (column as ColumnInternal).__freshOrder;
+      const freshOrderApplied = order !== undefined && Object.is(freshOrder, column.order);
+      const pendingOrderChanged =
+        buildingOnPending &&
+        pending !== null &&
+        pending.placedOrders.has(column) &&
+        !Object.is(pending.placedOrders.get(column), column.order);
+      const changedOrder =
+        order !== undefined && (!hasPreviousOrder || orderChanged || freshOrderApplied || pendingOrderChanged);
+      if (pendingOrderChanged) hasPendingOrderChange = true;
+      if (changedOrder) {
+        changedFieldOrders.set(column.field, Math.floor(order));
+      }
+      delete (column as ColumnInternal).__freshOrder;
+      if (getColumnPinned(column) && changedOrder) {
+        changedPinnedOrderValues.add(Math.floor(order));
+      }
+      // A fresh definition re-declares its slot even with an unchanged value; this scan consumes its
+      // marker, so retire the old anchor here as `orderColumns` would (PR #639).
+      if (getColumnPinned(column) && order !== undefined && (orderChanged || freshOrderApplied)) {
+        this.#pinnedFields.delete(column.field);
+      }
+      this.#columnOrders.set(column.field, order);
+    }
+    if (changedPinnedOrderValues.size || hasPendingOrderChange) {
+      const changedOrderFields = new Set(changedFieldOrders.keys());
+      if (changedPinnedOrderValues.size) {
+        // Keep live column objects so same-tick runtime setters mutate the queued list too.
+        currentColumns = this.#placeChangedOrders(currentColumns, changedOrderFields, true);
+      } else if (hasPendingOrderChange && pending !== null) {
+        // Reuse core placement for unpinned pending deltas, then map the order back to live objects.
+        const liveColumns = new Map<ColumnInternal, ColumnConfig>();
+        const columnsWithPendingOrder = currentColumns.map((column) => {
+          const snapshot = { ...column, __placedOrder: pending.placedOrders.get(column) } as ColumnInternal;
+          liveColumns.set(snapshot, column);
+          return snapshot;
+        });
+        currentColumns = applyInitialOrder(columnsWithPendingOrder).map(
+          (column) => liveColumns.get(column) as ColumnConfig,
+        );
+      }
+      currentIndex = currentColumns.findIndex((column) => column.field === field);
+    }
 
     this.#syncOriginalOrder(currentColumns);
 
@@ -655,7 +815,9 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
    */
   #latestColumns(): ColumnConfig[] {
     const pending = this.#pendingColumns;
-    if (pending && pending.base === this.grid?.effectiveConfig?.columns) return pending.columns;
+    if (pending && pending.base === this.grid?.effectiveConfig?.columns) {
+      return pending.columns;
+    }
     this.#pendingColumns = null;
     return this.columns;
   }
@@ -663,12 +825,35 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   #assignColumns(columns: ColumnConfig[]): void {
     const host = this.gridElement as HTMLElement & { columns?: ColumnConfig[] };
     const base = this.grid?.effectiveConfig?.columns;
-    host.columns = columns;
-    // Order the pending list as `merge()` + `orderColumns` will, but assign the source unordered:
-    // pre-partitioning it would shift where `applyInitialOrder` places `order` columns (PR #628).
+    const placed = reorderColumnsForPinning([...columns], getDirection(host));
+    const placedOrders = new Map(placed.map((column) => [column, column.order]));
+    host.columns = placed.map(
+      (column) =>
+        new Proxy(column, {
+          get(target, property, receiver) {
+            return property === '__placedOrder' ? placedOrders.get(target) : Reflect.get(target, property, receiver);
+          },
+          ownKeys(target) {
+            const keys = Reflect.ownKeys(target);
+            return keys.includes('__placedOrder') ? keys : [...keys, '__placedOrder'];
+          },
+          getOwnPropertyDescriptor(target, property) {
+            if (property === '__placedOrder') {
+              return {
+                configurable: true,
+                enumerable: true,
+                writable: true,
+                value: placedOrders.get(target),
+              };
+            }
+            return Reflect.getOwnPropertyDescriptor(target, property);
+          },
+        }),
+    );
     this.#pendingColumns = base
       ? {
-          columns: reorderColumnsForPinning(applyInitialOrder([...columns] as ColumnInternal[]), getDirection(host)),
+          columns: reorderColumnsForPinning(placed, getDirection(host)),
+          placedOrders,
           base,
         }
       : null;

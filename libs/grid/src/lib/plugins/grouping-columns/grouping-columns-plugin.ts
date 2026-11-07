@@ -149,8 +149,10 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
   // #region Internal State
   private groups: ColumnGroup[] = [];
   private isActive = false;
-  /** Fields that are the last column in a group (for group-end border class). */
+  /** Fields that are the last column in a group (for group-end border class); see `#groupEndsFor`. */
   #groupEndFields = new Set<string>();
+  /** Rendered column array `#groupEndFields` was derived from. */
+  #groupEndSource: readonly ColumnConfig[] | null = null;
   /** Resolved column group definitions (with auto-generated ids). */
   #resolvedGroupDefs: (ColumnGroupDefinition & { id: string })[] = [];
   /** Map of group id → per-group renderer from ColumnGroupDefinition.renderer */
@@ -174,6 +176,7 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
     this.groups = [];
     this.isActive = false;
     this.#groupEndFields.clear();
+    this.#groupEndSource = null;
     this.#resolvedGroupDefs = [];
     this.#groupRenderers.clear();
   }
@@ -182,70 +185,52 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
 
   /**
    * Handle the cancelable column-move event.
-   * - When lockGroupOrder is enabled, prevents moves that would break group contiguity.
-   * - Always refreshes #groupEndFields after a successful move so that afterCellRender
-   *   applies group-end borders to the correct (reordered) last column.
+   * When lockGroupOrder is enabled, prevents moves that would break group contiguity.
+   * Group-end borders follow on their own: the move replaces the rendered columns (`#groupEndsFor`).
    */
   #onColumnMove = (e: Event): void => {
-    if (!this.isActive) return;
+    if (!this.isActive || !this.config.lockGroupOrder) return;
 
     const event = e as CustomEvent<{ field: string; columnOrder: string[] }>;
     const { field, columnOrder } = event.detail;
 
-    if (this.config.lockGroupOrder) {
-      // Aggregate all columns per group ID (across fragments) for full contiguity check
-      const fullGroups = new Map<string, ColumnConfig[]>();
-      for (const group of this.groups) {
-        if (group.id.startsWith('__implicit__')) continue;
-        const existing = fullGroups.get(group.id);
-        if (existing) {
-          existing.push(...group.columns);
-        } else {
-          fullGroups.set(group.id, [...group.columns]);
-        }
-      }
-      for (const [, columns] of fullGroups) {
-        if (!this.#isGroupContiguous(columns, columnOrder)) {
-          event.preventDefault();
-          this.#flashHeaderCell(field);
-          return;
-        }
+    // Aggregate all columns per group ID (across fragments) for full contiguity check
+    const fullGroups = new Map<string, ColumnConfig[]>();
+    for (const group of this.groups) {
+      if (group.id.startsWith('__implicit__')) continue;
+      const existing = fullGroups.get(group.id);
+      if (existing) {
+        existing.push(...group.columns);
+      } else {
+        fullGroups.set(group.id, [...group.columns]);
       }
     }
-
-    // Recompute group-end fields based on proposed column order.
-    // setColumnOrder runs synchronously after this handler returns,
-    // but afterCellRender (which reads #groupEndFields) fires during
-    // the subsequent refreshVirtualWindow. Precompute using the
-    // proposed columnOrder so the borders are correct immediately.
-    this.#recomputeGroupEndFields(columnOrder);
+    for (const [, columns] of fullGroups) {
+      if (!this.#isGroupContiguous(columns, columnOrder)) {
+        event.preventDefault();
+        this.#flashHeaderCell(field);
+        return;
+      }
+    }
   };
 
   /**
-   * Recompute which fields are group-end based on a column order.
-   * Marks every boundary where adjacent columns belong to different groups,
-   * which naturally handles fragmented groups (same group ID split across
-   * non-contiguous positions).
+   * Group-end fields for the rendered columns: the last column of every rendered group except the
+   * last one (no adjacent group follows it). Recomputed whenever the rendered array changes, so cells
+   * built by a re-window, which skips `processColumns` (#603), get the new window's boundaries.
+   * Freshly computed `merged` groups (`afterRender`) always win, and `refresh()` drops the cache:
+   * a live `group` edit keeps the same array.
    */
-  #recomputeGroupEndFields(columnOrder: string[]): void {
+  #groupEndsFor(columns: readonly ColumnConfig[], merged?: readonly ColumnGroup[]): ReadonlySet<string> {
+    if (!merged && this.#groupEndSource === columns) return this.#groupEndFields;
+    const groups = merged ?? mergeGroups(computeColumnGroups([...columns])).merged;
     this.#groupEndFields.clear();
-
-    // Build field → group ID map from all groups
-    const fieldToGroup = new Map<string, string>();
-    for (const group of this.groups) {
-      for (const col of group.columns) {
-        fieldToGroup.set(col.field, group.id);
-      }
+    for (let gi = 0; gi < groups.length - 1; gi++) {
+      const lastCol = groups[gi].columns[groups[gi].columns.length - 1];
+      if (lastCol?.field) this.#groupEndFields.add(lastCol.field);
     }
-
-    // Mark every position where the group changes (skip the very last column)
-    for (let i = 0; i < columnOrder.length - 1; i++) {
-      const currentGroup = fieldToGroup.get(columnOrder[i]);
-      const nextGroup = fieldToGroup.get(columnOrder[i + 1]);
-      if (currentGroup !== nextGroup) {
-        this.#groupEndFields.add(columnOrder[i]);
-      }
-    }
+    this.#groupEndSource = columns;
+    return this.#groupEndFields;
   }
 
   /**
@@ -526,15 +511,6 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
     this.isActive = true;
     this.groups = groups;
 
-    // Pre-compute group-end fields for the afterCellRender hook
-    this.#groupEndFields.clear();
-    for (const g of groups) {
-      const lastCol = g.columns[g.columns.length - 1];
-      if (lastCol?.field) {
-        this.#groupEndFields.add(lastCol.field);
-      }
-    }
-
     // Return columns with group info applied
     return processedColumns;
   }
@@ -571,17 +547,9 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
       }
     }
 
-    // Keep #groupEndFields in sync for afterCellRender (covers scheduler-driven renders)
-    this.#groupEndFields.clear();
+    // Keep group-end fields in sync for afterCellRender (covers scheduler-driven renders)
     const precomputed = mergeGroups(groups);
-    for (let gi = 0; gi < precomputed.merged.length; gi++) {
-      const g = precomputed.merged[gi];
-      const lastCol = g.columns[g.columns.length - 1];
-      // Don't mark the last group — no adjacent group follows it
-      if (lastCol?.field && gi < precomputed.merged.length - 1) {
-        this.#groupEndFields.add(lastCol.field);
-      }
-    }
+    this.#groupEndsFor(finalColumns, precomputed.merged);
 
     // Build and insert group header row
     const groupRow = buildGroupHeaderRow(groups, finalColumns, this.config.groupHeaderRenderer, precomputed);
@@ -614,7 +582,10 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
    */
   override afterCellRender(context: AfterCellRenderContext): void {
     if (!this.isActive || !this.config.showGroupBorders) return;
-    context.cellElement.classList.toggle('group-end', this.#groupEndFields.has(context.column.field));
+    context.cellElement.classList.toggle(
+      'group-end',
+      this.#groupEndsFor(this.visibleColumns).has(context.column.field),
+    );
   }
   // #endregion
 
@@ -649,6 +620,8 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
    * Refresh column groups (recompute from current columns).
    */
   refresh(): void {
+    // A live `group` edit keeps the rendered array, so recompute group ends for the cells this render builds.
+    this.#groupEndSource = null;
     this.requestRender();
   }
   // #endregion

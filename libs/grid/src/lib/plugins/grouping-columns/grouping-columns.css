@@ -1,7 +1,15 @@
 @layer tbw-plugins {
+  /* Every grid starts at offset 0: a nested grid must not inherit a virtualized parent's offset.
+   * `[data-tbw-grid]` also covers grids of other bundle versions, whose own CSS may lack this reset. */
+  tbw-grid,
+  [data-tbw-grid] {
+    --tbw-column-window-offset: 0px;
+  }
   .header-group-row {
     display: grid;
     grid-auto-flow: column;
+    /* Column virtualization: shift the group cells onto the rendered column window. */
+    padding-left: var(--tbw-column-window-offset, 0px);
     background: var(--tbw-grouping-columns-header-bg, var(--tbw-color-header-bg));
     border-bottom: 1px solid var(--tbw-grouping-columns-border, var(--tbw-color-border));
   }

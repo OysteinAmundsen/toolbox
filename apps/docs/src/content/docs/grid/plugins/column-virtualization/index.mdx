@@ -167,13 +167,28 @@ columns scrolled out of view. The [Export](/grid/plugins/export/) and
 [Clipboard](/grid/plugins/clipboard/) plugins therefore include every column when you export or copy
 without a cell selection, or pass `columns` explicitly.
 
-:::caution[Known limitation: cell selections]
-Cell-range selections are tracked by rendered position
-([#633](https://github.com/OysteinAmundsen/toolbox/issues/633)). After a horizontal scroll moves the
-window, a range points at different columns, and `selectAll()` spans only the rendered window.
-Copying a selection while virtualized can therefore copy the wrong columns or only part of them. Use
-`copy({ columns })` or the Export plugin for complete data.
+:::caution[Known limitations]
+
+- **Cell selections** are tracked by rendered position
+  ([#633](https://github.com/OysteinAmundsen/toolbox/issues/633)). After a horizontal scroll moves
+  the window, a range points at different columns, and `selectAll()` spans only the rendered window.
+  Copying a selection while virtualized can therefore copy the wrong columns or only part of them.
+  Use `copy({ columns })` or the Export plugin for complete data.
+- **Editing**: Tab from the last rendered column wraps to the next row, and `beginCellEdit()` on a
+  column outside the window does nothing
+  ([#640](https://github.com/OysteinAmundsen/toolbox/issues/640)).
+- **Resizing**: widening the grid or narrowing a column only re-windows on the next horizontal scroll
+  ([#641](https://github.com/OysteinAmundsen/toolbox/issues/641)).
+- **Responsive card layout** shows only the windowed columns
+  ([#635](https://github.com/OysteinAmundsen/toolbox/issues/635)).
+- **Accessibility**: `aria-colcount` / `aria-colindex` describe the rendered window, not the full grid
+  ([#642](https://github.com/OysteinAmundsen/toolbox/issues/642)).
+
 :::
+
+A paste without a multi-cell selection writes into consecutive columns of the full list, so a wide
+paste continues past the rendered window instead of stopping at its edge. A selected range pastes
+into the cells it shows.
 
 The rendered window is computed **after** every other column plugin (pinning, grouping, pivot),
 whatever their order in `plugins`, from their final output. Pinned order, group header rows, and

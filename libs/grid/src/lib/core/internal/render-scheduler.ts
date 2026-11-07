@@ -82,6 +82,8 @@ export class RenderScheduler {
   #rowHookColumns = false;
   #flushingRows = false;
   #inRowHooks = false;
+  /** The rendered column window moved (see `requestWindow`). */
+  #windowDirty = false;
 
   /** Promise that resolves when current render completes */
   #readyPromise: Promise<void> | null = null;
@@ -129,6 +131,17 @@ export class RenderScheduler {
   }
 
   /**
+   * Re-window the rendered columns (`grid.requestColumnWindowRender`). The window is a pure function
+   * of the processed columns and the scroll position (#603), so a moved window only needs the
+   * template, header and row cells rebuilt: a HEADER flush plus `_schedulerRewindow`, not a COLUMNS
+   * flush that would re-merge the config and re-run `processRows` over every row.
+   */
+  requestWindow(source: string): void {
+    this.#windowDirty = true;
+    this.requestPhase(RenderPhase.HEADER, source);
+  }
+
+  /**
    * Run the plugin processRows hooks; see `requestColumns`. Only that request joins the running
    * flush: anything else, e.g. `#setup()` from a consumer's `group-toggle` listener, may need
    * `processRows` again and keeps its own flush.
@@ -171,6 +184,7 @@ export class RenderScheduler {
       this.#rafHandle = 0;
     }
     this.#pendingPhase = 0;
+    this.#windowDirty = false;
 
     // Resolve any pending ready promise (don't leave it hanging)
     if (this.#readyResolve) {
@@ -214,6 +228,8 @@ export class RenderScheduler {
    */
   #flush(): void {
     this.#rafHandle = 0;
+    const windowDirty = this.#windowDirty;
+    this.#windowDirty = false;
 
     // Bail if component disconnected
     if (!this.#grid._schedulerIsConnected) {
@@ -258,6 +274,9 @@ export class RenderScheduler {
     if (phase >= RenderPhase.COLUMNS) {
       this.#grid._schedulerProcessColumns();
       this.#grid._schedulerUpdateTemplate();
+    } else if (windowDirty) {
+      // A COLUMNS flush re-windows anyway (new `_columns`, epoch bump, template).
+      this.#grid._schedulerRewindow();
     }
 
     // Phase 3 (HEADER): Render header

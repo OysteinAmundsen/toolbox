@@ -43,7 +43,15 @@ Pinned columns and utility columns (selection checkbox, master-detail expander, 
 
 Virtualization only limits which columns are **rendered**. `grid.columns` and every column API (`setColumnVisible`, `setPinPosition`, reordering, …) keep working on the full column list, including columns scrolled out of view. `ExportPlugin` and `ClipboardPlugin` therefore include every column when you export or copy without a cell selection, or pass `columns` explicitly.
 
-> **Known limitation ([#633](https://github.com/OysteinAmundsen/toolbox/issues/633)):** cell-range selections are tracked by rendered position. After a horizontal scroll moves the window, a range points at different columns, and `selectAll()` spans only the rendered window. Copying a selection while virtualized can therefore copy the wrong columns or only part of them. Use `copy({ columns })` or the Export plugin for complete data.
+> **Known limitations:**
+>
+> - Cell-range selections are tracked by rendered position ([#633](https://github.com/OysteinAmundsen/toolbox/issues/633)). After a horizontal scroll moves the window, a range points at different columns, and `selectAll()` spans only the rendered window. Copying a selection while virtualized can therefore copy the wrong columns or only part of them. Use `copy({ columns })` or the Export plugin for complete data.
+> - Editing: Tab from the last rendered column wraps to the next row, and `beginCellEdit()` on a column outside the window does nothing ([#640](https://github.com/OysteinAmundsen/toolbox/issues/640)).
+> - Widening the grid or narrowing a column only re-windows on the next horizontal scroll ([#641](https://github.com/OysteinAmundsen/toolbox/issues/641)).
+> - Responsive card layout shows only the windowed columns ([#635](https://github.com/OysteinAmundsen/toolbox/issues/635)).
+> - `aria-colcount` / `aria-colindex` describe the rendered window, not the full grid ([#642](https://github.com/OysteinAmundsen/toolbox/issues/642)).
+
+A paste without a multi-cell selection writes into consecutive columns of the full list, so a wide paste continues past the rendered window instead of stopping at its edge. A selected range pastes into the cells it shows.
 
 The window is computed **after** every other column plugin (pinning, grouping, pivot), whatever their order in `plugins`, from their final output — so pinned order, group header rows, and pivot columns are preserved. Custom plugins that map columns onto rendered DOM cells by index should use `this.visibleColumns` (the rendered columns), not `this.columns`.
 

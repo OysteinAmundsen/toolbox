@@ -316,9 +316,8 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     const isMultiCell =
       !!firstRange && (axis === 'range' || axis === 'row') && (selMinRow !== selMaxRow || selMinCol !== selMaxCol);
 
+    // Selection range indices are rendered-column indices (from data-col)
     const bounds = isMultiCell ? { endRow: selMaxRow, endCol: selMaxCol } : null;
-    // Selection range indices are visible-column indices (from data-col)
-    const maxCol = bounds?.endCol ?? this.visibleColumns.length - 1;
 
     // Drop a copied header row so a round-trip paste writes only values into
     // cells (never the header label). Strips when this grid is configured to
@@ -363,15 +362,21 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     // filling the selection, extend fields across the full selection width so
     // the source can be tiled to fill every selected column; otherwise cap at
     // the clipboard's own width.
-    const fields: string[] = [];
-    const pasteWidth = parsed[0]?.length ?? 0;
-    const fieldWidth = fillSelection ? maxCol - targetCol + 1 : pasteWidth;
-    for (let i = 0; i < fieldWidth && targetCol + i <= maxCol; i++) {
-      const col = this.visibleColumns[targetCol + i];
-      if (col) {
-        fields.push(col.field);
-      }
+    // A bounded selection keeps the cells it shows (its rendered columns). An unbounded paste walks
+    // the FULL visible list from the target: under column virtualization the rendered list is a
+    // window plus always-rendered pinned columns, which would stop the paste at the window edge or
+    // jump it into a pinned column.
+    let pasteColumns: readonly ColumnConfig[] = [];
+    if (bounds) {
+      pasteColumns = this.visibleColumns.slice(targetCol, bounds.endCol + 1);
+    } else if (column) {
+      const all = this.columns.filter((c) => !c.hidden);
+      const start = all.indexOf(column);
+      if (start >= 0) pasteColumns = all.slice(start);
     }
+    const pasteWidth = parsed[0]?.length ?? 0;
+    const fieldWidth = Math.min(fillSelection ? pasteColumns.length : pasteWidth, pasteColumns.length);
+    const fields = pasteColumns.slice(0, fieldWidth).map((c) => c.field);
 
     const detail: PasteDetail = { rows: parsed, text, target, fields, fillSelection, rawRows, sourceFields };
 

@@ -86,6 +86,19 @@ describe('PivotPlugin runtime layout changes (#605)', () => {
     expect(grid.columns[0].header).toBe('C3');
   });
 
+  it('the grand-total footer keeps its sticky footer class across re-renders (#634)', async () => {
+    const { grid, pivot } = await setup();
+    const footer = () => grid.querySelector('.tbw-scroll-area > .pivot-grand-total-row');
+
+    expect(footer()?.classList.contains('pivot-grand-total-footer')).toBe(true);
+
+    pivot.setRowGroupFields(['c3']);
+    await waitUpgrade(grid);
+
+    expect(footer()?.className).toBe('data-grid-row pivot-grand-total-row pivot-grand-total-footer');
+    expect(grid.querySelectorAll('.pivot-grand-total-footer')).toHaveLength(1);
+  });
+
   it('setValueFields rebuilds the value columns', async () => {
     const { grid, pivot } = await setup();
     pivot.setColumnGroupFields(['c3']);

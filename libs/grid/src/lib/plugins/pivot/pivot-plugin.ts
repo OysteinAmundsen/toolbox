@@ -1007,7 +1007,6 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     // Create footer if it doesn't exist
     if (!this.grandTotalFooter) {
       this.grandTotalFooter = document.createElement('div');
-      this.grandTotalFooter.className = 'pivot-grand-total-footer';
       container.appendChild(this.grandTotalFooter);
     }
 
@@ -1022,6 +1021,8 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
     // Render the grand total row into the footer
     renderPivotGrandTotalRow(grandTotalRow, this.grandTotalFooter, this.gridColumns, this.translate);
+    // The shared row renderer overwrites className, so the footer class is re-added on every render (#634)
+    this.grandTotalFooter.classList.add('pivot-grand-total-footer');
     // Footer is outside the grid's role=grid element — use presentation role
     this.grandTotalFooter.setAttribute('role', 'presentation');
   }

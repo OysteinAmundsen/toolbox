@@ -496,7 +496,10 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   _gridTemplate: string;
   _virtualization: VirtualState;
   _focusRow: number;
+  /** Focused column: an index into `_visibleColumns`; `-1` while column windowing has it scrolled out of view. */
   _focusCol: number;
+  /** Focus a column (object, or field), scrolling it into a column window first (#633). @internal */
+  _focusColumn?(column: string | ColumnConfig<T>): void;
   /** Currently active edit row index. Injected by EditingPlugin. @internal */
   _activeEditRows?: number;
   /** Whether the grid is in 'grid' editing mode (all rows editable). Injected by EditingPlugin. @internal */

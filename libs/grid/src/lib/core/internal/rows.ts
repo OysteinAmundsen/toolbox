@@ -9,7 +9,7 @@ import {
   warnDiagnostic,
 } from './diagnostics';
 import { ensureCellVisible } from './keyboard';
-import { parkCellLoadingOverlay, setCellLoadingState, setRowLoadingState } from './loading';
+import { parkCellLoadingOverlay, removeCellLoadingOverlay, setCellLoadingState, setRowLoadingState } from './loading';
 import { clearRowForRebuild, releasePooledRow } from './row-teardown';
 import { evalTemplateString, finalCellScrub, setSanitizedHTML } from './sanitize';
 import { booleanCellHTML, clearCellFocus, formatDateValue, getRowIndexFromCell } from './utils';
@@ -424,8 +424,10 @@ function reconcileRow(
 
   if (!structureValid) {
     if (hasEditing && isActivelyEditedRow) {
-      // Correct row and it owns live editors — preserve them.
-      fastPatchRow(grid, rowEl, rowData, rowIndex);
+      // Correct row and it owns live editors — preserve them. A changed column set (a moved
+      // column window, #640) re-keys the cells by field instead of patching them by position.
+      if (cellsMatchColumns(rowEl, grid._visibleColumns)) fastPatchRow(grid, rowEl, rowData, rowIndex);
+      else rewindowEditingRow(grid, rowEl, rowData, rowIndex);
       rowEl.__rowDataRef = rowData;
       return;
     }
@@ -1202,8 +1204,6 @@ export function renderInlineRow(grid: GridHost, rowEl: HTMLElement, rowData: any
   // Pre-cache values used in the loop
   const columns = grid._visibleColumns;
   const colsLen = columns.length;
-  const focusRow = grid._focusRow;
-  const focusCol = grid._focusCol;
 
   // Check if any plugin wants cell-level hooks (avoid overhead when not needed)
   const hasCellHook = grid._hasAfterCellRenderHook?.() ?? false;
@@ -1212,44 +1212,154 @@ export function renderInlineRow(grid: GridHost, rowEl: HTMLElement, rowData: any
   const fragment = document.createDocumentFragment();
 
   for (let colIndex = 0; colIndex < colsLen; colIndex++) {
-    const col = columns[colIndex];
-    const cell = buildCellElement(col, colIndex, rowIndex);
-
-    let value = resolveCellValue(rowData, col, rowIndex);
-    // Resolve format using priority chain: column → typeDefaults → adapter
-    const formatFn = resolveFormat(grid, col);
-    if (formatFn) {
-      try {
-        value = formatFn(value, rowData);
-      } catch (e) {
-        // Log format errors as warnings (user configuration issue)
-        warnDiagnostic(FORMAT_ERROR, `Format error in column '${col.field}': ${e}`, grid.id);
-      }
-    }
-
-    const needsSanitization = renderCellContent(grid, cell, col, value, rowData, !!formatFn);
-    scrubRenderedCell(cell, needsSanitization);
-    applyCellTabIndex(cell, col, rowData);
-
-    // Initialize focus state (must match fastPatchRow for consistent behavior)
-    if (focusRow === rowIndex && focusCol === colIndex) {
-      cell.classList.add('cell-focus');
-      cell.setAttribute('aria-selected', 'true');
-    } else {
-      cell.setAttribute('aria-selected', 'false');
-    }
-
-    // Apply cellClass callback if configured
-    applyCellClass(grid, cell, col, rowData, rowIndex);
-
-    // Call cell-level plugin hook if any plugin registered it
-    if (hasCellHook) emitAfterCellRender(grid, rowEl, cell, col, colIndex, rowData, rowIndex, value);
-
-    fragment.appendChild(cell);
+    fragment.appendChild(renderCell(grid, rowEl, columns[colIndex], colIndex, rowData, rowIndex, hasCellHook));
   }
 
   // Single DOM operation to append all cells
   rowEl.appendChild(fragment);
+}
+
+/** Build and fill one cell of `rowEl` (not yet inserted), including focus state and plugin hooks. */
+function renderCell(
+  grid: GridHost,
+  rowEl: HTMLElement,
+  col: ColumnInternal,
+  colIndex: number,
+  rowData: unknown,
+  rowIndex: number,
+  hasCellHook: boolean,
+): HTMLDivElement {
+  const cell = buildCellElement(col, colIndex, rowIndex);
+
+  let value = resolveCellValue(rowData, col, rowIndex);
+  // Resolve format using priority chain: column → typeDefaults → adapter
+  const formatFn = resolveFormat(grid, col);
+  if (formatFn) {
+    try {
+      value = formatFn(value, rowData);
+    } catch (e) {
+      // Log format errors as warnings (user configuration issue)
+      warnDiagnostic(FORMAT_ERROR, `Format error in column '${col.field}': ${e}`, grid.id);
+    }
+  }
+
+  const needsSanitization = renderCellContent(grid, cell, col, value, rowData, !!formatFn);
+  scrubRenderedCell(cell, needsSanitization);
+  applyCellTabIndex(cell, col, rowData);
+
+  // Initialize focus state (must match fastPatchRow for consistent behavior)
+  if (grid._focusRow === rowIndex && grid._focusCol === colIndex) {
+    cell.classList.add('cell-focus');
+    cell.setAttribute('aria-selected', 'true');
+  } else {
+    cell.setAttribute('aria-selected', 'false');
+  }
+
+  // Apply cellClass callback if configured
+  applyCellClass(grid, cell, col, rowData, rowIndex);
+
+  // Call cell-level plugin hook if any plugin registered it
+  if (hasCellHook) emitAfterCellRender(grid, rowEl, cell, col, colIndex, rowData, rowIndex, value);
+  return cell;
+}
+
+/** Whether the row's cells show exactly `columns`, in order (by `data-field`). */
+function cellsMatchColumns(rowEl: HTMLElement, columns: readonly ColumnInternal[]): boolean {
+  const children = rowEl.children;
+  let n = 0;
+  for (let i = 0; i < children.length; i++) {
+    const cell = children[i];
+    if (!cell.classList.contains('cell')) continue;
+    if (columns[n++]?.field !== cell.getAttribute('data-field')) return false;
+  }
+  return n === columns.length;
+}
+
+/**
+ * Bring a row that owns live editors onto a changed rendered column set — a moved column window
+ * (#640), reorder, hide/show — keyed by field. Cells whose column is still rendered stay in the DOM
+ * untouched (an editor keeps its draft and focus); only cells around them are dropped or built, so
+ * the `afterCellRender` hook can give new ones editors.
+ */
+function rewindowEditingRow(grid: GridHost, rowEl: RowElementInternal, rowData: unknown, rowIndex: number): void {
+  const columns = grid._visibleColumns;
+  // Per-field queues, consumed in DOM order, so columns sharing a field map deterministically.
+  const wanted = new Map<string, number>();
+  for (const c of columns) wanted.set(c.field, (wanted.get(c.field) ?? 0) + 1);
+  const kept = new Map<string, HTMLElement[]>();
+  const dropped: HTMLElement[] = [];
+  for (const cell of Array.from(rowEl.children) as HTMLElement[]) {
+    if (!cell.classList.contains('cell')) continue;
+    const field = cell.getAttribute('data-field') ?? '';
+    const queue = kept.get(field) ?? [];
+    if (queue.length < (wanted.get(field) ?? 0)) {
+      queue.push(cell);
+      kept.set(field, queue);
+    } else dropped.push(cell);
+  }
+  // Removing a focused editor fires no blur, and editors commit on blur: blur it first so its draft lands.
+  const active = rowEl.ownerDocument.activeElement as HTMLElement | null;
+  if (active && dropped.some((cell) => cell.contains(active))) {
+    active.blur();
+    // Keep keyboard focus in the grid (the host carries it while cell focus is virtual), so the next
+    // key still reaches the grid and reveals the parked column.
+    const now = rowEl.ownerDocument.activeElement;
+    if (!now || now === rowEl.ownerDocument.body) grid._hostElement.focus({ preventScroll: true });
+  }
+  if (dropped.length > 0) {
+    const adapter = grid.__frameworkAdapter;
+    // One adapter batch (as in `clearRowForRebuild`): released portals commit once, not per cell.
+    adapter?.beginBatch?.(grid);
+    try {
+      for (const cell of dropped) {
+        if (cell.classList.contains(GridClasses.EDITING)) {
+          rowEl.__editingCellCount = Math.max(0, (rowEl.__editingCellCount ?? 0) - 1);
+        }
+        // Same release order as `releasePooledRow`: an adapter-rendered cell loader, then the cell's views.
+        removeCellLoadingOverlay(cell, adapter);
+        if (cell.firstElementChild) adapter?.releaseCell?.(cell);
+        cell.remove();
+      }
+    } finally {
+      adapter?.endBatch?.(grid);
+    }
+  }
+  // This row's own bookkeeping only: `clearEditingState` queries descendants, and a nested grid in a
+  // kept renderer cell owns its own `.editing` cells.
+  if (!rowEl.__editingCellCount) {
+    rowEl.__editingCellCount = 0;
+    rowEl.removeAttribute('data-has-editing');
+  }
+
+  const hasCellHook = grid._hasAfterCellRenderHook?.() ?? false;
+  const rowIndexStr = String(rowIndex);
+  let next = rowEl.firstElementChild;
+  for (let i = 0; i < columns.length; i++) {
+    const col = columns[i];
+    const cell = kept.get(col.field)?.shift();
+    if (!cell) {
+      rowEl.insertBefore(renderCell(grid, rowEl, col, i, rowData, rowIndex, hasCellHook), next);
+      continue;
+    }
+    // Kept cells keep their relative order under a window move; only a reorder moves one.
+    if (cell !== next) rowEl.insertBefore(cell, next);
+    next = cell.nextElementSibling;
+    if (cell.getAttribute('data-col') !== String(i)) {
+      cell.setAttribute('data-col', String(i));
+      cell.setAttribute('aria-colindex', String(i + 1));
+    }
+    if (cell.getAttribute('data-row') !== rowIndexStr) cell.setAttribute('data-row', rowIndexStr);
+    // As in `fastPatchRow`: editing cells keep `cellClass` current, but their focus and content belong to the editor.
+    applyCellClass(grid, cell, col, rowData, rowIndex);
+    if (cell.classList.contains(GridClasses.EDITING)) continue;
+    patchCellFocus(cell, grid._focusRow === rowIndex && grid._focusCol === i);
+    patchCellContent(grid, rowEl, cell, col, i, rowData, rowIndex, hasCellHook);
+  }
+  // A reorder moved a kept cell holding the focused editor; a DOM move drops focus (the input and
+  // its draft survive the move), so give it back.
+  if (active?.isConnected && rowEl.contains(active) && rowEl.ownerDocument.activeElement !== active) {
+    active.focus({ preventScroll: true });
+  }
 }
 // #endregion
 

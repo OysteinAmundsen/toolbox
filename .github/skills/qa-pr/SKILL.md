@@ -18,14 +18,15 @@ node id (`PRRT_…`) used to resolve it, and its first comment has a numeric
 expose PR-level comments and approvals — they **cannot** read or reply to inline
 threads — so this skill drives the `gh` CLI directly.
 
-This skill ships two scripts so you never have to recreate the fetch/parse/reply
-loop by hand. Both are zero-dependency Bun/Node ESM (they shell out to `gh` and
+This skill ships three scripts so you never have to recreate the fetch/parse/reply
+loop by hand. All are zero-dependency Bun/Node ESM (they shell out to `gh` and
 parse JSON in-process — **no `jq` required**, since `jq` is not installed here):
 
-| Script              | Purpose                                                                              |
-| ------------------- | ------------------------------------------------------------------------------------ |
-| `fetch-threads.mjs` | Fetch all review threads as normalized JSON (paginated, unresolved-only by default). |
-| `reply-resolve.mjs` | Post inline replies from a JSON items file, then resolve those threads.              |
+| Script                    | Purpose                                                                              |
+| ------------------------- | ------------------------------------------------------------------------------------ |
+| `fetch-threads.mjs`       | Fetch all review threads as normalized JSON (paginated, unresolved-only by default). |
+| `reply-resolve.mjs`       | Post inline replies from a JSON items file, then resolve those threads.              |
+| `wait-copilot-review.mjs` | (Re-)request a Copilot review and wait for its review of the current head commit.    |
 
 ## Prerequisites
 
@@ -116,6 +117,23 @@ via the `resolveReviewThread` mutation. Use `--dry-run` first if unsure.
 After every thread is processed, **stop**. Do not post an extra PR-level summary comment —
 per-thread replies and resolution are the required output. Leave changes unstaged and end
 with a suggested commit message for the user to run.
+
+## 4. Optional: review loop (only when the user asks for it)
+
+When the user explicitly asks to amend, push and re-run the Copilot reviewer until it is clean,
+each round is: amend → `git push --force-with-lease` → request + wait → triage the new threads
+(steps 1–3):
+
+```bash
+bun .github/skills/qa-pr/wait-copilot-review.mjs <pr> --request   # gh pr edit --add-reviewer @copilot, then poll
+bun .github/skills/qa-pr/wait-copilot-review.mjs <pr>             # only wait (review already requested)
+```
+
+The review appears as a normal PR review from `copilot-pull-request-reviewer[bot]` whose
+`commit_id` is the head SHA (≈5–15 min). Stop the loop when a round has **no valid findings**:
+the reviewer rarely says "no findings", and re-requesting a review of an unchanged commit only
+re-litigates pushbacks. Record recurring out-of-scope themes as a `DECIDED` entry, so later
+pushbacks can cite it (PR #644: duplicate column `field` values).
 
 ## Constraints
 

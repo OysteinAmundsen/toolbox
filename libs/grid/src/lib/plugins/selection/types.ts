@@ -136,7 +136,7 @@ export type SelectionTrigger = 'click' | 'dblclick';
  * @param row - The row data object
  * @param rowIndex - The row index in the grid
  * @param column - The column config (provided in cell/range modes, undefined in row mode)
- * @param colIndex - The column index (provided in cell/range modes, undefined in row mode)
+ * @param colIndex - The column index among the visible columns, as in {@link CellRange} (provided in cell/range modes, undefined in row mode)
  *
  * @example
  * ```ts
@@ -324,6 +324,10 @@ export interface InternalCellRange {
 
 /**
  * Public representation of a cell range (for events)
+ *
+ * `col` indexes the grid's visible columns (hidden columns excluded) in display
+ * order. It is never narrowed by column virtualization, so a range keeps
+ * pointing at the same columns while the grid scrolls horizontally.
  *
  * @since 0.1.1
  */

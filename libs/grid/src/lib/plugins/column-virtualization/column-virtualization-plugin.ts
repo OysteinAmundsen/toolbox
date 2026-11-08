@@ -6,7 +6,8 @@
  */
 
 import { BaseGridPlugin, type PluginManifest, type PluginQuery, ScrollEvent } from '../../core/plugin/base-plugin';
-import type { ColumnConfig } from '../../core/types';
+import { indexOfColumn } from '../../core/internal/utils';
+import type { ColumnConfig, GridHost } from '../../core/types';
 import {
   computeColumnOffsets,
   computeTotalWidth,
@@ -18,6 +19,9 @@ import type { ColumnVirtualizationConfig } from './types';
 
 /** Host custom property carrying the window's left offset to rows rendered by other plugins. */
 const WINDOW_OFFSET_PROPERTY = '--tbw-column-window-offset';
+
+/** Modifier and lock keys: pressed alone they never navigate, so they must not reveal an off-window focus (#633). */
+const MODIFIER_KEYS: ReadonlySet<string> = new Set(['Shift', 'Control', 'Alt', 'Meta', 'AltGraph', 'CapsLock']);
 
 /**
  * Column Virtualization Plugin for tbw-grid
@@ -63,10 +67,19 @@ const WINDOW_OFFSET_PROPERTY = '--tbw-column-window-offset';
 export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizationConfig> {
   /** @internal */
   static override readonly manifest: PluginManifest = {
+    hookPriority: {
+      // Reveal an off-window focused column before any other plugin reads `_focusCol` (#633).
+      onKeyDown: -100,
+    },
     queries: [
       {
         type: 'revealColumn',
-        description: 'Scroll a column (context: field) into the rendered window; true when the window moved',
+        description:
+          'Scroll a column (context: column object or field) into the rendered window; true when the window moved',
+      },
+      {
+        type: 'offWindowFocus',
+        description: 'The focused column while it is scrolled out of the rendered window (`_focusCol` is -1)',
       },
     ],
   };
@@ -97,7 +110,16 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
   #stylesApplied = false;
   /** Visible columns the current window was computed from: live objects, so in-place width changes show. */
   #windowSource: readonly ColumnConfig[] = [];
+  /** The last `windowColumns` result, and whether it was narrowed: focus follows its column across windows. */
+  #rendered?: readonly ColumnConfig[];
+  #windowed = false;
+  /** The focused column while it is scrolled out of the window; valid only while `_focusCol` is -1. */
+  #parked?: ColumnConfig;
   // #endregion
+
+  get #internalGrid(): GridHost {
+    return this.grid;
+  }
 
   // #region Lifecycle
 
@@ -115,6 +137,22 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
   override detach(): void {
     // Clean up inline styles set by this plugin
     this.#cleanupStyles();
+
+    // Without this plugin `_visibleColumns` is the full visible list: hand focus back as an index into it.
+    const grid = this.#internalGrid;
+    const focused = grid && (grid._focusCol < 0 ? this.#parked : this.#rendered?.[grid._focusCol]);
+    if (focused && this.#windowed) {
+      grid._focusCol = Math.max(
+        0,
+        indexOfColumn(
+          this.columns.filter((c) => !c.hidden),
+          focused,
+        ),
+      );
+    }
+    this.#rendered = undefined;
+    this.#windowed = false;
+    this.#parked = undefined;
 
     this.columnWidths = [];
     this.columnOffsets = [];
@@ -168,9 +206,18 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
    * @internal
    */
   override handleQuery(query: PluginQuery): unknown {
+    if (query.type === 'offWindowFocus') return this.#internalGrid._focusCol < 0 ? this.#parked : undefined;
     if (query.type !== 'revealColumn' || !this.isVirtualized) return undefined;
     const columns = this.columns.filter((c) => !c.hidden);
-    const index = columns.findIndex((c) => c.field === query.context);
+    // Context: a column object (keeps columns sharing a field apart) or a field.
+    const wanted = query.context as string | ColumnConfig;
+    let index = typeof wanted === 'string' ? -1 : columns.indexOf(wanted);
+    if (index < 0) {
+      const field = typeof wanted === 'string' ? wanted : wanted.field;
+      index = columns.findIndex((c) => c.field === field);
+      // A field shared by several columns (and no identical object) cannot say which one to reveal.
+      if (index >= 0 && columns.some((c, i) => i > index && c.field === field)) return undefined;
+    }
     if (index < 0) return undefined;
 
     const left = computeColumnOffsets(columns)[index];
@@ -195,6 +242,43 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
    * @internal
    */
   override windowColumns(columns: readonly ColumnConfig[]): readonly ColumnConfig[] {
+    const rendered = this.#window(columns);
+    const windowed = rendered !== columns;
+    // Unwindowed before and after: `_focusCol` indexes the full list, so it keeps its index semantics.
+    if (this.#rendered && (windowed || this.#windowed)) this.#followFocus(this.#rendered, rendered, columns);
+    this.#rendered = rendered;
+    this.#windowed = windowed;
+    return rendered;
+  }
+
+  /**
+   * Keep `_focusCol` on the same column when the window changes (#633). `_focusCol` is a rendered
+   * index, so a moved window would otherwise point it at another column. A focused column scrolled
+   * out of the window parks as `-1` (no rendered cell) and is re-resolved when it comes back, or
+   * revealed by the next key press ({@link onKeyDown}). Any other write to `_focusCol` ends a park;
+   * a plugin writing back the `-1` it read keeps it.
+   */
+  #followFocus(prev: readonly ColumnConfig[], next: readonly ColumnConfig[], visible: readonly ColumnConfig[]): void {
+    const grid = this.#internalGrid;
+    const focus = grid._focusCol;
+    if (focus >= 0) this.#parked = undefined;
+    const column = this.#parked ?? prev[focus];
+    if (!column || next[focus] === column) return;
+    const index = indexOfColumn(next, column);
+    if (index >= 0) {
+      grid._focusCol = index;
+      this.#parked = undefined;
+    } else if (indexOfColumn(visible, column) >= 0) {
+      grid._focusCol = -1;
+      this.#parked = column;
+    } else if (this.#parked) {
+      // The parked column was hidden or removed: fall back to the first column.
+      grid._focusCol = 0;
+      this.#parked = undefined;
+    }
+  }
+
+  #window(columns: readonly ColumnConfig[]): readonly ColumnConfig[] {
     this.#windowSource = columns;
     this.#measure(columns);
     this.isVirtualized =
@@ -288,6 +372,30 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     if (rowsBody) {
       rowsBody.style.minWidth = `${this.totalWidth}px`;
     }
+  }
+
+  /**
+   * Reveal an off-window focused column before any other plugin or core navigation acts on the
+   * key (#633): runs first (`hookPriority.onKeyDown`), so they all see a rendered `_focusCol`.
+   * Only for cell-navigation targets (the host, or a body cell itself): the reveal re-renders
+   * synchronously, which would detach a focused header control or re-window under a typing form
+   * field. Lone modifier presses don't scroll. Never claims the key.
+   * @internal
+   */
+  override onKeyDown(event: KeyboardEvent): boolean {
+    const grid = this.#internalGrid;
+    const column = this.#parked;
+    if (!column || grid._focusCol >= 0 || MODIFIER_KEYS.has(event.key) || !this.#isNavTarget(event)) return false;
+    grid._focusColumn?.(column);
+    // A column the window cannot bring back must not leave the keyboard without a focused cell.
+    if (grid._focusCol < 0) grid._focusCol = 0;
+    return false;
+  }
+
+  #isNavTarget(event: KeyboardEvent): boolean {
+    const target = (event.composedPath?.()[0] ?? event.target) as HTMLElement | null;
+    if (target === this.gridElement) return true;
+    return !!target?.classList?.contains('cell') && !!target.closest('.rows-body') && !target.closest('.header');
   }
 
   /** @internal */

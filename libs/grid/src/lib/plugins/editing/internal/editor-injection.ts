@@ -47,7 +47,7 @@ export interface EditorInjectionDeps<T> {
   isGridMode: boolean;
   /** Plugin configuration. */
   config: EditingConfig;
-  /** Set of cells currently in edit mode ("rowIndex:colIndex"). */
+  /** Cells currently in edit mode, keyed `"rowIndex:field"` (a column window move re-indexes cells, #640). */
   editingCells: Set<string>;
   /** Value-change callbacks keyed by "rowIndex:field". */
   editorValueCallbacks: Map<string, (newValue: unknown) => void>;
@@ -106,7 +106,7 @@ export function injectEditor<T>(
   const originalValue = isSafePropertyKey(column.field) ? readCellField(rowData, column.field) : undefined;
 
   cell.classList.add('editing');
-  editingCells.add(`${rowIndex}:${colIndex}`);
+  editingCells.add(`${rowIndex}:${column.field}`);
 
   // Use explicit parentRowEl when cell is in a DocumentFragment (not yet in DOM),
   // otherwise fall back to cell.parentElement for cells already attached to a row.

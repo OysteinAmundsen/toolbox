@@ -120,6 +120,34 @@ export function getColIndexFromCell(cell: Element | null): number {
 }
 
 /**
+ * Whether a keyboard event comes from a control rendered in the grid's header (a `headerRenderer`
+ * input or button, in light DOM or an open shadow root) rather than from a header cell. Such
+ * controls own their keys: column navigation from them would re-render the header (a column
+ * window reveal, #640) and detach them mid-key. Resolved from `composedPath()`, which crosses
+ * shadow roots where `closest()` stops.
+ */
+export function isHeaderControlEvent(e: Event): boolean {
+  const path = e.composedPath?.() ?? [];
+  const target = (path[0] ?? e.target) as Element | null;
+  if (!target || target.classList?.contains('cell')) return false;
+  if (path.length === 0) return !!target.closest?.('.header');
+  return path.some((node) => (node as Element).classList?.contains('header'));
+}
+
+/**
+ * Index of a column in `list`: by object identity (columns sharing a field stay distinct), else by
+ * field — a config re-merge clones column objects, and a string target is a field (#633, #640).
+ */
+export function indexOfColumn(list: readonly { field: string }[], column: string | { field: string }): number {
+  if (typeof column !== 'string') {
+    const index = list.indexOf(column);
+    if (index >= 0) return index;
+    column = column.field;
+  }
+  return list.findIndex((c) => c.field === column);
+}
+
+/**
  * Clear cell-focus styling from the grid's own data cells.
  *
  * `body` is the grid's `.rows` container (`grid._bodyEl`). Only cells of rows

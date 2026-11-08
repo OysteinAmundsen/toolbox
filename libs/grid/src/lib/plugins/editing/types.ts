@@ -25,7 +25,7 @@ import type { BaselinesCapturedDetail, DirtyChangeDetail } from './internal/dirt
 export interface CellCancelDetail {
   /** Index of the row whose cell was reverted. */
   rowIndex: number;
-  /** Column index of the reverted cell. */
+  /** Rendered column index (`data-col`) of the reverted cell at the time of the event; `-1` when column virtualization has scrolled it out of view. */
   colIndex: number;
   /** Field name of the reverted cell. */
   field: string;

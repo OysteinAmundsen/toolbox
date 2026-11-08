@@ -682,7 +682,7 @@ describe('rendered-window index space vs full column list (#603 QA)', () => {
       );
     });
 
-    it('keep a bounded fill selection to the cells it shows', async () => {
+    it('keep a bounded fill selection to the selected columns', async () => {
       const columns = makeColumns();
       columns[179] = { ...columns[179], pinned: 'right' } as ColumnConfig;
       const grid = createGrid();
@@ -704,9 +704,10 @@ describe('rendered-window index space vs full column list (#603 QA)', () => {
       const at = grid._visibleColumns.findIndex((c) => c.field === 'c10');
       expect(grid._visibleColumns[at + 1]?.field).toBe('c179');
 
-      selection.setRanges([{ from: { row: 0, col: at }, to: { row: 0, col: at + 1 } }]);
+      // Selection columns index the full visible list (#633), so c10..c11 is not c10 + pinned c179.
+      selection.setRanges([{ from: { row: 0, col: 10 }, to: { row: 0, col: 11 } }]);
 
-      expect(paste(grid, 1)).toEqual(['c10', 'c179']);
+      expect(paste(grid, 1)).toEqual(['c10', 'c11']);
     });
   });
 });

@@ -142,13 +142,13 @@ describe('editor-injection', () => {
       expect(cell.classList.contains('editing')).toBe(true);
     });
 
-    it('should track cell in editingCells set', () => {
+    it('should track cell in editingCells set by field, not rendered index (#640)', () => {
       const deps = createDeps();
       const { cell } = createCellInRow();
 
       injectEditor(deps, { id: '1', name: 'Alice' }, 2, col('name'), 3, cell, true);
 
-      expect(deps.editingCells.has('2:3')).toBe(true);
+      expect(deps.editingCells.has('2:name')).toBe(true);
     });
 
     it('should set data-has-editing on parent row', () => {

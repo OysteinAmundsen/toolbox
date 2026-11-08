@@ -156,6 +156,17 @@ export class RenderScheduler {
   }
 
   /**
+   * Run a pending render now instead of on the next animation frame. For input handlers that must
+   * act on the re-rendered DOM, e.g. a key press that first scrolls the focused column back into a
+   * column window (#633). No-op when nothing is pending.
+   */
+  flushPending(): void {
+    if (this.#rafHandle === 0) return;
+    cancelAnimationFrame(this.#rafHandle);
+    this.#flush();
+  }
+
+  /**
    * Returns a promise that resolves when the current render cycle completes.
    * If no render is pending, returns an already-resolved promise.
    */

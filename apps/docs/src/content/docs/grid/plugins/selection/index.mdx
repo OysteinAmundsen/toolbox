@@ -363,6 +363,8 @@ plugin.clearSelection();
 
 `selectAll()` selects every selectable row in row mode, or one range over all rows and every non-hidden column in range mode. With a combined mode (`['row', 'column']`, `['range', 'column']`) it acts on the row/range axis. It does nothing in cell mode, in pure `'column'` mode (use `selectAllColumns()`), or with `multiSelect: false`. The adapters' `selectAll` (`useGridSelection`, `injectGridSelection`) calls this method.
 
+Column indices in ranges (`CellRange.col`, `setRanges()`, `isCellSelected()`, the `isSelectable` callback's `colIndex`) count the grid's non-hidden columns in display order. With [Column Virtualization](/grid/plugins/column-virtualization/#selection-and-focus), they still count every column, not only the rendered ones, so a selection stays on its columns while the grid scrolls horizontally.
+
 :::tip
 Use `getSelectedRows()` to retrieve actual row data objects rather than resolving indices manually. Row indices refer to positions in the grid's current (sorted/filtered) row array, which may differ from your original data array.
 :::

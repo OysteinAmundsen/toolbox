@@ -48,6 +48,7 @@ import {
   validatePluginProperties,
 } from './internal/validate-config';
 import { readCellField } from './internal/value-accessor';
+import { indexOfColumn } from './internal/utils';
 import { computeRowsTranslateY } from './internal/virtualization';
 import { VirtualizationManager } from './internal/virtualization-manager';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent, ScrollEvent } from './plugin';
@@ -427,7 +428,31 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   // Focus & navigation
   _focusRow = 0;
+  /**
+   * Focused column as an index into `_visibleColumns` (the rendered columns). `-1` while a column
+   * window (ColumnVirtualization) has the focused column scrolled out of view (#633).
+   */
   _focusCol = 0;
+
+  /**
+   * @internal Focus a column (object, or field), scrolling it into a column window first when it
+   * is outside the rendered columns (#633). Objects keep columns sharing a field apart. No-op for
+   * an unknown or hidden column.
+   */
+  _focusColumn(column: string | ColumnConfig<T>): void {
+    const index = indexOfColumn(this._visibleColumns, column);
+    if (index >= 0) {
+      this._focusCol = index;
+      return;
+    }
+    if (!this.query<boolean>('revealColumn', column).some(Boolean)) return;
+    // The reveal moved the window: assign the destination BEFORE the sync flush, whose afterRender
+    // hooks read focus (Selection's pending keyboard update would otherwise see the old, parked one).
+    const revealed = indexOfColumn(this._visibleColumns, column);
+    if (revealed >= 0) this._focusCol = revealed;
+    this.#scheduler.flushPending();
+  }
+
   /** Flag to restore focus styling after next render. @internal */
   _restoreFocusAfterRender = false;
 
@@ -3291,7 +3316,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * The currently focused cell position, or `null` if no rows are loaded.
    *
    * Returns a snapshot object with the row index, visible column index, and
-   * the field name of the focused column.
+   * the field name of the focused column. With column virtualization, `colIndex`
+   * indexes the rendered columns and is `-1` while the focused column is scrolled
+   * out of view; `field` always names the focused column.
    *
    * @group Focus & Navigation
    *
@@ -3304,7 +3331,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   get focusedCell(): { rowIndex: number; colIndex: number; field: string } | null {
-    return this.#focusManager.focusedCell;
+    const cell = this.#focusManager.focusedCell;
+    // Parked off-window: the column windowing plugin knows which column has focus.
+    if (cell?.colIndex === -1) cell.field = this.query<ColumnConfig<T>>('offWindowFocus', undefined)[0]?.field ?? '';
+    return cell;
   }
 
   /**

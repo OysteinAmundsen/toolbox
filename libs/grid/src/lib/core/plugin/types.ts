@@ -555,7 +555,10 @@ export interface GridElementRef<T = any>
 
   /** Current focused row index. @internal */
   _focusRow: number;
-  /** Current focused column index. @internal */
+  /**
+   * Current focused column: an index into `_visibleColumns` (rendered columns). `-1` while column
+   * virtualization has the focused column scrolled out of the rendered window. @internal
+   */
   _focusCol: number;
   /** AbortSignal that is aborted when the grid disconnects from the DOM. */
   disconnectSignal: AbortSignal;

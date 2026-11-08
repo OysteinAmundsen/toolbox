@@ -223,15 +223,15 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     // Range mode CLEARS `ranges` on plain keyboard navigation (arrow/Tab without
     // Shift), keeping the focused cell only as the selection `anchor`, and DOM
     // focus is NOT on a cell element after keyboard nav — so prefer the anchor
-    // (a visible-column index) and only fall back to the focused DOM cell for
-    // the mouse-focus / no-anchor edge. Without the anchor path, keyboard-nav
-    // copy silently no-ops.
+    // (a selection-space index, see #selectionColumns) and only fall back to the
+    // focused DOM cell for the mouse-focus / no-anchor edge. Without the anchor
+    // path, keyboard-nav copy silently no-ops.
     if (selection && selection.ranges.length === 0) {
       let row: number | undefined;
       let field: string | undefined;
       if (selection.anchor) {
         row = selection.anchor.row;
-        field = this.visibleColumns[selection.anchor.col]?.field;
+        field = this.#selectionColumns()[selection.anchor.col]?.field;
       } else {
         const focused = this.#getFocusedCellFromDOM(target);
         if (focused) {
@@ -316,7 +316,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     const isMultiCell =
       !!firstRange && (axis === 'range' || axis === 'row') && (selMinRow !== selMaxRow || selMinCol !== selMaxCol);
 
-    // Selection range indices are rendered-column indices (from data-col)
+    // Selection range indices are selection-space indices (see #selectionColumns)
     const bounds = isMultiCell ? { endRow: selMaxRow, endCol: selMaxCol } : null;
 
     // Drop a copied header row so a round-trip paste writes only values into
@@ -352,7 +352,8 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     }
 
     // Build target info
-    const column = this.visibleColumns[targetCol];
+    const columns = this.#selectionColumns();
+    const column = columns[targetCol];
     const target: PasteTarget | null = column ? { row: targetRow, col: targetCol, field: column.field, bounds } : null;
 
     // Fill-selection tiling only applies to a bounded (multi-cell) selection.
@@ -361,19 +362,12 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     // Build field list for paste width (constrained by bounds if set). When
     // filling the selection, extend fields across the full selection width so
     // the source can be tiled to fill every selected column; otherwise cap at
-    // the clipboard's own width.
-    // A bounded selection keeps the cells it shows (its rendered columns). An unbounded paste walks
-    // the FULL visible list from the target: under column virtualization the rendered list is a
-    // window plus always-rendered pinned columns, which would stop the paste at the window edge or
-    // jump it into a pinned column.
-    let pasteColumns: readonly ColumnConfig[] = [];
-    if (bounds) {
-      pasteColumns = this.visibleColumns.slice(targetCol, bounds.endCol + 1);
-    } else if (column) {
-      const all = this.columns.filter((c) => !c.hidden);
-      const start = all.indexOf(column);
-      if (start >= 0) pasteColumns = all.slice(start);
-    }
+    // the clipboard's own width. Both walk the full visible list, so under column
+    // virtualization a paste neither stops at the rendered window's edge nor jumps
+    // into an always-rendered pinned column (#633).
+    const pasteColumns: readonly ColumnConfig[] = column
+      ? columns.slice(targetCol, bounds ? bounds.endCol + 1 : undefined)
+      : [];
     const pasteWidth = parsed[0]?.length ?? 0;
     const fieldWidth = Math.min(fillSelection ? pasteColumns.length : pasteWidth, pasteColumns.length);
     const fields = pasteColumns.slice(0, fieldWidth).map((c) => c.field);
@@ -481,6 +475,14 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
   }
 
   /**
+   * The columns selection coordinates (`CellRange.col`, `anchor.col`) index: every visible column,
+   * never narrowed by column virtualization's rendered window (#633).
+   */
+  #selectionColumns(): ColumnConfig[] {
+    return this.columns.filter((c) => !c.hidden);
+  }
+
+  /**
    * Resolve columns and rows to include based on options and/or current selection.
    *
    * Priority for columns:
@@ -531,10 +533,12 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
       // Caller specified exact fields
       columns = resolveColumns(this.columns, options.columns);
     } else if (ranges.length && !isRowAxis) {
-      // Range/cell selection: restrict to selection column bounds
-      // Selection indices are visible-column indices (from data-col)
-      columns = resolveColumns(this.visibleColumns.slice(minCol, maxCol + 1));
-      colIndices = columns.map((col) => this.visibleColumns.indexOf(col));
+      // Range/cell selection: restrict to selection column bounds (selection-space indices)
+      const all = this.#selectionColumns();
+      const slice = all.slice(minCol, maxCol + 1);
+      const indexOf = new Map(slice.map((col, i) => [col, minCol + i]));
+      columns = resolveColumns(slice);
+      colIndices = columns.map((col) => indexOf.get(col) ?? -1);
     } else {
       // Row selection or no selection: all visible columns
       columns = resolveColumns(this.columns);

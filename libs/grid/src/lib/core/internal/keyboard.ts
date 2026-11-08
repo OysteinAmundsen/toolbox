@@ -3,8 +3,8 @@
  * and edit lifecycle triggers while respecting active form field interactions.
  */
 import { FOCUSABLE_EDITOR_SELECTOR, GridClasses } from '../constants';
-import type { GridHost } from '../types';
-import { clearCellFocus, isOwnTarget, isRTL } from './utils';
+import type { ColumnConfig, GridHost } from '../types';
+import { clearCellFocus, indexOfColumn, isHeaderControlEvent, isOwnTarget, isRTL } from './utils';
 import { readCellField } from './value-accessor';
 import { fromVirtualScrollTop, getRowIndexAtOffset, toVirtualScrollTop } from './virtualization';
 
@@ -39,6 +39,9 @@ function shouldIgnoreKeyDown(grid: GridHost, e: KeyboardEvent, target: HTMLEleme
   // user's actual interaction target on the very next render cycle.
   // Cells and the grid host itself remain valid navigation targets.
   if (target && target !== grid && !target.closest?.('.rows-body')) return true;
+  // Same for a control rendered in a header cell (filter input, button): column navigation may
+  // re-render the header (a column window reveal, #640) and detach it mid-key.
+  if (isHeaderControlEvent(e)) return true;
 
   if (isFormField(target)) {
     switch (e.key) {
@@ -66,26 +69,22 @@ function shouldIgnoreKeyDown(grid: GridHost, e: KeyboardEvent, target: HTMLEleme
 }
 
 /** Tab / Shift+Tab: advance one cell, wrapping to the next/previous row. */
-function navigateTab(grid: GridHost, e: KeyboardEvent, maxRow: number, maxCol: number): void {
+function navigateTab(grid: GridHost, e: KeyboardEvent, maxRow: number): void {
   e.preventDefault();
-  if (!e.shiftKey) {
-    if (grid._focusCol < maxCol) {
-      grid._focusCol += 1;
-      return;
-    }
+  const forward = !e.shiftKey;
+  if (stepColumn(grid, forward ? 1 : -1)) return;
+  if (forward) {
     tryCommitEdit(grid);
     if (grid._focusRow < maxRow) {
       grid._focusRow += 1;
-      grid._focusCol = 0;
+      focusEdgeColumn(grid, false);
     }
     return;
   }
-  if (grid._focusCol > 0) {
-    grid._focusCol -= 1;
-  } else if (grid._focusRow > 0) {
+  if (grid._focusRow > 0) {
     if (grid._activeEditRows === grid._focusRow) tryCommitEdit(grid);
     grid._focusRow -= 1;
-    grid._focusCol = maxCol;
+    focusEdgeColumn(grid, true);
   }
 }
 
@@ -93,11 +92,47 @@ function navigateTab(grid: GridHost, e: KeyboardEvent, maxRow: number, maxCol: n
  * ArrowLeft/ArrowRight. `towardEnd` is the LOGICAL direction (ArrowRight); in
  * RTL the physical arrow maps to the opposite column index.
  */
-function navigateHorizontal(grid: GridHost, e: KeyboardEvent, maxCol: number, towardEnd: boolean): void {
+function navigateHorizontal(grid: GridHost, e: KeyboardEvent, towardEnd: boolean): void {
   const forward = isRTL(grid) ? !towardEnd : towardEnd;
-  grid._focusCol = forward ? Math.min(maxCol, grid._focusCol + 1) : Math.max(0, grid._focusCol - 1);
+  stepColumn(grid, forward ? 1 : -1);
   e.preventDefault();
 }
+
+// #region Column stepping
+// Column windowing (ColumnVirtualization) renders a window plus always-rendered pinned columns, so
+// `_focusCol ± 1` skips every column outside the window or jumps into a pinned one (#633, #640).
+// Horizontal moves step the full visible list by column identity (columns may share a field);
+// `_focusColumn` reveals and resolves the target. Hosts without it (unit-test mocks) step the
+// rendered index.
+
+/** Visible columns in display order, never narrowed by column windowing. */
+function fullColumns(grid: GridHost): readonly ColumnConfig[] {
+  return grid._focusColumn ? (grid._columns ?? []).filter((c) => !c.hidden) : grid._visibleColumns;
+}
+
+/** Focus `columns[index]` (a {@link fullColumns} list). */
+function focusFullColumn(grid: GridHost, columns: readonly ColumnConfig[], index: number): void {
+  if (grid._focusColumn) grid._focusColumn(columns[index]);
+  else grid._focusCol = index;
+}
+
+/** Move focus `delta` columns; `false` (focus unchanged) past either end. */
+function stepColumn(grid: GridHost, delta: number): boolean {
+  const columns = fullColumns(grid);
+  const focused = grid._visibleColumns[grid._focusCol];
+  const from = grid._focusColumn ? (focused ? indexOfColumn(columns, focused) : -1) : grid._focusCol;
+  const to = from + delta;
+  if (from < 0 || to < 0 || to >= columns.length) return false;
+  focusFullColumn(grid, columns, to);
+  return true;
+}
+
+/** Focus the first or last column of the whole grid. */
+function focusEdgeColumn(grid: GridHost, toEnd: boolean): void {
+  const columns = fullColumns(grid);
+  if (columns.length > 0) focusFullColumn(grid, columns, toEnd ? columns.length - 1 : 0);
+}
+// #endregion
 
 /** Commit any active row edit, then focus the first/last row (column unchanged). */
 function jumpToRowEdge(grid: GridHost, maxRow: number, toEnd: boolean): void {
@@ -140,9 +175,9 @@ function pageTargetRow(grid: GridHost, maxRow: number, down: boolean): number {
 }
 
 /** Home/End (plus Ctrl/Cmd variants which also jump to the first/last row). */
-function navigateRowEdge(grid: GridHost, e: KeyboardEvent, maxRow: number, maxCol: number, toEnd: boolean): void {
+function navigateRowEdge(grid: GridHost, e: KeyboardEvent, maxRow: number, toEnd: boolean): void {
   if (e.ctrlKey || e.metaKey) jumpToRowEdge(grid, maxRow, toEnd);
-  grid._focusCol = toEnd ? maxCol : 0;
+  focusEdgeColumn(grid, toEnd);
   e.preventDefault();
   ensureCellVisible(grid, toEnd ? { forceScrollRight: true } : { forceScrollLeft: true });
 }
@@ -186,14 +221,20 @@ export function handleGridKeyDown(grid: GridHost, e: KeyboardEvent): void {
   // Dispatch to plugin system first - if any plugin handles it, stop here
   if (grid._dispatchKeyDown?.(e)) return;
 
-  if (shouldIgnoreKeyDown(grid, e, target)) return;
+  // A plugin can re-render the body cell the key came from (ColumnVirtualization revealing an
+  // off-window focused column, #633): it was a navigation target, so navigate from the host instead.
+  const navTarget = target?.isConnected === false && target.hasAttribute?.('data-row') ? grid : target;
+  if (shouldIgnoreKeyDown(grid, e, navTarget)) return;
+
+  // Still parked: the focused column is scrolled out of a column window and the key came from a
+  // control or the header, so there is no rendered focused cell to navigate from (#633).
+  if (grid._focusCol < 0) return;
 
   const maxRow = grid._rows.length - 1;
-  const maxCol = grid._visibleColumns.length - 1;
 
   switch (e.key) {
     case 'Tab':
-      navigateTab(grid, e, maxRow, maxCol);
+      navigateTab(grid, e, maxRow);
       break;
     case 'ArrowDown':
       navigateVertical(grid, e, maxRow, true);
@@ -202,16 +243,16 @@ export function handleGridKeyDown(grid: GridHost, e: KeyboardEvent): void {
       navigateVertical(grid, e, maxRow, false);
       break;
     case 'ArrowRight':
-      navigateHorizontal(grid, e, maxCol, true);
+      navigateHorizontal(grid, e, true);
       break;
     case 'ArrowLeft':
-      navigateHorizontal(grid, e, maxCol, false);
+      navigateHorizontal(grid, e, false);
       break;
     case 'Home':
-      navigateRowEdge(grid, e, maxRow, maxCol, false);
+      navigateRowEdge(grid, e, maxRow, false);
       return;
     case 'End':
-      navigateRowEdge(grid, e, maxRow, maxCol, true);
+      navigateRowEdge(grid, e, maxRow, true);
       return;
     case 'PageDown':
       grid._focusRow = pageTargetRow(grid, maxRow, true);
@@ -296,6 +337,8 @@ function scrollFocusedRowIntoView(grid: GridHost): void {
  */
 function findFocusedCell(grid: GridHost): { rowEl: HTMLElement | null; cell: HTMLElement } | undefined {
   const rowIndex = grid._focusRow;
+  // -1: the focused column is scrolled out of a column window, so no rendered cell holds focus.
+  if (grid._focusCol < 0) return undefined;
   const vStart = grid._virtualization.start ?? 0;
   const vEnd = grid._virtualization.end ?? grid._rows.length;
   if (rowIndex < vStart || rowIndex >= vEnd) return undefined;
@@ -420,7 +463,9 @@ export function ensureCellVisible(grid: GridHost, options?: EnsureCellVisibleOpt
   // Clear previous aria-selected markers on own rows/cells only — a nested grid
   // (detail panel, cell renderer) owns its own markers (#581).
   grid._bodyEl
-    .querySelectorAll(':scope > .data-grid-row[aria-selected="true"], :scope > .data-grid-row > .cell[aria-selected="true"]')
+    .querySelectorAll(
+      ':scope > .data-grid-row[aria-selected="true"], :scope > .data-grid-row > .cell[aria-selected="true"]',
+    )
     .forEach((el) => {
       el.setAttribute('aria-selected', 'false');
     });

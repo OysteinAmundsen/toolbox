@@ -11,6 +11,7 @@
 import { GridClasses } from '../../core/constants';
 import { announce, getA11yMessage } from '../../core/internal/aria';
 import { getPrimaryPointer } from '../../core/internal/pointer-modality';
+import { isHeaderControlEvent } from '../../core/internal/utils';
 import type { GridElement, HeaderClickEvent, PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, CellClickEvent, CellMouseEvent } from '../../core/plugin/base-plugin';
 import { isExpanderColumn, isUtilityColumn } from '../../core/plugin/expander-column';
@@ -67,6 +68,14 @@ function primaryModeOf(mode: SelectionMode | SelectionMode[] | undefined): Selec
 
 /** Special field name for the selection checkbox column */
 const CHECKBOX_COLUMN_FIELD = '__tbw_checkbox';
+
+/** Selection's column index spaces (see `SelectionPlugin#columnSpace`). */
+interface ColumnSpace {
+  rendered: readonly ColumnConfig[];
+  all: readonly ColumnConfig[];
+  toAll: readonly number[] | null;
+  toRendered: readonly number[] | null;
+}
 
 /**
  * Order band for the range-extension item contributed to the context menu.
@@ -372,7 +381,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   private isDragging = false;
 
   /** Pending keyboard navigation update (processed in afterRender) */
-  private pendingKeyboardUpdate: { shiftKey: boolean } | null = null;
+  private pendingKeyboardUpdate: { shiftKey: boolean; focus?: { row: number; col: number } } | null = null;
 
   /** Pending row-mode keyboard update (processed in afterRender) */
   private pendingRowKeyUpdate: { shiftKey: boolean } | null = null;
@@ -439,14 +448,16 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * Returns true if selectable, false if not.
    */
   private checkSelectable(rowIndex: number, colIndex?: number): boolean {
+    // -1: a rendered column with no selection-space index (see #columnSpace) is never selectable.
+    if (colIndex !== undefined && colIndex < 0) return false;
     const { isSelectable } = this.config;
     if (!isSelectable) return true; // No callback = all selectable
 
     const row = this.rows[rowIndex];
     if (!row) return false;
 
-    // colIndex is a visible-column index (from data-col), so use visibleColumns
-    const column = colIndex !== undefined ? this.visibleColumns[colIndex] : undefined;
+    // colIndex is a selection-space index (see #columnSpace)
+    const column = colIndex !== undefined ? this.#columnSpace().all[colIndex] : undefined;
     return isSelectable(row, rowIndex, column, colIndex);
   }
 
@@ -462,6 +473,64 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    */
   private isCellSelectable(rowIndex: number, colIndex: number): boolean {
     return this.checkSelectable(rowIndex, colIndex);
+  }
+
+  // #endregion
+
+  // #region Column index space (#633)
+
+  /** Cached {@link #columnSpace} result, rebuilt when the rendered column array changes. */
+  #colSpace: ColumnSpace | null = null;
+
+  /**
+   * The column index space of all selection state (ranges, anchors, `selectedCell`) and of the
+   * public `col` coordinates: `all` = every visible column, never narrowed by column windowing
+   * (ColumnVirtualization), so selection survives horizontal scrolling. `data-col` and
+   * `_focusCol` index the RENDERED columns; convert with {@link #toAllCol} / {@link #toRenderedCol}
+   * at the DOM boundary only. `toAll` (rendered → all) and `toRendered` (all → rendered, -1 when
+   * outside the window) are `null` when nothing is windowed and both spaces are identical.
+   * Rebuilt per rendered array, i.e. once per window move.
+   */
+  #columnSpace(): ColumnSpace {
+    const rendered = this.visibleColumns;
+    if (this.#colSpace?.rendered === rendered) return this.#colSpace;
+    const all = this.columns.filter((c) => !c.hidden);
+    let space: ColumnSpace = { rendered, all: rendered, toAll: null, toRendered: null };
+    if (all.length !== rendered.length) {
+      // Object identity first (the `windowColumns` contract: a subset of the same objects), then
+      // the field when it is unique, so a plugin that clones its window still maps. A cloned column
+      // whose field is shared cannot be resolved; only that column maps to -1 (unselectable),
+      // the rest of the window keeps full-list semantics.
+      const byObject = new Map(all.map((c, i) => [c, i]));
+      const byField = new Map<string, number>();
+      for (let i = 0; i < all.length; i++) byField.set(all[i].field, byField.has(all[i].field) ? -1 : i);
+      const toAll = rendered.map((c) => byObject.get(c) ?? byField.get(c.field) ?? -1);
+      const toRendered = new Array<number>(all.length).fill(-1);
+      toAll.forEach((a, r) => {
+        if (a >= 0) toRendered[a] = r;
+      });
+      space = { rendered, all, toAll, toRendered };
+    }
+    this.#colSpace = space;
+    return space;
+  }
+
+  /** Rendered index (`data-col`, `_focusCol`) → selection-space index; -1 when there is none. */
+  #toAllCol(renderedIndex: number): number {
+    if (renderedIndex < 0) return -1;
+    const { toAll } = this.#columnSpace();
+    return toAll ? (toAll[renderedIndex] ?? -1) : renderedIndex;
+  }
+
+  /** Selection-space index → rendered index (`data-col`); -1 when the column is outside the rendered window. */
+  #toRenderedCol(col: number): number {
+    const { toRendered } = this.#columnSpace();
+    return toRendered ? (toRendered[col] ?? -1) : col;
+  }
+
+  /** The focused cell in selection space (column -1 while it is scrolled out of the rendered window). */
+  #focusCell(): { row: number; col: number } {
+    return { row: this.grid._focusRow, col: this.#toAllCol(this.grid._focusCol) };
   }
 
   // #endregion
@@ -543,7 +612,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
         const cell = (event.target as Element | null)?.closest?.<HTMLElement>('.cell[data-row][data-col]');
         if (!cell) return;
         const row = parseInt(cell.getAttribute('data-row') ?? '-1', 10);
-        const col = parseInt(cell.getAttribute('data-col') ?? '-1', 10);
+        const col = this.#toAllCol(parseInt(cell.getAttribute('data-col') ?? '-1', 10));
         const actions = this.#extendActions(row, col);
         if (!actions) return;
         event.preventDefault();
@@ -581,13 +650,13 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     }
     if (query.type === 'selectContextMenuTarget') {
       const { rowIndex, colIndex } = query.context as { rowIndex: number; colIndex: number };
-      this.#selectContextMenuTarget(rowIndex, colIndex);
+      this.#selectContextMenuTarget(rowIndex, this.#toAllCol(colIndex));
       return this.getSelectedRowIndices();
     }
     if (query.type === 'getContextMenuItems') {
       const params = query.context as ContextMenuParams | undefined;
       if (!params || params.isHeader) return undefined;
-      const actions = this.#extendActions(params.rowIndex, params.columnIndex);
+      const actions = this.#extendActions(params.rowIndex, this.#toAllCol(params.columnIndex));
       if (!actions) return undefined;
       return actions.map((action, i): HeaderContextMenuItem => ({
         id: `selection-extend-${i}`,
@@ -745,16 +814,18 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       : undefined;
   }
 
-  /** Resolve the rendered cell element for a (row, visible-col) pair. */
+  /** Resolve the rendered cell element for a (row, selection-space col) pair; null when it is not rendered. */
   #cellFor(row: number, col: number): HTMLElement | null {
-    const selector = `.cell[data-row="${row}"][data-col="${col}"]`;
+    const renderedCol = this.#toRenderedCol(col);
+    if (renderedCol < 0) return null;
+    const selector = `.cell[data-row="${row}"][data-col="${renderedCol}"]`;
     const body = this.grid._bodyEl;
     // Own rows only — a nested grid may render the same (row, col) pair.
     if (body) return body.querySelector<HTMLElement>(`:scope > .data-grid-row > ${selector}`);
     return this.gridElement?.querySelector<HTMLElement>(selector) ?? null;
   }
 
-  /** Resolve the (row, col) of the cell under a viewport coordinate. */
+  /** Resolve the (row, selection-space col) of the cell under a viewport coordinate. */
   #cellAtPoint(clientX: number, clientY: number): { row: number; col: number } | null {
     const host = this.gridElement;
     const doc = host?.ownerDocument;
@@ -767,7 +838,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     const owner = cell.closest('tbw-grid, [data-tbw-grid]');
     if (owner && owner !== host && host.contains(owner)) return null;
     const row = parseInt(cell.getAttribute('data-row') ?? '-1', 10);
-    const col = parseInt(cell.getAttribute('data-col') ?? '-1', 10);
+    const col = this.#toAllCol(parseInt(cell.getAttribute('data-col') ?? '-1', 10));
     return row >= 0 && col >= 0 ? { row, col } : null;
   }
 
@@ -951,7 +1022,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * cells, and only emits when the selection actually changed.
    */
   #clickSelectCell(event: CellClickEvent): boolean {
-    const { rowIndex, colIndex } = event;
+    const { rowIndex } = event;
+    const colIndex = this.#toAllCol(event.colIndex);
 
     // Check if this is a utility column (expander columns, etc.)
     // event.column is already resolved from _visibleColumns in the event builder.
@@ -1013,7 +1085,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
   /** RANGE MODE: Shift+click extends the selection, plain click starts a new one. */
   #clickSelectRange(event: CellClickEvent): boolean {
-    const { rowIndex, colIndex, originalEvent } = event;
+    const { rowIndex, originalEvent } = event;
+    const colIndex = this.#toAllCol(event.colIndex);
 
     // Skip utility columns and non-selectable cells - don't start selection from them
     if (event.column && isUtilityColumn(event.column)) return false;
@@ -1095,6 +1168,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (event.key === 'Escape') return this.#keyClearSelection(mode);
 
     const isNavKey = NAV_KEYS.includes(event.key);
+    // Core skips navigation for keys from a header control, and for any key while focus is parked
+    // outside the column window (#633) — there is no new focus to select from either.
+    if (isNavKey && (this.grid._focusCol < 0 || isHeaderControlEvent(event))) return false;
     switch (mode) {
       case 'cell':
         return isNavKey ? this.#keyNavCellMode() : false;
@@ -1137,7 +1213,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       this.config.multiSelect !== false &&
       (event.key === 'ArrowLeft' || event.key === 'ArrowRight')
     ) {
-      const fields = selectableColumnFields(this.visibleColumns);
+      const fields = selectableColumnFields(this.#columnSpace().all);
       const direction = event.key === 'ArrowLeft' ? 'left' : 'right';
       const newHead = computeKeyboardExtension(this.columnHead, fields, direction);
       if (newHead === null || this.columnAnchor === null) return false;
@@ -1182,8 +1258,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   #keyNavCellMode(): boolean {
     // Use queueMicrotask so grid's handler runs first and updates focusRow/focusCol
     queueMicrotask(() => {
-      const focusRow = this.grid._focusRow;
-      const focusCol = this.grid._focusCol;
+      const { row: focusRow, col: focusCol } = this.#focusCell();
       // Only select if the cell is selectable; clear when navigating to a non-selectable cell
       this.selectedCell = this.isCellSelectable(focusRow, focusCol) ? { row: focusRow, col: focusCol } : null;
       this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
@@ -1235,16 +1310,21 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     // Capture anchor BEFORE grid moves focus (synchronous)
     // This ensures the anchor is the starting point, not the destination
     if (shouldExtend && !this.cellAnchor) {
-      this.cellAnchor = { row: this.grid._focusRow, col: this.grid._focusCol };
+      this.cellAnchor = this.#focusCell();
     }
 
     // Mark pending update - will be processed in afterRender when grid updates focus
-    this.pendingKeyboardUpdate = { shiftKey: shouldExtend };
+    const pending: { shiftKey: boolean; focus?: { row: number; col: number } } = { shiftKey: shouldExtend };
+    this.pendingKeyboardUpdate = pending;
 
     // Schedule afterRender to run after grid's keyboard handler completes.
     // Grid's refreshVirtualWindow(false) skips afterRender for performance,
-    // so we explicitly request it to process pendingKeyboardUpdate.
-    queueMicrotask(() => this.requestAfterRender());
+    // so we explicitly request it to process pendingKeyboardUpdate. The microtask runs right after
+    // the grid moved focus, so the destination is captured before anything re-windows.
+    queueMicrotask(() => {
+      pending.focus = this.#focusCell();
+      this.requestAfterRender();
+    });
 
     return false; // Let grid handle navigation
   }
@@ -1269,10 +1349,13 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (this.grid.query<boolean>('isEditing').some(Boolean)) return false;
 
     const rowCount = this.rows.length;
-    const colCount = this.visibleColumns.length;
+    const colCount = this.#columnSpace().all.length;
     if (rowCount === 0 || colCount === 0) return false;
 
-    const focus = { row: this.grid._focusRow, col: this.grid._focusCol };
+    const focus = this.#focusCell();
+    // Focus parked outside the column window (#633): the key came from a control or the header, and
+    // there is no focused column to span from.
+    if (focus.col < 0) return false;
     const span = this.activeRange
       ? normalizeRange(this.activeRange)
       : { startRow: focus.row, startCol: focus.col, endRow: focus.row, endCol: focus.col };
@@ -1353,7 +1436,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     }
 
     // Skip non-selectable cells - don't start drag from them
-    if (!this.isCellSelectable(event.rowIndex, event.colIndex)) {
+    const colIndex = this.#toAllCol(event.colIndex);
+    if (!this.isCellSelectable(event.rowIndex, colIndex)) {
       return;
     }
 
@@ -1365,7 +1449,6 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     // Start drag selection
     this.isDragging = true;
     const rowIndex = event.rowIndex;
-    const colIndex = event.colIndex;
 
     // When multiSelect is false, Ctrl+click starts a new single range instead of adding
     const ctrlKey = (event.originalEvent.ctrlKey || event.originalEvent.metaKey) && this.config.multiSelect !== false;
@@ -1411,8 +1494,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    */
   #selectContextMenuTarget(rowIndex: number, colIndex: number): void {
     if (rowIndex < 0 || !this.isSelectionEnabled()) return;
+    const column = this.#columnSpace().all[colIndex];
     // Column axis (mixed modes): a cell in a selected column is part of the selection.
-    if (this.activeAxis === 'column' && this.selectedColumns.has(this.visibleColumns[colIndex]?.field ?? '')) return;
+    if (this.activeAxis === 'column' && this.selectedColumns.has(column?.field ?? '')) return;
     const mode = this.#mode.primary;
 
     if (mode === 'row') {
@@ -1421,7 +1505,6 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     }
     if (mode !== 'cell' && mode !== 'range') return;
 
-    const column = this.visibleColumns[colIndex];
     if (!column || isUtilityColumn(column) || !this.isCellSelectable(rowIndex, colIndex)) return;
 
     if (mode === 'cell') {
@@ -1451,12 +1534,14 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (event.rowIndex < 0) return;
 
     // When dragging, clamp to first data column (skip utility columns)
-    // colIndex from events is a visible-column index (from data-col)
-    let targetCol = event.colIndex;
-    const column = this.visibleColumns[targetCol];
+    const { all } = this.#columnSpace();
+    let targetCol = this.#toAllCol(event.colIndex);
+    // A column without a selection-space index (see #columnSpace): keep the drag, leave the range.
+    if (targetCol < 0) return true;
+    const column = all[targetCol];
     if (column && isUtilityColumn(column)) {
       // Find the first non-utility visible column
-      const firstDataCol = this.visibleColumns.findIndex((col) => !isUtilityColumn(col));
+      const firstDataCol = all.findIndex((col) => !isUtilityColumn(col));
       if (firstDataCol >= 0) {
         targetCol = firstDataCol;
       }
@@ -1677,8 +1762,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * landing on the default cell must not select it).
    */
   #syncSelectionToFocus(mode: string): void {
-    const focusRow = this.grid._focusRow;
-    const focusCol = this.grid._focusCol;
+    // Selection space: a window move re-indexes `_focusCol` but must not count as a focus change.
+    const { row: focusRow, col: focusCol } = this.#focusCell();
 
     // Only follow focus when the grid actually has focus. Otherwise, keep the
     // synced markers in step so the resting position is not retroactively selected
@@ -1712,6 +1797,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     }
 
     if (mode === 'cell') {
+      // Focus parked outside the column window (#633): nothing to follow until it comes back.
+      if (focusCol < 0) return;
       if (this.explicitSelection) {
         this.explicitSelection = false;
         this.lastSyncedFocusRow = focusRow;
@@ -1800,7 +1887,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     }
   }
 
-  /** Visible-column index from a cell's `data-col`, or -1. */
+  /** Rendered-column index from a cell's `data-col`, or -1. */
   static #colIndexOf(cell: Element): number {
     return parseInt(cell.getAttribute('data-col') ?? '-1', 10);
   }
@@ -1947,7 +2034,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     let painted = false;
     for (const cell of SelectionPlugin.#ownCells(scopes)) {
       const rowIndex = SelectionPlugin.#dataRowOf(cell);
-      const colIndex = SelectionPlugin.#colIndexOf(cell);
+      const colIndex = this.#toAllCol(SelectionPlugin.#colIndexOf(cell));
       if (rowIndex >= 0 && colIndex >= 0 && !this.isCellSelectable(rowIndex, colIndex)) {
         cell.setAttribute('data-selectable', 'false');
         painted = true;
@@ -1978,13 +2065,14 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     };
 
     let painted = false;
+    const { all } = this.#columnSpace();
     for (const cell of SelectionPlugin.#ownCells(scopes)) {
       const rowIndex = SelectionPlugin.#dataRowOf(cell);
       if (rowIndex < minRow || rowIndex > maxRow) continue;
-      const colIndex = SelectionPlugin.#colIndexOf(cell);
+      // Ranges are in selection space; data-col indexes the rendered window. Utility columns never paint.
+      const colIndex = this.#toAllCol(SelectionPlugin.#colIndexOf(cell));
       if (colIndex < 0) continue;
-      // colIndex from data-col is a visible-column index; utility columns never paint.
-      const column = this.visibleColumns[colIndex];
+      const column = all[colIndex];
       if (column && isUtilityColumn(column)) continue;
       if (!isInSelection(rowIndex, colIndex)) continue;
 
@@ -2002,8 +2090,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   /**
    * COLUMN AXIS: `.column-selected` + `aria-selected` on the header cell and
    * every data cell of a selected column. Columns are resolved per render from
-   * the visible index (`data-col`) because `selectedColumns` stores fields, so
-   * the paint survives pinning and reordering.
+   * the rendered index (`data-col`) because `selectedColumns` stores fields, so
+   * the paint survives pinning, reordering and column-window moves.
    */
   #paintColumnSelection(scopes: readonly HTMLElement[], header: HTMLElement | null): boolean {
     const selectedByIndex: boolean[] = this.visibleColumns.map(
@@ -2071,20 +2159,23 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     // Process pending keyboard navigation update (range mode)
     // This runs AFTER the grid has updated focusRow/focusCol
     if (this.pendingKeyboardUpdate && mode === 'range') {
-      const { shiftKey } = this.pendingKeyboardUpdate;
+      const { shiftKey, focus } = this.pendingKeyboardUpdate;
       this.pendingKeyboardUpdate = null;
 
-      const currentRow = this.grid._focusRow;
-      const currentCol = this.grid._focusCol;
+      // The destination captured right after the key (selection space): a horizontal scroll before
+      // this render can re-window and park the live focus (#633).
+      const { row: currentRow, col: currentCol } = focus ?? this.#focusCell();
 
-      if (shiftKey && this.cellAnchor) {
+      if (currentCol < 0) {
+        // No destination column to select from — leave the selection as it is.
+      } else if (shiftKey && this.cellAnchor) {
         // Extend selection from anchor to current focus
         let newRange = createRangeFromAnchor(this.cellAnchor, { row: currentRow, col: currentCol });
         const span = this.#spanRange;
         if (span && span.range === this.activeRange) {
           newRange =
             span.axis === 'row'
-              ? { ...newRange, startCol: 0, endCol: this.visibleColumns.length - 1 }
+              ? { ...newRange, startCol: 0, endCol: this.#columnSpace().all.length - 1 }
               : { ...newRange, startRow: 0, endRow: this.rows.length - 1 };
           span.range = newRange;
         }
@@ -2177,7 +2268,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * Select all selectable rows (row mode) or all cells (range mode).
    *
    * In row mode, selects every row where `isSelectable` returns true (or all rows if no callback).
-   * In range mode, creates a single range spanning all rows and visible columns.
+   * In range mode, creates a single range spanning all rows and visible columns,
+   * including columns that column virtualization has not rendered.
    * Array modes resolve to their row/range axis. Has no effect in cell mode.
    *
    * @example
@@ -2204,7 +2296,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       this.requestAfterRender();
     } else if (mode === 'range') {
       const rowCount = this.rows.length;
-      const colCount = this.visibleColumns.length;
+      const colCount = this.#columnSpace().all.length;
       if (rowCount > 0 && colCount > 0) {
         const allRange: InternalCellRange = {
           startRow: 0,
@@ -2340,7 +2432,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   #setColumnSelection(fields: readonly string[]): void {
     if (!this.#mode.columnEnabled) return;
 
-    const visible = selectableColumnFields(this.visibleColumns);
+    const visible = selectableColumnFields(this.#columnSpace().all);
     const allowed = new Set(visible);
     // Preserve caller order but de-duplicate and filter unknowns/utility cols.
     const accepted: string[] = [];
@@ -2384,7 +2476,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    */
   selectColumn(field: string, options: { range?: boolean; toggle?: boolean } = {}): void {
     if (!this.#mode.columnEnabled) return;
-    const fields = selectableColumnFields(this.visibleColumns);
+    const fields = selectableColumnFields(this.#columnSpace().all);
     if (!fields.includes(field)) return;
 
     this.#enforceMutualExclusion('column');
@@ -2444,7 +2536,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   selectAllColumns(): void {
     if (!this.#mode.columnEnabled) return;
     if (this.config.multiSelect === false) return;
-    const fields = selectableColumnFields(this.visibleColumns);
+    const fields = selectableColumnFields(this.#columnSpace().all);
     if (fields.length === 0) return;
     this.#enforceMutualExclusion('column');
     this.selectedColumns.clear();
@@ -2477,7 +2569,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    */
   getSelectedColumns(): readonly string[] {
     if (this.selectedColumns.size === 0) return [];
-    const fields = selectableColumnFields(this.visibleColumns);
+    const fields = selectableColumnFields(this.#columnSpace().all);
     return fields.filter((f) => this.selectedColumns.has(f));
   }
 
@@ -2569,7 +2661,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
         selectedColumns: this.selectedColumns,
       },
       this.columns.length,
-      selectableColumnFields(this.visibleColumns),
+      selectableColumnFields(this.#columnSpace().all),
     );
     // Debounced screen reader announcement for selection changes
     const span = this.#pendingSpanAnnouncement;

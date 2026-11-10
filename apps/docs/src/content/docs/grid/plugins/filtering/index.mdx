@@ -590,6 +590,7 @@ When enabled:
 - Filter state is included in `getColumnState()` / `columnState` snapshots
 - Filter changes fire the `column-state-change` event (debounced)
 - `applyColumnState()` / `columnState` restores filter state
+- With [server-side data](/grid/plugins/server-side/#server-side-sorting--filtering), restored filters are sent with the first `getRows()` request, and a restore that changes them triggers a refetch
 
 This is useful when you want to persist and restore the full grid state (including active filters)
 via `localStorage` or a server:

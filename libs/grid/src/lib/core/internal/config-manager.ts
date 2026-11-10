@@ -649,6 +649,7 @@ export class ConfigManager<T = unknown> {
           });
         }
       }
+      plugin.onColumnStateOrderApplied?.();
     }
 
     // Request state change notification

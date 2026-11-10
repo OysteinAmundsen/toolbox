@@ -1834,7 +1834,8 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   // #region Column State Hooks
 
   /**
-   * Called after column state changes the field order.
+   * Called once per plugin after column state has been applied (after all of this
+   * plugin's `applyColumnState()` calls for the state).
    * @internal
    */
   onColumnStateOrderApplied?(): void;

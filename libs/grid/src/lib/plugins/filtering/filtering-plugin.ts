@@ -32,6 +32,60 @@ import type { BlankMode, FilterChangeDetail, FilterConfig, FilterModel, FilterPa
 /** A data-source loading placeholder (e.g. ServerSide's `{ __loading: true, __index }`). */
 const isLoadingRow = (row: Record<string, unknown>): boolean => row.__loading === true;
 
+const sameFilterValue = (a: unknown, b: unknown, seen = new WeakMap<object, object>()): boolean => {
+  if (Object.is(a, b)) return true;
+  if (typeof a !== 'object' || a === null || typeof b !== 'object' || b === null) return false;
+
+  const paired = seen.get(a);
+  if (paired !== undefined) return paired === b;
+  seen.set(a, b);
+
+  if (a instanceof Date || b instanceof Date) {
+    return a instanceof Date && b instanceof Date && Object.is(a.getTime(), b.getTime());
+  }
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return (
+      Array.isArray(a) &&
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((value, index) => sameFilterValue(value, b[index], seen))
+    );
+  }
+
+  const prototype = Object.getPrototypeOf(a);
+  if (prototype !== Object.getPrototypeOf(b) || (prototype !== Object.prototype && prototype !== null)) return false;
+
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  return (
+    keysA.length === keysB.length &&
+    keysA.every(
+      (key) =>
+        Object.prototype.hasOwnProperty.call(b, key) && sameFilterValue(Reflect.get(a, key), Reflect.get(b, key), seen),
+    )
+  );
+};
+
+const sameSetFilterValues = (a: unknown, b: unknown): boolean => {
+  if (!Array.isArray(a) || !Array.isArray(b)) return sameFilterValue(a, b);
+  const left = new Set(a);
+  const right = new Set(b);
+  return left.size === right.size && [...left].every((value) => right.has(value));
+};
+
+/** Whether two filter models are equivalent, with type-aware values and Set membership for set operators. */
+const sameFilterState = (a: FilterModel, b: FilterModel): boolean =>
+  a.type === b.type &&
+  a.operator === b.operator &&
+  (a.operator === 'in' || a.operator === 'notIn'
+    ? sameSetFilterValues(a.value, b.value) && sameFilterValue(a.valueTo, b.valueTo)
+    : sameFilterValue(a.value, b.value) && sameFilterValue(a.valueTo, b.valueTo));
+
+const copyColumnStateFilterValue = (value: unknown): unknown => {
+  if (value instanceof Date) return new Date(value.getTime());
+  return Array.isArray(value) ? [...value] : value;
+};
+
 /**
  * Filtering Plugin for tbw-grid
  *
@@ -255,6 +309,8 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
   // #region Internal State
   private filters: Map<string, FilterModel> = new Map();
+  /** Set by `applyColumnState()` when a restore changed `filters`; consumed by `onColumnStateOrderApplied()`. */
+  private columnStateFiltersChanged = false;
   private cachedResult: unknown[] | null = null;
   private cacheKey: string | null = null;
   /**
@@ -1422,8 +1478,8 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       filter: {
         type: filterModel.type,
         operator: filterModel.operator,
-        value: filterModel.value,
-        valueTo: filterModel.valueTo,
+        value: copyColumnStateFilterValue(filterModel.value),
+        valueTo: copyColumnStateFilterValue(filterModel.valueTo),
       },
     };
   }
@@ -1438,7 +1494,10 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
     // Only process if the column has filter state
     if (!state.filter) {
-      this.filters.delete(field);
+      if (this.filters.delete(field)) {
+        this.columnStateFiltersChanged = true;
+        this.invalidateCache();
+      }
       return;
     }
 
@@ -1447,13 +1506,29 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       field,
       type: state.filter.type,
       operator: state.filter.operator as FilterModel['operator'],
-      value: state.filter.value,
-      valueTo: state.filter.valueTo,
+      value: copyColumnStateFilterValue(state.filter.value),
+      valueTo: copyColumnStateFilterValue(state.filter.valueTo),
     };
 
+    const previous = this.filters.get(field);
+    if (previous && sameFilterState(previous, filterModel)) return;
+
     this.filters.set(field, filterModel);
+    this.columnStateFiltersChanged = true;
     // Invalidate cache so filter is reapplied
     this.invalidateCache();
+  }
+
+  /**
+   * Notify plugins once per column-state restore that changed the filter model, so
+   * a server-side data source refetches with it (#647). Plugin bus only: a restore
+   * is not a user edit, so no public `filter-change` and no state-change request.
+   * @internal
+   */
+  override onColumnStateOrderApplied(): void {
+    if (!this.columnStateFiltersChanged) return;
+    this.columnStateFiltersChanged = false;
+    this.emitPluginEvent('filter-change', { filters: [...this.filters.values()], source: 'column-state' });
   }
   // #endregion
 }

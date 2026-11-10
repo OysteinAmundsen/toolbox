@@ -10,7 +10,7 @@ import {
 } from './datasource';
 import { createLoadingPlaceholder, isLoadingPlaceholder } from './placeholder';
 import { ServerSidePlugin } from './server-side-plugin';
-import type { ServerSideConfig, ServerSideDataSource } from './types';
+import type { GetRowsParams, ServerSideConfig, ServerSideDataSource } from './types';
 
 // #region Mock Grid
 
@@ -89,6 +89,15 @@ const pagedDS = (total: number): ServerSideDataSource => ({
     }),
   ),
 });
+
+function scrollToBlock(
+  plugin: ServerSidePlugin,
+  grid: ReturnType<typeof createServerSideMockGrid>,
+  start: number,
+): void {
+  grid._virtualization = { enabled: true, start, end: start + 5 };
+  plugin.onScroll({ scrollTop: start, scrollLeft: 0, direction: 'vertical' } as any);
+}
 
 // #endregion
 
@@ -1245,6 +1254,404 @@ describe('ServerSidePlugin', () => {
     });
   });
 
+  describe('reloadBlocks', () => {
+    const loadInitialBlock = async (plugin: ServerSidePlugin, dataSource: ServerSideDataSource): Promise<void> => {
+      plugin.setDataSource(dataSource);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+    };
+
+    const createQueuedReloadFixture = () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5, maxConcurrentRequests: 1 });
+      const grid = createServerSideMockGrid({ _virtualization: { enabled: true, start: 0, end: 5 } });
+      plugin.attach(grid as any);
+      return { plugin, grid };
+    };
+
+    it('replaces only the requested block and keeps other cached blocks', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
+      const grid = createServerSideMockGrid({ _virtualization: { enabled: true, start: 0, end: 5 } });
+      plugin.attach(grid as any);
+      let revision = 'old';
+      const ds: ServerSideDataSource = {
+        getRows: vi.fn(async ({ startNode, endNode }) => ({
+          rows: Array.from({ length: endNode - startNode }, (_, i) => ({ id: `${revision}-${startNode + i}` })),
+          totalNodeCount: 10,
+        })),
+      };
+
+      await loadInitialBlock(plugin, ds);
+      scrollToBlock(plugin, grid, 5);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(2));
+
+      revision = 'new';
+      await plugin.reloadBlocks([0]);
+
+      const rows = plugin.processRows([]) as Array<{ id: string }>;
+      expect(rows[0].id).toBe('new-0');
+      expect(rows[5].id).toBe('old-5');
+      expect(ds.getRows).toHaveBeenCalledTimes(3);
+      expect((ds.getRows as ReturnType<typeof vi.fn>).mock.calls[2][0]).toMatchObject({ startNode: 0, endNode: 5 });
+      plugin.detach();
+    });
+
+    it('retries a rejected block and reports its root block number', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
+      const grid = createServerSideMockGrid({ _virtualization: { enabled: true, start: 0, end: 5 } });
+      plugin.attach(grid as any);
+      const errors: Array<{ blockIndex?: number; error: Error }> = [];
+      grid.addEventListener('datasource:error', (event: Event) => errors.push((event as CustomEvent).detail));
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const ds: ServerSideDataSource = {
+        getRows: vi
+          .fn()
+          .mockRejectedValueOnce(new Error('temporary'))
+          .mockResolvedValue({ rows: Array.from({ length: 5 }, (_, id) => ({ id })), totalNodeCount: 10 }),
+      };
+
+      plugin.setDataSource(ds);
+      await vi.waitFor(() => expect(errors).toHaveLength(1));
+      await plugin.reloadBlocks([0]);
+
+      expect(errors[0]).toMatchObject({ blockIndex: 0, error: { message: 'temporary' } });
+      expect(plugin.isNodeLoaded(0)).toBe(true);
+      expect(ds.getRows).toHaveBeenCalledTimes(2);
+      plugin.detach();
+    });
+
+    it('keeps loaded rows when a targeted reload fails', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
+      const grid = createServerSideMockGrid({ _virtualization: { enabled: true, start: 0, end: 5 } });
+      plugin.attach(grid as any);
+      const oldRows = Array.from({ length: 5 }, (_, id) => ({ id: `old-${id}` }));
+      const ds: ServerSideDataSource = {
+        getRows: vi
+          .fn()
+          .mockResolvedValueOnce({ rows: oldRows, totalNodeCount: 5 })
+          .mockRejectedValueOnce(new Error('reload failed')),
+      };
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      await loadInitialBlock(plugin, ds);
+
+      await expect(plugin.reloadBlocks([0])).rejects.toThrow('reload failed');
+
+      expect(plugin.processRows([])).toEqual(oldRows);
+      expect(plugin.getLoadedBlockCount()).toBe(1);
+      plugin.detach();
+    });
+
+    it('aborts a targeted reload on refresh and discards its late result', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5, maxConcurrentRequests: 1 });
+      const grid = createServerSideMockGrid({ _virtualization: { enabled: true, start: 0, end: 5 } });
+      plugin.attach(grid as any);
+      let reloadSignal: AbortSignal | undefined;
+      let resolveStale!: (result: { rows: { id: string }[]; totalNodeCount: number }) => void;
+      const ds: ServerSideDataSource = {
+        getRows: vi
+          .fn()
+          .mockResolvedValueOnce({
+            rows: Array.from({ length: 5 }, (_, id) => ({ id: `initial-${id}` })),
+            totalNodeCount: 10,
+          })
+          .mockImplementationOnce((params) => {
+            reloadSignal = params.signal;
+            return new Promise((resolve) => (resolveStale = resolve));
+          })
+          .mockResolvedValueOnce({
+            rows: Array.from({ length: 5 }, (_, id) => ({ id: `current-${id}` })),
+            totalNodeCount: 10,
+          })
+          .mockResolvedValue({
+            rows: Array.from({ length: 5 }, (_, id) => ({ id: `stale-${id}` })),
+            totalNodeCount: 10,
+          }),
+      };
+
+      await loadInitialBlock(plugin, ds);
+      const reload = plugin.reloadBlocks([0, 1]);
+      await vi.waitFor(() => expect(reloadSignal).toBeDefined());
+
+      plugin.refresh();
+      await expect(reload).rejects.toThrow(/superseded/i);
+      await vi.waitFor(() => expect((plugin.processRows([])[0] as { id: string }).id).toBe('current-0'));
+      expect(reloadSignal!.aborted).toBe(true);
+      expect(ds.getRows).toHaveBeenCalledTimes(3);
+
+      resolveStale({ rows: [{ id: 'stale' }], totalNodeCount: 5 });
+      await Promise.resolve();
+      expect((plugin.processRows([])[0] as { id: string }).id).toBe('current-0');
+      expect((plugin.processRows([])[5] as { __loading?: boolean }).__loading).toBe(true);
+      plugin.detach();
+    });
+
+    it('rejects a changed total without replacing retained rows', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+      const ds: ServerSideDataSource = {
+        getRows: vi
+          .fn()
+          .mockResolvedValueOnce({ rows: [{ id: 'old' }], totalNodeCount: 10 })
+          .mockResolvedValue({ rows: [{ id: 'new' }], totalNodeCount: 11 }),
+      };
+
+      await loadInitialBlock(plugin, ds);
+
+      await expect(plugin.reloadBlocks([0])).rejects.toThrow(/changed totalNodeCount/i);
+      expect((plugin.processRows([])[0] as { id: string }).id).toBe('old');
+      expect(plugin.getTotalNodeCount()).toBe(10);
+      plugin.detach();
+    });
+
+    it.each([
+      {
+        scenario: 'a changed total',
+        result: { rows: Array.from({ length: 5 }, (_, id) => ({ id })), totalNodeCount: 11 },
+        expectedError: /changed totalNodeCount/i,
+      },
+      {
+        scenario: 'an incomplete block',
+        result: { rows: Array.from({ length: 4 }, (_, id) => ({ id })), totalNodeCount: 10 },
+        expectedError: /incomplete block/i,
+      },
+      {
+        scenario: 'a valid replacement',
+        result: { rows: Array.from({ length: 5 }, (_, id) => ({ id: id + 5 })), totalNodeCount: 10 },
+        expectedError: undefined,
+      },
+    ])('handles a scroll fetch joined by reloadBlocks when it returns $scenario', async ({ result, expectedError }) => {
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
+      const grid = createServerSideMockGrid({ _virtualization: { enabled: true, start: 0, end: 5 } });
+      plugin.attach(grid as any);
+      const dataEvents: Array<{ startNode: number; replacement?: { startNode: number; endNode: number } }> = [];
+      grid.addEventListener('datasource:data', (event: Event) =>
+        dataEvents.push((event as CustomEvent).detail),
+      );
+      const rowsFor = (startNode: number) => Array.from({ length: 5 }, (_, id) => ({ id: startNode + id }));
+      let resolveBlock!: (result: { rows: { id: number }[]; totalNodeCount: number }) => void;
+      const ds: ServerSideDataSource = {
+        getRows: vi.fn(({ startNode }: GetRowsParams) => {
+          if (startNode === 0) return Promise.resolve({ rows: rowsFor(0), totalNodeCount: 10 });
+          return new Promise<{ rows: { id: number }[]; totalNodeCount: number }>((resolve) => (resolveBlock = resolve));
+        }),
+      };
+
+      await loadInitialBlock(plugin, ds);
+      scrollToBlock(plugin, grid, 5);
+      await vi.waitFor(() => expect(ds.getRows).toHaveBeenCalledTimes(2));
+      const reload = plugin.reloadBlocks([1]);
+
+      resolveBlock(result);
+      if (expectedError) {
+        await expect(reload).rejects.toThrow(expectedError);
+        expect(plugin.getLoadedBlockCount()).toBe(1);
+        expect(plugin.isNodeLoaded(5)).toBe(false);
+        expect(dataEvents).toHaveLength(1);
+      } else {
+        await expect(reload).resolves.toBeUndefined();
+        expect(plugin.getLoadedBlockCount()).toBe(2);
+        expect(plugin.isNodeLoaded(5)).toBe(true);
+        expect(dataEvents).toHaveLength(2);
+        expect(dataEvents[1]).toMatchObject({ startNode: 5, replacement: { startNode: 5, endNode: 10 } });
+      }
+      expect(plugin.getTotalNodeCount()).toBe(10);
+      expect((plugin.processRows([])[0] as { id: number }).id).toBe(0);
+      plugin.detach();
+    });
+
+    it('reloads block zero when the known dataset is empty', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
+      const grid = createServerSideMockGrid({ _virtualization: { enabled: true, start: 0, end: 5 } });
+      plugin.attach(grid as any);
+      const ds: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({ rows: [], totalNodeCount: 0 }),
+      };
+
+      await loadInitialBlock(plugin, ds);
+      expect(plugin.getTotalNodeCount()).toBe(0);
+      expect(plugin.processRows([])).toHaveLength(0);
+      plugin.afterRender();
+      expect(ds.getRows).toHaveBeenCalledTimes(1);
+
+      await expect(plugin.reloadBlocks([0])).resolves.toBeUndefined();
+
+      expect(ds.getRows).toHaveBeenCalledTimes(2);
+      expect(plugin.getLoadedBlockCount()).toBe(1);
+      plugin.detach();
+    });
+
+    it('rejects targeted reload when cached offsets have an unknown total', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+      const ds: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 'cached' }], totalNodeCount: Number.NaN }),
+      };
+
+      await loadInitialBlock(plugin, ds);
+
+      await expect(plugin.reloadBlocks([0])).rejects.toThrow(/without a known totalNodeCount/i);
+      expect(ds.getRows).toHaveBeenCalledTimes(1);
+      plugin.detach();
+    });
+
+    it('retries an uncached terminal block and establishes the end of an unknown dataset', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
+      const grid = createServerSideMockGrid({ _virtualization: { enabled: true, start: 0, end: 5 } });
+      plugin.attach(grid as any);
+      const errors: Array<{ blockIndex?: number; error: Error }> = [];
+      grid.addEventListener('datasource:error', (event: Event) => errors.push((event as CustomEvent).detail));
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      let terminalAttempts = 0;
+      const ds: ServerSideDataSource = {
+        getRows: vi.fn(({ startNode }: GetRowsParams) => {
+          if (startNode === 0) {
+            return Promise.resolve({ rows: Array.from({ length: 5 }, (_, id) => ({ id })), totalNodeCount: -1 });
+          }
+          terminalAttempts++;
+          if (terminalAttempts === 1) return Promise.reject(new Error('terminal block failed'));
+          return Promise.resolve({ rows: [{ id: 5 }, { id: 6 }], totalNodeCount: -1 });
+        }),
+      };
+
+      await loadInitialBlock(plugin, ds);
+      scrollToBlock(plugin, grid, 5);
+      await vi.waitFor(() => expect(errors).toHaveLength(1));
+      expect(plugin.isNodeLoaded(5)).toBe(false);
+
+      await expect(plugin.reloadBlocks([1])).resolves.toBeUndefined();
+
+      expect(plugin.getTotalNodeCount()).toBe(7);
+      expect(plugin.isNodeLoaded(5)).toBe(true);
+      expect((plugin.processRows([])[6] as { id: number }).id).toBe(6);
+      expect(ds.getRows).toHaveBeenCalledTimes(3);
+      plugin.detach();
+    });
+
+    it('reloads a full block after a short infinite-scroll block establishes the end', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
+      const grid = createServerSideMockGrid({ _virtualization: { enabled: true, start: 0, end: 5 } });
+      plugin.attach(grid as any);
+      let rootCalls = 0;
+      const ds: ServerSideDataSource = {
+        getRows: vi.fn(({ startNode }: GetRowsParams) => {
+          if (startNode === 5) return Promise.resolve({ rows: [{ id: 5 }, { id: 6 }], totalNodeCount: -1 });
+          rootCalls++;
+          return Promise.resolve({ rows: Array.from({ length: 5 }, (_, id) => ({ id })), totalNodeCount: -1 });
+        }),
+      };
+
+      await loadInitialBlock(plugin, ds);
+      scrollToBlock(plugin, grid, 5);
+      await vi.waitFor(() => expect(plugin.getTotalNodeCount()).toBe(7));
+
+      await expect(plugin.reloadBlocks([0])).resolves.toBeUndefined();
+
+      expect(rootCalls).toBe(2);
+      expect(plugin.getTotalNodeCount()).toBe(7);
+      expect(plugin.isNodeLoaded(0)).toBe(true);
+      plugin.detach();
+    });
+
+    it('deduplicates concurrent reloads of the same block', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
+      const grid = createServerSideMockGrid({ _virtualization: { enabled: true, start: 0, end: 5 } });
+      plugin.attach(grid as any);
+      let resolveReload!: (result: { rows: { id: string }[]; totalNodeCount: number }) => void;
+      const ds: ServerSideDataSource = {
+        getRows: vi
+          .fn()
+          .mockResolvedValueOnce({
+            rows: Array.from({ length: 5 }, (_, id) => ({ id: `old-${id}` })),
+            totalNodeCount: 5,
+          })
+          .mockImplementationOnce(() => new Promise((resolve) => (resolveReload = resolve))),
+      };
+
+      await loadInitialBlock(plugin, ds);
+      const first = plugin.reloadBlocks([0]);
+      const second = plugin.reloadBlocks([0]);
+      expect(ds.getRows).toHaveBeenCalledTimes(2);
+
+      resolveReload({ rows: Array.from({ length: 5 }, (_, id) => ({ id: `new-${id}` })), totalNodeCount: 5 });
+      await Promise.all([first, second]);
+      expect((plugin.processRows([])[0] as { id: string }).id).toBe('new-0');
+      plugin.detach();
+    });
+
+    it('rejects promptly when a requested block fails while later blocks wait for capacity', async () => {
+      const { plugin } = createQueuedReloadFixture();
+      const starts: number[] = [];
+      let firstBlock = true;
+      const ds: ServerSideDataSource = {
+        getRows: vi.fn(({ startNode }: GetRowsParams) => {
+          starts.push(startNode);
+          if (startNode === 0 && firstBlock) {
+            firstBlock = false;
+            return Promise.resolve({ rows: Array.from({ length: 5 }, (_, id) => ({ id })), totalNodeCount: 15 });
+          }
+          if (startNode === 0) return Promise.reject(new Error('block zero failed'));
+          if (startNode === 5) return new Promise<{ rows: { id: number }[]; totalNodeCount: number }>(() => undefined);
+          return Promise.resolve({
+            rows: Array.from({ length: 5 }, (_, id) => ({ id: startNode + id })),
+            totalNodeCount: 15,
+          });
+        }),
+      };
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      await loadInitialBlock(plugin, ds);
+      let settled = false;
+      let failureMessage = '';
+      const reload = plugin.reloadBlocks([0, 1, 2]);
+      void reload.then(
+        () => {
+          settled = true;
+        },
+        (error: unknown) => {
+          failureMessage = error instanceof Error ? error.message : String(error);
+          settled = true;
+        },
+      );
+
+      try {
+        await vi.waitFor(() => expect(settled).toBe(true));
+        expect(failureMessage).toContain('block zero failed');
+      } finally {
+        plugin.detach();
+      }
+    });
+
+    it('joins a same-block reload queued behind another in-flight block', async () => {
+      const { plugin, grid } = createQueuedReloadFixture();
+      const starts: number[] = [];
+      let resolveBackground!: (result: { rows: { id: number }[]; totalNodeCount: number }) => void;
+      const rowsFor = (startNode: number) => Array.from({ length: 5 }, (_, id) => ({ id: startNode + id }));
+      const ds: ServerSideDataSource = {
+        getRows: vi.fn(({ startNode }: GetRowsParams): Promise<{ rows: { id: number }[]; totalNodeCount: number }> => {
+          starts.push(startNode);
+          if (startNode === 5) {
+            return new Promise((resolve) => (resolveBackground = resolve));
+          }
+          return Promise.resolve({ rows: rowsFor(startNode), totalNodeCount: 15 });
+        }),
+      };
+
+      await loadInitialBlock(plugin, ds);
+      scrollToBlock(plugin, grid, 5);
+      await vi.waitFor(() => expect(starts).toEqual([0, 5]));
+
+      const first = plugin.reloadBlocks([2]);
+      const second = plugin.reloadBlocks([2]);
+      resolveBackground({ rows: rowsFor(5), totalNodeCount: 15 });
+      await Promise.all([first, second]);
+
+      expect(starts).toEqual([0, 5, 10]);
+      expect(plugin.isNodeLoaded(10)).toBe(true);
+      plugin.detach();
+    });
+  });
+
   describe('sort/filter cache invalidation (regression)', () => {
     it('should refetch and requestRender after sort-change so the table is not left blank', async () => {
       // Reproduces: clicking sort wipes caches (totalNodeCount=0, managedNodes=[]),
@@ -1971,6 +2378,39 @@ describe('ServerSidePlugin', () => {
   });
 
   describe('infinite scroll (lastNode)', () => {
+    it('preserves a short-block total when an earlier infinite block resolves later', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5, maxConcurrentRequests: 3 });
+      const grid = createServerSideMockGrid({ _virtualization: { enabled: true, start: 0, end: 5 } });
+      plugin.attach(grid as any);
+      const starts: number[] = [];
+      const resolvers = new Map<number, (result: { rows: { id: number }[]; totalNodeCount: number }) => void>();
+      const ds: ServerSideDataSource = {
+        getRows: vi.fn(({ startNode }: GetRowsParams): Promise<{ rows: { id: number }[]; totalNodeCount: number }> => {
+          starts.push(startNode);
+          return new Promise((resolve) => resolvers.set(startNode, resolve));
+        }),
+      };
+
+      plugin.setDataSource(ds);
+      scrollToBlock(plugin, grid, 5);
+      grid._virtualization.end = 15;
+      plugin.onScroll({ scrollTop: 5, scrollLeft: 0, direction: 'vertical' } as any);
+      await vi.waitFor(() => expect(starts).toEqual([0, 5, 10]));
+
+      resolvers.get(10)!({ rows: [], totalNodeCount: -1 });
+      await vi.waitFor(() => expect(plugin.getTotalNodeCount()).toBe(10));
+      resolvers.get(5)!({ rows: [{ id: 5 }, { id: 6 }], totalNodeCount: -1 });
+      await vi.waitFor(() => expect(plugin.getTotalNodeCount()).toBe(7));
+      resolvers.get(0)!({ rows: Array.from({ length: 5 }, (_, id) => ({ id })), totalNodeCount: -1 });
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(3));
+      expect(plugin.getTotalNodeCount()).toBe(7);
+
+      scrollToBlock(plugin, grid, 7);
+
+      expect(starts).toEqual([0, 5, 10]);
+      plugin.detach();
+    });
+
     it('should enter infinite scroll mode when totalNodeCount is -1', async () => {
       const plugin = new ServerSidePlugin({ pageSize: 5 });
       const grid = createServerSideMockGrid();

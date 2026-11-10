@@ -156,6 +156,8 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   // #region Internal State
   private dataSource: ServerSideDataSource | null = null;
   private totalNodeCount = 0;
+  private totalNodeCountKnown = false;
+  private totalNodeCountInferred = false;
   private infiniteScrollMode = false;
   private loadedBlocks = new Map<number, unknown[]>();
   private loadingBlocks = new Set<number>();
@@ -166,6 +168,11 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
    * can cancel the underlying network call.
    */
   private blockControllers = new Map<number, AbortController>();
+  private blockRequests = new Map<number, Promise<void>>();
+  private blockRequestReplacements = new Map<
+    number,
+    { replacement?: { startNode: number; endNode: number; wasCached: boolean } }
+  >();
   /**
    * In-flight `getChildRows` requests. Aborted only on `detach()` or when the
    * requester's `FetchChildrenQuery.signal` fires — NOT on sort/filter/refresh:
@@ -264,6 +271,8 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     this.clearScrollDebounce();
     if (resetTotal) {
       this.totalNodeCount = 0;
+      this.totalNodeCountKnown = false;
+      this.totalNodeCountInferred = false;
       this.infiniteScrollMode = false;
     }
   }
@@ -286,6 +295,8 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
       controller.abort();
     }
     this.blockControllers.clear();
+    this.blockRequests.clear();
+    this.blockRequestReplacements.clear();
     this.loadingBlocks.clear();
   }
 
@@ -306,6 +317,8 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   private releaseBlock(blockNum: number, controller: AbortController): void {
     if (this.blockControllers.get(blockNum) !== controller) return;
     this.blockControllers.delete(blockNum);
+    this.blockRequests.delete(blockNum);
+    this.blockRequestReplacements.delete(blockNum);
     this.loadingBlocks.delete(blockNum);
   }
 
@@ -391,13 +404,13 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   }
 
   /**
-   * `totalNodeCount`, or `Infinity` while it is unknown — `0` means "not yet loaded"
-   * (just after `setDataSource()` / `onModelChange()`, before their first fetch
-   * resolves), and block 0 must still be fetchable then. `purgeCache()` keeps the
-   * total, so it stays finite there.
+   * `totalNodeCount`, or `Infinity` while it is unknown. A known zero represents an
+   * empty dataset; an initial or malformed zero leaves block 0 fetchable. `purgeCache()`
+   * keeps the known total.
    */
   private get knownTotal(): number {
-    return this.totalNodeCount > 0 ? this.totalNodeCount : Infinity;
+    if (this.infiniteScrollMode || !this.totalNodeCountKnown) return Infinity;
+    return this.totalNodeCount;
   }
 
   /** Whether the displayed rows are not `managedNodes` itself, so display indices may not be node indices. */
@@ -445,28 +458,42 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   /**
    * Apply server response metadata: resolve totalNodeCount and infinite scroll mode.
    * When `lastNode` is provided, it takes priority and finalizes the total.
-   * When `totalNodeCount` is -1, switch to infinite scroll (growing array).
+   * When `totalNodeCount` is -1, switch to infinite scroll only if no finite total is known.
    * When a block returns fewer rows than blockSize, detect end-of-data.
    * A malformed total (missing, negative, non-finite) is stored as `0` ("unknown")
    * so `getTotalNodeCount()` and `knownTotal` never see `undefined`.
    */
   private applyServerResult(result: GetRowsResult, blockNum: number, blockSize: number): void {
-    if (result.lastNode !== undefined) {
+    const hasFiniteTotal = Number.isFinite(result.totalNodeCount) && result.totalNodeCount >= 0;
+    if (result.lastNode !== undefined && Number.isFinite(result.lastNode) && result.lastNode >= -1) {
       // Server declared the exact end
       this.totalNodeCount = result.lastNode + 1;
+      this.totalNodeCountKnown = true;
+      this.totalNodeCountInferred = false;
       this.infiniteScrollMode = false;
-    } else if (result.totalNodeCount === -1) {
-      this.infiniteScrollMode = true;
-    } else {
+    } else if (hasFiniteTotal) {
       this.totalNodeCount = result.totalNodeCount;
+      this.totalNodeCountKnown = true;
+      this.totalNodeCountInferred = false;
+      this.infiniteScrollMode = false;
+    } else if (!this.totalNodeCountKnown && result.totalNodeCount === -1) {
+      this.infiniteScrollMode = true;
+    } else if (!this.totalNodeCountKnown) {
+      this.totalNodeCount = 0;
+      this.totalNodeCountInferred = false;
       this.infiniteScrollMode = false;
     }
-    // Malformed total from either branch (`undefined`, negative, `lastNode: NaN`) → "unknown".
-    if (!Number.isFinite(this.totalNodeCount) || this.totalNodeCount < 0) this.totalNodeCount = 0;
 
-    // Auto-detect end of data: short block means server has no more rows
-    if (this.infiniteScrollMode && result.rows.length < blockSize) {
-      this.totalNodeCount = blockNum * blockSize + result.rows.length;
+    // A short unknown-total block provides an end bound; later short blocks can refine it.
+    if (
+      result.totalNodeCount === -1 &&
+      result.rows.length < blockSize &&
+      (!this.totalNodeCountKnown || this.totalNodeCountInferred)
+    ) {
+      const inferredTotal = blockNum * blockSize + result.rows.length;
+      this.totalNodeCount = this.totalNodeCountKnown ? Math.min(this.totalNodeCount, inferredTotal) : inferredTotal;
+      this.totalNodeCountKnown = true;
+      this.totalNodeCountInferred = true;
       this.infiniteScrollMode = false;
     }
   }
@@ -524,7 +551,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
         break;
       }
 
-      this.fetchBlock(this.dataSource, blockNum, blockSize, enrichment, gridId);
+      void this.fetchBlock(this.dataSource, blockNum, blockSize, enrichment, gridId).catch(() => undefined);
     }
   }
 
@@ -542,14 +569,21 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     enrichment: Partial<GetRowsParams>,
     gridId: string | undefined,
     initial = false,
-  ): void {
+    replacement?: { startNode: number; endNode: number; wasCached: boolean },
+  ): Promise<void> {
+    const existing = this.blockRequests.get(blockNum);
+    if (existing) return existing;
+
+    const requestContext = { replacement };
+    this.blockRequestReplacements.set(blockNum, requestContext);
     this.loadingBlocks.add(blockNum);
     const controller = new AbortController();
     this.blockControllers.set(blockNum, controller);
     this.broadcast<DataSourceLoadingDetail>('datasource:loading', { loading: true });
 
-    loadBlock(dataSource, blockNum, blockSize, enrichment, controller.signal)
+    const request = loadBlock(dataSource, blockNum, blockSize, enrichment, controller.signal)
       .then((result) => {
+        const activeReplacement = requestContext.replacement;
         this.releaseBlock(blockNum, controller);
         // Drop results from a request that was superseded after the await
         // resolved (data source ignored the abort signal). Without this guard
@@ -558,6 +592,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
           this.broadcastIdleIfSettled();
           return;
         }
+        if (activeReplacement) this.assertReloadResult(result, blockNum, blockSize, activeReplacement.wasCached);
         this.loadedBlocks.set(blockNum, result.rows);
         // Capture pre-update length so we can detect whether processRows must
         // re-run to grow the managedNodes array (e.g. after onModelChange reset).
@@ -566,10 +601,11 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
 
         // Update managed nodes in place for this block (avoids full processRows rebuild)
         const start = blockNum * blockSize;
-        for (let i = 0; i < result.rows.length; i++) {
-          if (start + i < this.managedNodes.length) {
-            this.managedNodes[start + i] = result.rows[i];
-          }
+        const updateEnd = Math.min(activeReplacement?.endNode ?? start + result.rows.length, this.managedNodes.length);
+        for (let nodeIndex = start; nodeIndex < updateEnd; nodeIndex++) {
+          const rowOffset = nodeIndex - start;
+          this.managedNodes[nodeIndex] =
+            rowOffset < result.rows.length ? result.rows[rowOffset] : createLoadingPlaceholder(nodeIndex);
         }
 
         // Broadcast data event with claimed flag
@@ -580,6 +616,9 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
           endNode: start + result.rows.length,
           claimed: false,
           generation: this.#generation,
+          ...(activeReplacement
+            ? { replacement: { startNode: activeReplacement.startNode, endNode: activeReplacement.endNode } }
+            : {}),
         };
         this.broadcast('datasource:data', detail);
         this.broadcastIdleIfSettled();
@@ -639,6 +678,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
         if (!initial) this.loadRequiredBlocks();
       })
       .catch((error: unknown) => {
+        const activeReplacement = requestContext.replacement;
         this.releaseBlock(blockNum, controller);
         // A superseded request may surface as either an AbortError or as a
         // user-thrown error after the data source detected the abort —
@@ -648,11 +688,75 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
           return;
         }
         const err = error instanceof Error ? error : new Error(String(error));
-        errorDiagnostic(DATASOURCE_FETCH_ERROR, `getRows() failed: ${err.message}`, gridId);
-        this.broadcast<DataSourceErrorDetail>('datasource:error', { error: err });
+        const message = activeReplacement ? `reloadBlocks() failed: ${err.message}` : `getRows() failed: ${err.message}`;
+        errorDiagnostic(DATASOURCE_FETCH_ERROR, message, gridId);
+        this.broadcast<DataSourceErrorDetail>('datasource:error', { error: err, blockIndex: blockNum });
         this.broadcastIdleIfSettled();
+        throw err;
       });
+    this.blockRequests.set(blockNum, request);
+    return request;
   }
+
+  private assertReloadResult(result: GetRowsResult, blockNum: number, blockSize: number, wasCached: boolean): void {
+    const startNode = blockNum * blockSize;
+    const lastNode = result.lastNode;
+    const hasLastNode = typeof lastNode === 'number' && Number.isFinite(lastNode) && lastNode >= -1;
+    const hasFiniteTotal = Number.isFinite(result.totalNodeCount) && result.totalNodeCount >= 0;
+    const hasShortUnknownEnd = result.totalNodeCount === -1 && !hasLastNode && result.rows.length < blockSize;
+    const resultTotal = hasLastNode
+      ? lastNode + 1
+      : hasFiniteTotal
+        ? result.totalNodeCount
+        : hasShortUnknownEnd
+          ? startNode + result.rows.length
+          : undefined;
+    const hasKnownTotal = this.totalNodeCountKnown && !this.infiniteScrollMode;
+    if (wasCached && !hasKnownTotal) {
+      throw new Error('reloadBlocks() cannot verify root offsets without a known totalNodeCount; call refresh()');
+    }
+
+    let validationTotal = resultTotal;
+    if (hasKnownTotal) {
+      validationTotal = this.totalNodeCount;
+      if (resultTotal !== undefined && resultTotal !== this.totalNodeCount) {
+        if (this.totalNodeCountInferred && hasShortUnknownEnd && !wasCached) {
+          validationTotal = Math.min(this.totalNodeCount, resultTotal);
+        } else {
+          throw new Error(
+            'reloadBlocks() received a changed totalNodeCount; call refresh() to reload the dataset safely',
+          );
+        }
+      }
+    }
+
+    if (validationTotal === undefined) {
+      if (result.rows.length !== blockSize) {
+        throw new Error('reloadBlocks() received an incomplete block; call refresh() to reload the dataset safely');
+      }
+      return;
+    }
+
+    const expectedRows = Math.max(0, Math.min(blockSize, validationTotal - startNode));
+    if (result.rows.length !== expectedRows) {
+      throw new Error('reloadBlocks() received an incomplete block; call refresh() to reload the dataset safely');
+    }
+
+    if (!hasKnownTotal || validationTotal < this.totalNodeCount) {
+      for (const [cachedBlock, cachedRows] of this.loadedBlocks) {
+        if (
+          cachedBlock !== blockNum &&
+          cachedRows.length > 0 &&
+          cachedBlock * blockSize + cachedRows.length > validationTotal
+        ) {
+          throw new Error(
+            'reloadBlocks() would invalidate another cached block; call refresh() to reload the dataset safely',
+          );
+        }
+      }
+    }
+  }
+
   // #endregion
 
   // #region Hooks
@@ -855,7 +959,104 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     // the rest of the viewport (plus loadThreshold).
     const blockSize = this.config.pageSize ?? 100;
     const gridId = this.grid?.getAttribute?.('id') ?? undefined;
-    this.fetchBlock(dataSource, 0, blockSize, this.getEnrichmentParams(), gridId, true);
+    void this.fetchBlock(dataSource, 0, blockSize, this.getEnrichmentParams(), gridId, true).catch(() => undefined);
+  }
+
+  /**
+   * Reload root data blocks without clearing the other cached blocks. Existing rows
+   * remain visible until a replacement succeeds; a failed reload leaves them intact.
+   * Block indices are zero-based in the root node space, not the rendered row space.
+   * A changed total or partial block cannot be applied safely; use `refresh()` instead.
+   * Reloads reject if a data-source change, query change, refresh, or detach supersedes them.
+   *
+   * @param blockIndices - Root block numbers to reload, using the configured `pageSize`
+   * @returns Resolves when all requested blocks have settled successfully
+   * @throws When a block fails, the total changes, the indices are invalid, the source is unsupported, or the reload is superseded
+   * @since 3.12.0
+   */
+  async reloadBlocks(blockIndices: readonly number[]): Promise<void> {
+    if (!this.dataSource) throw new Error('reloadBlocks() requires an active data source');
+    if (isUrlDataSource(this.dataSource)) {
+      throw new Error('reloadBlocks() is not supported by the cached data-src source; provide a dataSource instead');
+    }
+
+    const blockSize = this.config.pageSize ?? 100;
+    const blocks = [...new Set(blockIndices)];
+    for (const blockNum of blocks) {
+      if (!Number.isInteger(blockNum) || blockNum < 0)
+        throw new RangeError('blockIndices must be non-negative integers');
+      if (!this.totalNodeCountKnown && !this.infiniteScrollMode && this.loadedBlocks.has(blockNum)) {
+        throw new Error('reloadBlocks() cannot verify root offsets without a known totalNodeCount; call refresh()');
+      }
+      if (
+        this.totalNodeCountKnown &&
+        !this.infiniteScrollMode &&
+        (this.totalNodeCount === 0 ? blockNum > 0 : blockNum * blockSize >= this.totalNodeCount)
+      ) {
+        throw new RangeError(`Block ${blockNum} is past totalNodeCount`);
+      }
+    }
+
+    const dataSource = this.dataSource;
+    const generation = this.#generation;
+    const assertCurrent = (): void => {
+      if (this.dataSource !== dataSource || this.#generation !== generation) {
+        throw new Error('reloadBlocks() was superseded by a data-source or query change');
+      }
+    };
+    const enrichment = this.getEnrichmentParams();
+    const gridId = this.grid?.getAttribute?.('id') ?? undefined;
+    const requests: Promise<void>[] = [];
+    const maxConcurrentRequests = this.config.maxConcurrentRequests ?? 2;
+    let rejectRequestedFailure!: (reason: unknown) => void;
+    const requestFailure = new Promise<never>((_resolve, reject) => {
+      rejectRequestedFailure = reject;
+    });
+    void requestFailure.catch(() => undefined);
+
+    for (const blockNum of blocks) {
+      assertCurrent();
+      let request = this.blockRequests.get(blockNum);
+      while (!request && this.loadingBlocks.size >= maxConcurrentRequests) {
+        const activeRequests = [...this.blockRequests.values()];
+        if (activeRequests.length === 0) break;
+        const capacity = Promise.race(
+          activeRequests.map((active) =>
+            active.then(
+              () => undefined,
+              () => undefined,
+            ),
+          ),
+        );
+        await Promise.race([capacity, requestFailure]);
+        assertCurrent();
+        request = this.blockRequests.get(blockNum);
+      }
+
+      if (!request) {
+        const startNode = blockNum * blockSize;
+        request = this.fetchBlock(dataSource, blockNum, blockSize, enrichment, gridId, false, {
+          startNode,
+          endNode: startNode + blockSize,
+          wasCached: this.loadedBlocks.has(blockNum),
+        });
+      } else {
+        const startNode = blockNum * blockSize;
+        const requestContext = this.blockRequestReplacements.get(blockNum);
+        if (requestContext && !requestContext.replacement) {
+          requestContext.replacement = {
+            startNode,
+            endNode: startNode + blockSize,
+            wasCached: this.loadedBlocks.has(blockNum),
+          };
+        }
+      }
+      requests.push(request);
+      void request.catch(rejectRequestedFailure);
+    }
+
+    await Promise.all(requests);
+    assertCurrent();
   }
 
   /**

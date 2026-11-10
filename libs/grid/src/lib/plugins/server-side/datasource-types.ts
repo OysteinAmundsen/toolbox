@@ -242,12 +242,19 @@ export interface DataSourceDataDetail<TRow = unknown> {
    * Cache generation the block belongs to. It changes whenever ServerSide discards its
    * cache (`setDataSource()`, `refresh()`, `purgeCache()`, a server-side sort/filter
    * change). Blocks with the same generation are slices of one dataset that a consumer
-   * merges at `startNode`; a changed generation means every earlier block is gone.
+   * merges at `startNode`; a targeted replacement in that generation is identified by
+   * `replacement`. A changed generation means every earlier block is gone.
    * Omitted by emitters that predate it — treat such a block as a full replacement.
    *
    * @since 3.9.2
    */
   generation?: number;
+  /**
+   * Full root-node range replaced by a targeted reload; absent for ordinary block loads.
+   * The end is exclusive and may extend to the configured page boundary.
+   * @since 3.12.0
+   */
+  replacement?: { startNode: number; endNode: number };
 }
 
 /**
@@ -280,6 +287,8 @@ export interface DataSourceLoadingDetail {
 export interface DataSourceErrorDetail {
   error: Error;
   context?: { source: string; [key: string]: unknown };
+  /** Zero-based root block number for a failed getRows() request. @since 3.12.0 */
+  blockIndex?: number;
 }
 
 // #endregion

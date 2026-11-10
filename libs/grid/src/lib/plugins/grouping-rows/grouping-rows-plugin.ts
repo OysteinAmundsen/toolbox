@@ -34,6 +34,7 @@ import {
   buildGroupedRowModel,
   buildPreDefinedGroupModel,
   buildRootSlots,
+  clearReplacedServerGroupBlock,
   collapseAllGroups,
   collectGroupKeys,
   computeRootOwners,
@@ -446,9 +447,9 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
       // Another block of the current dataset: merge it at its node offset and keep
       // loaded rows, in-flight loads and expansion (#538).
       if (this.#serverFed && d.generation !== undefined && d.generation === this.#serverGeneration) {
+        if (d.replacement) clearReplacedServerGroupBlock(this.#nodeGroups, groups, d.replacement, [this.groupRowsMap, this.#groupLoads, this.loadingGroups, this.#requestedKeys]);
         this.#mergeServerGroups(groups, d.startNode);
-        this.requestRender();
-        return;
+        return this.requestRender();
       }
       // A new dataset (first load, refresh, purge, server sort/filter): expanded groups
       // whose rows were loaded or loading are invalidated, so re-request them below.

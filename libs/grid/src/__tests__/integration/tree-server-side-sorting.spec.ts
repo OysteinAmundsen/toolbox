@@ -80,6 +80,25 @@ describe('Tree + ServerSide sorting (#524)', () => {
   });
 
   describe("sortMode: 'server' (default)", () => {
+    it('keeps tree expansion and reloads lazy children after a targeted root-block reload', async () => {
+      const { grid, dataSource } = await createGrid({ lazy: true });
+      const tree = grid.getPluginByName('tree');
+      tree.expand('0');
+      await vi.waitFor(() => expect(ids(grid)).toContain(102));
+
+      dataSource.getRows.mockResolvedValue({
+        rows: [0, 1, 2].map((id): Row => ({ id, name: `updated-${id}`, children: true })),
+        totalNodeCount: 3,
+      });
+      dataSource.getChildRows.mockResolvedValue({ rows: [{ id: 200, name: 'updated-child' }] });
+
+      await grid.getPluginByName('serverSide').reloadBlocks([0]);
+
+      await vi.waitFor(() => expect(ids(grid)).toEqual([0, 200, 1, 2]));
+      expect(tree.isExpanded('0')).toBe(true);
+      expect(dataSource.getChildRows).toHaveBeenCalledTimes(2);
+    });
+
     it('keeps the data source root order after a MultiSort refetch', async () => {
       const { grid, dataSource } = await createGrid({ multiSort: true });
 

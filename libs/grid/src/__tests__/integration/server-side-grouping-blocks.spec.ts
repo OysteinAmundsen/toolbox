@@ -121,6 +121,34 @@ describe('ServerSide group definitions across blocks (#538)', () => {
     expect((grid.rows as any[]).filter((r) => r.__loading === true && typeof r.__index === 'number')).toHaveLength(50);
   });
 
+  it('replaces only the reloaded block and refreshes its expanded groups', async () => {
+    const { grid, plugin, serverSidePlugin, getRows, getChildRows, groupKeys } = await createGrid(
+      4,
+      { pageSize: 2 },
+      {},
+      async () => ({ rows: [{ name: 'old-member' }] }),
+    );
+    await vi.waitFor(() => expect(groupKeys()).toEqual(keysOf(4)));
+    plugin.toggle('G0');
+    await vi.waitFor(() => expect((grid.rows as any[]).some((row) => row.name === 'old-member')).toBe(true));
+
+    getRows.mockImplementation(async ({ startNode, endNode }: GetRowsParams) => ({
+      rows: keysOf(4)
+        .slice(startNode, endNode)
+        .map((key) => ({ key, value: `updated-${key}`, rowCount: 1 })),
+      totalNodeCount: 4,
+    }));
+    getChildRows.mockResolvedValue({ rows: [{ name: 'new-member' }] });
+
+    await serverSidePlugin.reloadBlocks([0]);
+
+    await vi.waitFor(() => expect((grid.rows as any[]).some((row) => row.name === 'new-member')).toBe(true));
+    expect(plugin.isExpanded('G0')).toBe(true);
+    expect((grid.rows as any[]).some((row) => row.name === 'old-member')).toBe(false);
+    expect(getChildRows).toHaveBeenCalledTimes(2);
+    expect(getRows.mock.calls).toHaveLength(3);
+  });
+
   it('refresh() starts a new generation: definitions are replaced, not merged', async () => {
     const { serverSidePlugin, getRows, groupKeys } = await createGrid(120, { pageSize: 50 });
     await vi.waitFor(() => expect(groupKeys()).toHaveLength(50));

@@ -403,6 +403,26 @@ export function collectGroupKeys(groups: GroupDefinition[]): string[] {
   return keys;
 }
 
+/** Clear cached child state for a replaced ServerSide root-block range. */
+export function clearReplacedServerGroupBlock(
+  nodeGroups: (GroupDefinition | undefined)[],
+  groups: GroupDefinition[],
+  replacement: { startNode: number; endNode: number },
+  caches: readonly [Map<string, unknown[]>, Map<string, AbortController>, Set<string>, Set<string>],
+): void {
+  const [groupRowsMap, groupLoads, loadingGroups, requestedKeys] = caches;
+  const previous = nodeGroups.slice(replacement.startNode, replacement.endNode).filter((group) => group != null);
+  const affectedKeys = new Set([...collectGroupKeys(previous), ...collectGroupKeys(groups)]);
+  for (let index = replacement.startNode; index < replacement.endNode; index++) delete nodeGroups[index];
+  for (const key of affectedKeys) {
+    groupRowsMap.delete(key);
+    groupLoads.get(key)?.abort();
+    groupLoads.delete(key);
+    loadingGroups.delete(key);
+    requestedKeys.delete(key);
+  }
+}
+
 /** Find a group definition by key anywhere in a pre-defined group tree. */
 export function findGroupDefinition(groups: GroupDefinition[], key: string): GroupDefinition | undefined {
   for (const g of groups) {

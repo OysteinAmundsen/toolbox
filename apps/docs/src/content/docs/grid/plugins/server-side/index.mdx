@@ -364,11 +364,29 @@ const plugin = grid.getPluginByName('serverSide');
 
 plugin.setDataSource(newDataSource);  // Replace the data source at runtime
 plugin.refresh();                      // Reload current viewport from server
+await plugin.reloadBlocks([0, 2]);     // Reload root blocks 0 and 2 without purging others
 plugin.purgeCache();                   // Clear all cached blocks
 plugin.getTotalNodeCount();            // Get server-reported total node count
 plugin.isNodeLoaded(index);            // Check if a specific node is in cache
 plugin.getLoadedBlockCount();          // Number of blocks currently cached
 ```
+
+`reloadBlocks()` takes zero-based **root block numbers** based on `pageSize`, not displayed row
+indices. When the source reports a valid empty dataset (`totalNodeCount: 0`), block 0 can still be
+reloaded; an initial or malformed zero total is treated as unknown until a valid response arrives.
+Existing rows remain visible until replacement succeeds, and remain cached if it fails.
+The returned promise rejects on a fetch failure or if a refresh, query change, data-source swap,
+or detach supersedes the reload. The `datasource:error` event also includes the failed root
+`blockIndex`. Concurrent requests for the same block are deduplicated.
+
+A replacement of a cached block requires a known total and a complete block of the expected
+length. If inserts or deletes can shift later blocks, use `refresh()` instead. When the total
+is still unknown, `reloadBlocks()` can retry an uncached full block; a short `-1` response or
+`lastNode` may establish the end only if it preserves other cached rows. Later short `-1` blocks
+can tighten an inferred end, while a full `-1` response cannot erase it. If scrolling already
+started a request for a reloaded block, `reloadBlocks()` joins it and validates it before the
+result updates the cache. The fetch-once `data-src` source is not supported because it serves
+blocks from its own cached full dataset.
 
 :::tip
 For most use cases, pass `dataSource` directly in the config — no need for `setDataSource()`. Use `setDataSource()` only when you need to **swap** the data source at runtime (e.g., switching API endpoints based on user action).
@@ -833,10 +851,10 @@ The Server-Side plugin **cannot** be used with:
 
 | Event / Query | Direction | Description |
 | --- | --- | --- |
-| `datasource:data` | ServerSide → plugins | Root data block loaded (`startNode`/`endNode`, and a `generation` that changes whenever the cache is discarded — blocks of one generation belong to one dataset). Structural plugins may claim it; unclaimed data is rendered as flat rows |
+| `datasource:data` | ServerSide → plugins | Root data block loaded (`startNode`/`endNode`, and a `generation` that changes whenever the cache is discarded — blocks of one generation belong to one dataset). Targeted replacements include the full replaced root range. Structural plugins may claim it; unclaimed data is rendered as flat rows |
 | `datasource:children` | ServerSide → plugins | Child data loaded. Filtered by `context.source` |
 | `datasource:loading` | ServerSide → plugins | Loading state changed (with optional context) |
-| `datasource:error` | ServerSide → plugins | Fetch failed (with optional context) |
+| `datasource:error` | ServerSide → plugins | Fetch failed (with optional context); root `getRows()` failures include `blockIndex` |
 | `datasource:fetch-children` | Plugins → ServerSide | Query requesting child rows for a context |
 | `datasource:is-active` | Plugins → ServerSide | Query checking if a data source is configured |
 | `datasource:filter-mode` | Plugins → ServerSide | Query returning who filters rows while a data source is active: `'server'` (the data source; FilteringPlugin passes rows through) or `'local'` (the grid; placeholders pass until their block loads) |

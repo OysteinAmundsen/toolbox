@@ -465,6 +465,7 @@ Bulk-edit lifecycle, change tracking, and active-row controls are provided by th
 | `getPlugin(PluginClass)` | `P \| undefined`               | Get plugin instance by class (requires import)         |
 
 `getPluginByName` is type-safe for all built-in plugins via the `PluginNameMap` interface — TypeScript automatically returns the correct plugin type (e.g., `SelectionPlugin` for `'selection'`).
+Plugin-specific methods are documented on their plugin pages, including [ServerSidePlugin.reloadBlocks()](/grid/plugins/server-side/#programmatic-api).
 
 ```typescript
 // Preferred — type-safe, no import needed

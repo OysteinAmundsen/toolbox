@@ -99,12 +99,12 @@ interface GetChildRowsResult<TRow = any> {
 
 The plugin broadcasts lifecycle events that other plugins can subscribe to:
 
-| Event                 | Detail Type                | When                               |
-| --------------------- | -------------------------- | ---------------------------------- |
-| `datasource:data`     | `DataSourceDataDetail`     | Block fetched (includes `claimed`) |
-| `datasource:children` | `DataSourceChildrenDetail` | Child rows fetched                 |
-| `datasource:loading`  | `DataSourceLoadingDetail`  | Loading state changes              |
-| `datasource:error`    | `DataSourceErrorDetail`    | Fetch error occurred               |
+| Event                 | Detail Type                | When                                                                                      |
+| --------------------- | -------------------------- | ----------------------------------------------------------------------------------------- |
+| `datasource:data`     | `DataSourceDataDetail`     | Block fetched (includes `claimed`); targeted replacements include the replaced root range |
+| `datasource:children` | `DataSourceChildrenDetail` | Child rows fetched                                                                        |
+| `datasource:loading`  | `DataSourceLoadingDetail`  | Loading state changes                                                                     |
+| `datasource:error`    | `DataSourceErrorDetail`    | Fetch error occurred; root block failures include `blockIndex`                            |
 
 ## Queries
 
@@ -125,6 +125,9 @@ const serverSide = grid.getPluginByName('serverSide');
 // Refresh data (clears cache and reloads)
 serverSide.refresh();
 
+// Reload root blocks 0 and 2, retaining current rows unless each replacement succeeds
+await serverSide.reloadBlocks([0, 2]);
+
 // Purge cache only
 serverSide.purgeCache();
 
@@ -140,6 +143,18 @@ const loaded = serverSide.isNodeLoaded(nodeIndex);
 // Get loaded block count
 const blockCount = serverSide.getLoadedBlockCount();
 ```
+
+`reloadBlocks()` takes zero-based root block numbers, not rendered row indices. A valid empty
+dataset (`totalNodeCount: 0`) still allows reloading block 0; an initial or malformed zero is
+unknown until a valid response arrives. It preserves current rows if a request fails and rejects
+cached-block replacements without a known stable total or with an unexpected page length; use
+`refresh()` when the dataset size or block offsets changed. With an unknown total, uncached full
+blocks may be retried, and a short `-1` response or `lastNode` may establish the end if existing
+cached rows remain valid. Later short `-1` responses can tighten that inferred end; full `-1`
+responses do not erase it. If scrolling already started a request for a reloaded block,
+`reloadBlocks()` joins it and validates it before the result updates the cache.
+It also rejects when a refresh, query change, data-source swap, or detach supersedes it, and is
+not supported by the cached `data-src` source.
 
 ## Migration from v1
 

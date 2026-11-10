@@ -189,6 +189,15 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
    * triggered (a synchronous check would see the pre-render virtual window).
    */
   private pendingViewportCheck = false;
+  /**
+   * Source whose block-0 fetch `attach()` deferred to a microtask, so the grid can
+   * restore the declared `columnState` (filters, sort) before the first request
+   * captures the query (#647). Cleared when the fetch starts or is superseded.
+   */
+  private pendingInitialSource: ServerSideDataSource | null = null;
+  /** Coalesces a column-state filter event with MultiSort's queued sort event. */
+  private pendingModelChange = false;
+  private modelChangeScheduleId = 0;
   /** Persistent node array with stable placeholder references to avoid unnecessary DOM rebuilds. */
   private managedNodes: unknown[] = [];
   /**
@@ -211,16 +220,20 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     this.on('sort-change', () => {
       if (this.sortMode === 'local') {
         this.requestRender();
+      } else if (this.pendingModelChange) {
+        this.scheduleModelChange();
       } else {
         this.onModelChange();
       }
     });
-    this.on('filter-change', () => {
+    this.on<{ source?: string }>('filter-change', (detail) => {
       if (this.filterMode === 'local') {
         // The filter can reject rows above unloaded placeholders, moving them into
         // view without a scroll — re-check the viewport after this render (#520).
         this.pendingViewportCheck = true;
         this.requestRender();
+      } else if (detail.source === 'column-state' || this.pendingModelChange) {
+        this.scheduleModelChange();
       } else {
         this.onModelChange();
       }
@@ -228,7 +241,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
 
     // Auto-initialize from config when dataSource is provided declaratively
     if (this.config.dataSource) {
-      this.setDataSource(this.config.dataSource);
+      this.deferInitialFetch(this.config.dataSource);
       return;
     }
 
@@ -238,12 +251,13 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     // server-fetched rows. A JS `dataSource` config always takes precedence.
     const src = this.gridElement?.getAttribute('data-src');
     if (src) {
-      this.setDataSource(createUrlDataSource(src));
+      this.deferInitialFetch(createUrlDataSource(src));
     }
   }
 
   /** @internal */
   override detach(): void {
+    this.pendingInitialSource = null;
     this.dataSource = null;
     this.discardCache(true);
     for (const controller of this.childControllers) controller.abort();
@@ -255,14 +269,16 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
 
   /**
    * Abort in-flight block requests and drop the block cache. Every discard path
-   * (`setDataSource`, `onModelChange`, `purgeCache`, `detach`) goes through here so
-   * `#generation` is bumped exactly once per discard and no deferred fetch — the
+   * (`setDataSource`, `scheduleModelChange`, `onModelChange`, `purgeCache`, `detach`)
+   * goes through here so `#generation` is bumped exactly once per discard and no deferred fetch — the
    * `afterRender()` viewport check or the scroll debounce — can refetch what was
    * just dropped. `resetTotal` also forgets `totalNodeCount` / infinite-scroll
    * mode; `purgeCache()` keeps them so the grid keeps rendering placeholders for
    * the known row count instead of collapsing to empty.
    */
   private discardCache(resetTotal: boolean): void {
+    this.modelChangeScheduleId++;
+    this.pendingModelChange = false;
     this.abortAllBlocks();
     this.loadedBlocks.clear();
     this.#generation++;
@@ -442,17 +458,48 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   }
 
   /**
-   * Handle sort or filter model changes.
-   * Purge cache and refetch current viewport with new enrichment params.
+   * Invalidate in-flight requests immediately, then coalesce batched sort/filter
+   * notifications before refetching. Column-state restore emits filter-change
+   * synchronously and MultiSort emits sort-change in a microtask, so two turns
+   * let both models settle before reading them.
    */
+  private scheduleModelChange(): void {
+    if (this.pendingInitialSource || !this.dataSource) return;
+    if (!this.pendingModelChange) {
+      this.discardCache(true);
+      this.pendingModelChange = true;
+    }
+    const scheduleId = ++this.modelChangeScheduleId;
+    const generation = this.#generation;
+    queueMicrotask(() => {
+      queueMicrotask(() => {
+        if (scheduleId !== this.modelChangeScheduleId || generation !== this.#generation) return;
+        this.pendingModelChange = false;
+        this.refetchCurrentModel();
+      });
+    });
+  }
+
+  /** Purge cache and refetch the current viewport with the settled enrichment params. */
   private onModelChange(): void {
     if (!this.dataSource) return;
+    // The deferred initial fetch has not captured the query yet — it will read this model.
+    if (this.pendingInitialSource) return;
     this.discardCache(true);
+    this.refetchCurrentModel();
+  }
+
+  /** Render and fetch after the cache is invalidated and the current model has settled. */
+  private refetchCurrentModel(): void {
+    if (!this.dataSource) return;
     this.requestRender();
     // Eagerly fetch the current viewport with the new enrichment params.
     // Without this, the table stays blank until the user scrolls (no other
     // path triggers a fetch — processRows just rebuilds from cached blocks).
     this.loadRequiredBlocks();
+    // An empty viewport (block 0 still in flight, or the previous query matched
+    // nothing) requires no block, so restart from block 0 like setDataSource().
+    if (this.loadingBlocks.size === 0) this.fetchInitialBlock(this.dataSource);
   }
 
   /**
@@ -520,7 +567,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
    * Check current viewport and load any missing blocks.
    */
   private loadRequiredBlocks(): void {
-    if (!this.dataSource) return;
+    if (!this.dataSource || this.pendingInitialSource || this.pendingModelChange) return;
 
     const { _virtualization } = this.grid;
     const blockSize = this.config.pageSize ?? 100;
@@ -688,7 +735,9 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
           return;
         }
         const err = error instanceof Error ? error : new Error(String(error));
-        const message = activeReplacement ? `reloadBlocks() failed: ${err.message}` : `getRows() failed: ${err.message}`;
+        const message = activeReplacement
+          ? `reloadBlocks() failed: ${err.message}`
+          : `getRows() failed: ${err.message}`;
         errorDiagnostic(DATASOURCE_FETCH_ERROR, message, gridId);
         this.broadcast<DataSourceErrorDetail>('datasource:error', { error: err, blockIndex: blockNum });
         this.broadcastIdleIfSettled();
@@ -952,11 +1001,41 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
    * @param dataSource - Data source implementing the getRows method (and optionally getChildRows)
    */
   setDataSource(dataSource: ServerSideDataSource): void {
+    this.pendingInitialSource = null;
     this.discardCache(true);
     this.dataSource = dataSource;
+    this.fetchInitialBlock(dataSource);
+  }
 
-    // Load block 0; its landing schedules the render whose afterRender() fills
-    // the rest of the viewport (plus loadThreshold).
+  /**
+   * Activate the data source declared in config (or `data-src`) during `attach()`,
+   * but defer its block-0 request to a microtask. Plugins attach before the grid
+   * restores `gridConfig.columnState` / a pre-connect `applyColumnState()` (both
+   * land later in the same task), so fetching now would capture an empty filter
+   * and sort model (#647). The source is active immediately, so
+   * `datasource:is-active` / `filter-mode` / `sort-mode` answer during the restore.
+   */
+  private deferInitialFetch(dataSource: ServerSideDataSource): void {
+    this.discardCache(true);
+    this.dataSource = dataSource;
+    this.pendingInitialSource = dataSource;
+    const generation = this.#generation;
+    queueMicrotask(() => {
+      // Superseded by setDataSource(), refresh(), detach(), or another cache discard.
+      if (generation !== this.#generation || this.pendingInitialSource !== dataSource) return;
+      // State-restore notifications (e.g. MultiSort's batched sort-change) may
+      // be queued after attach() schedules this fetch. Let those same-turn
+      // notifications update the model before capturing the initial request.
+      queueMicrotask(() => {
+        if (generation !== this.#generation || this.pendingInitialSource !== dataSource) return;
+        this.pendingInitialSource = null;
+        this.fetchInitialBlock(dataSource);
+      });
+    });
+  }
+
+  /** Load block 0; its landing schedules the render whose afterRender() fills the rest of the viewport. */
+  private fetchInitialBlock(dataSource: ServerSideDataSource): void {
     const blockSize = this.config.pageSize ?? 100;
     const gridId = this.grid?.getAttribute?.('id') ?? undefined;
     void this.fetchBlock(dataSource, 0, blockSize, this.getEnrichmentParams(), gridId, true).catch(() => undefined);
@@ -1072,6 +1151,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
    * grid keeps rendering placeholders; nothing is fetched until the next scroll.
    */
   purgeCache(): void {
+    this.pendingInitialSource = null;
     this.discardCache(false);
   }
 

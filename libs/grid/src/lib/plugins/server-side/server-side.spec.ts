@@ -583,6 +583,111 @@ describe('ServerSidePlugin', () => {
       const rows = [{ id: 1 }];
       expect(plugin.processRows(rows)).toEqual(rows);
     });
+
+    describe('deferred initial request (#647)', () => {
+      it('defers block 0 to a microtask and captures the model restored meanwhile', async () => {
+        const getRows = vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalNodeCount: 1 });
+        const restored: { filterModel?: Record<string, unknown> } = {};
+        const plugin = new ServerSidePlugin({ pageSize: 10, dataSource: { getRows } });
+        const grid = createServerSideMockGrid({
+          query: (type: string) => (type === 'filter:get-model' && restored.filterModel ? [restored.filterModel] : []),
+        });
+        plugin.attach(grid as any);
+
+        expect(getRows).not.toHaveBeenCalled();
+        expect(plugin.handleQuery({ type: 'datasource:is-active', context: null })).toBe(true);
+        // The grid restores column state (and filters) synchronously after attach.
+        restored.filterModel = { name: { type: 'text', operator: 'contains', value: 'a' } };
+        grid._pluginManager.emitPluginEvent('filter-change', {});
+        await vi.waitFor(() => expect(getRows).toHaveBeenCalledTimes(1));
+
+        expect(getRows).toHaveBeenCalledTimes(1);
+        expect(getRows).toHaveBeenCalledWith(
+          expect.objectContaining({ startNode: 0, filterModel: restored.filterModel }),
+        );
+      });
+
+      it('skips the deferred request when setDataSource() supersedes it', async () => {
+        const configRows = vi.fn().mockResolvedValue({ rows: [], totalNodeCount: 0 });
+        const runtimeRows = vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalNodeCount: 1 });
+        const plugin = new ServerSidePlugin({ pageSize: 10, dataSource: { getRows: configRows } });
+        plugin.attach(createServerSideMockGrid() as any);
+
+        plugin.setDataSource({ getRows: runtimeRows });
+        await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+        expect(configRows).not.toHaveBeenCalled();
+        expect(runtimeRows).toHaveBeenCalledTimes(1);
+      });
+
+      it('skips the deferred request when detached first', async () => {
+        const getRows = vi.fn().mockResolvedValue({ rows: [], totalNodeCount: 0 });
+        const plugin = new ServerSidePlugin({ pageSize: 10, dataSource: { getRows } });
+        plugin.attach(createServerSideMockGrid() as any);
+        plugin.detach();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(getRows).not.toHaveBeenCalled();
+      });
+
+      it('keeps the initial fetch paused when purged before it starts', async () => {
+        const getRows = vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalNodeCount: 1 });
+        const plugin = new ServerSidePlugin({ pageSize: 10, dataSource: { getRows } });
+        const grid = createServerSideMockGrid({ _virtualization: { enabled: true, start: 0, end: 10 } });
+        plugin.attach(grid as any);
+
+        plugin.purgeCache();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(getRows).not.toHaveBeenCalled();
+
+        plugin.onScroll({ scrollTop: 0, scrollLeft: 0, direction: 'vertical' } as any);
+        await vi.waitFor(() => expect(getRows).toHaveBeenCalledTimes(1));
+        plugin.detach();
+      });
+
+      it('issues a single request when re-attached before the microtask runs', async () => {
+        const getRows = vi.fn().mockResolvedValue({ rows: [], totalNodeCount: 0 });
+        const plugin = new ServerSidePlugin({ pageSize: 10, dataSource: { getRows } });
+        const grid = createServerSideMockGrid();
+        plugin.attach(grid as any);
+        plugin.detach();
+        plugin.attach(grid as any);
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(getRows).toHaveBeenCalledTimes(1);
+      });
+
+      it('restores state before fetching when re-attached with the same source after the first callback', async () => {
+        const getRows = vi.fn().mockResolvedValue({ rows: [], totalNodeCount: 0 });
+        const restored: { filterModel?: Record<string, unknown> } = {};
+        const restoredModel = { name: { type: 'text', operator: 'contains', value: 'a' } };
+        const dataSource = { getRows };
+        const plugin = new ServerSidePlugin({ pageSize: 10, dataSource });
+        const grid = createServerSideMockGrid({
+          query: (type: string) => (type === 'filter:get-model' && restored.filterModel ? [restored.filterModel] : []),
+        });
+
+        plugin.attach(grid as any);
+        await Promise.resolve();
+        plugin.detach();
+        plugin.attach(grid as any);
+        queueMicrotask(() => {
+          restored.filterModel = restoredModel;
+          grid._pluginManager.emitPluginEvent('filter-change', { source: 'column-state' });
+        });
+
+        await vi.waitFor(() => {
+          expect(restored.filterModel).toBe(restoredModel);
+          expect(getRows).toHaveBeenCalledWith(
+            expect.objectContaining({ startNode: 0, filterModel: restoredModel }),
+          );
+        });
+
+        expect(getRows).toHaveBeenCalledTimes(1);
+        plugin.detach();
+      });
+    });
   });
 
   describe('serverSide feature boolean shorthand', () => {
@@ -1424,9 +1529,7 @@ describe('ServerSidePlugin', () => {
       const grid = createServerSideMockGrid({ _virtualization: { enabled: true, start: 0, end: 5 } });
       plugin.attach(grid as any);
       const dataEvents: Array<{ startNode: number; replacement?: { startNode: number; endNode: number } }> = [];
-      grid.addEventListener('datasource:data', (event: Event) =>
-        dataEvents.push((event as CustomEvent).detail),
-      );
+      grid.addEventListener('datasource:data', (event: Event) => dataEvents.push((event as CustomEvent).detail));
       const rowsFor = (startNode: number) => Array.from({ length: 5 }, (_, id) => ({ id: startNode + id }));
       let resolveBlock!: (result: { rows: { id: number }[]; totalNodeCount: number }) => void;
       const ds: ServerSideDataSource = {
@@ -1692,6 +1795,21 @@ describe('ServerSidePlugin', () => {
       const refreshed = plugin.processRows([]);
       expect(refreshed.length).toBe(100);
       expect(refreshed[0]).toEqual({ id: 0 });
+    });
+
+    it('restarts from block 0 when the viewport requires no block (#647)', async () => {
+      const plugin = new ServerSidePlugin({ pageSize: 5 });
+      const grid = createServerSideMockGrid({ _virtualization: { enabled: true, start: 0, end: 0 } });
+      plugin.attach(grid as any);
+      const getRows = vi.fn().mockResolvedValue({ rows: [], totalNodeCount: 0 });
+      plugin.setDataSource({ getRows });
+      await vi.waitFor(() => expect(getRows).toHaveBeenCalledTimes(1));
+      await Promise.resolve();
+
+      grid._pluginManager.emitPluginEvent('filter-change', {});
+
+      expect(getRows).toHaveBeenCalledTimes(2);
+      expect(getRows.mock.calls[1][0]).toMatchObject({ startNode: 0, endNode: 5 });
     });
   });
 

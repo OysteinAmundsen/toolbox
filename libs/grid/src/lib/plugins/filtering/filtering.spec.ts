@@ -1738,6 +1738,221 @@ describe('FilteringPlugin class', () => {
     grid._cleanup();
   });
 
+  describe('column-state restore notification (#647)', () => {
+    const nameState = (value?: unknown) => ({
+      field: 'name',
+      order: 0,
+      visible: true,
+      ...(value === undefined ? {} : { filter: { type: 'set' as const, operator: 'in', value } }),
+    });
+
+    function setup() {
+      const plugin = new FilteringPlugin({ trackColumnState: true });
+      const grid = createGridMock();
+      const emitPluginEvent = vi.fn();
+      (grid as any)._pluginManager = { emitPluginEvent, subscribe: vi.fn(), unsubscribeAll: vi.fn() };
+      (grid as any).requestStateChange = vi.fn();
+      plugin.attach(grid as any);
+      return { plugin, grid, emitPluginEvent };
+    }
+
+    function seedInitialFilter(plugin: FilteringPlugin, clearNotifications: () => void) {
+      plugin.applyColumnState('name', nameState(['A']));
+      plugin.onColumnStateOrderApplied();
+      clearNotifications();
+    }
+
+    it('emits one plugin-bus filter-change after a restore that changed the model', () => {
+      const { plugin, grid, emitPluginEvent } = setup();
+
+      plugin.applyColumnState('name', nameState(['A']));
+      plugin.applyColumnState('age', { field: 'age', order: 1, visible: true });
+      expect(emitPluginEvent).not.toHaveBeenCalled();
+      plugin.onColumnStateOrderApplied();
+
+      expect(emitPluginEvent).toHaveBeenCalledTimes(1);
+      expect(emitPluginEvent).toHaveBeenCalledWith('filter-change', {
+        filters: [expect.objectContaining({ field: 'name', value: ['A'] })],
+        source: 'column-state',
+      });
+      // A restore is not a user edit: no public event and no state-change request.
+      expect(grid.dispatchEvent).not.toHaveBeenCalled();
+      expect((grid as any).requestStateChange).not.toHaveBeenCalled();
+      grid._cleanup();
+    });
+
+    it('stays silent when the restored filter equals the current one', () => {
+      const { plugin, grid, emitPluginEvent } = setup();
+      seedInitialFilter(plugin, () => emitPluginEvent.mockClear());
+
+      plugin.applyColumnState('name', nameState(['A']));
+      plugin.applyColumnState('age', { field: 'age', order: 1, visible: true });
+      plugin.onColumnStateOrderApplied();
+
+      expect(emitPluginEvent).not.toHaveBeenCalled();
+      grid._cleanup();
+    });
+
+    it('copies filter arrays from applied column state', () => {
+      const { plugin, grid } = setup();
+      const values = ['A'];
+
+      plugin.applyColumnState('name', nameState(values));
+      values[0] = 'B';
+
+      expect(plugin.getFilter('name')?.value).toEqual(['A']);
+      grid._cleanup();
+    });
+
+    it('copies Date values at both column-state boundaries', () => {
+      const { plugin, grid, emitPluginEvent } = setup();
+      const dateState = (value: Date) => ({
+        field: 'age',
+        order: 1,
+        visible: true,
+        filter: { type: 'date' as const, operator: 'greaterThan' as const, value },
+      });
+      const sourceDate = new Date(Date.UTC(2025, 0, 1));
+      const activeDate = new Date(sourceDate);
+
+      plugin.applyColumnState('age', dateState(sourceDate));
+      plugin.onColumnStateOrderApplied();
+      sourceDate.setTime(0);
+
+      expect(plugin.getFilter('age')?.value).toEqual(activeDate);
+
+      const snapshot = plugin.getColumnState('age');
+      const snapshotDate = snapshot?.filter?.value;
+      if (!(snapshotDate instanceof Date)) throw new Error('Expected a Date filter value');
+
+      emitPluginEvent.mockClear();
+      plugin.applyColumnState('age', dateState(snapshotDate));
+      plugin.onColumnStateOrderApplied();
+      expect(emitPluginEvent).not.toHaveBeenCalled();
+
+      snapshotDate.setTime(Date.UTC(2025, 0, 2));
+      expect(plugin.getFilter('age')?.value).toEqual(activeDate);
+
+      plugin.applyColumnState('age', dateState(snapshotDate));
+      plugin.onColumnStateOrderApplied();
+      const restoredDate = new Date(snapshotDate);
+      snapshotDate.setTime(Date.UTC(2025, 0, 3));
+
+      expect(plugin.getFilter('age')?.value).toEqual(restoredDate);
+      expect(emitPluginEvent).toHaveBeenCalledTimes(1);
+      grid._cleanup();
+    });
+
+    it('emits when reapplying a mutated column-state snapshot', () => {
+      const { plugin, grid, emitPluginEvent } = setup();
+      seedInitialFilter(plugin, () => emitPluginEvent.mockClear());
+
+      const snapshot = plugin.getColumnState('name');
+      const values = snapshot?.filter?.value;
+      if (!Array.isArray(values)) throw new Error('Expected a set-filter value array');
+      values[0] = 'B';
+
+      plugin.applyColumnState('name', { ...nameState(), ...snapshot });
+      plugin.onColumnStateOrderApplied();
+
+      expect(plugin.getFilter('name')?.value).toEqual(['B']);
+      expect(emitPluginEvent).toHaveBeenCalledWith('filter-change', {
+        filters: [expect.objectContaining({ field: 'name', value: ['B'] })],
+        source: 'column-state',
+      });
+      grid._cleanup();
+    });
+
+    it('compares set-filter values by membership rather than order', () => {
+      const { plugin, grid, emitPluginEvent } = setup();
+      const first = { id: 1 };
+      const second = { id: 2 };
+
+      plugin.applyColumnState('name', nameState([first, second]));
+      plugin.onColumnStateOrderApplied();
+      emitPluginEvent.mockClear();
+
+      plugin.applyColumnState('name', nameState([second, first]));
+      plugin.onColumnStateOrderApplied();
+
+      expect(emitPluginEvent).not.toHaveBeenCalled();
+      grid._cleanup();
+    });
+
+    it('treats distinct object references as changed set-filter state', () => {
+      const { plugin, grid, emitPluginEvent } = setup();
+      const first = { id: 1 };
+      const second = { id: 1 };
+
+      plugin.applyColumnState('name', nameState([first]));
+      plugin.onColumnStateOrderApplied();
+      emitPluginEvent.mockClear();
+
+      plugin.applyColumnState('name', nameState([second]));
+      plugin.onColumnStateOrderApplied();
+
+      const values = plugin.getFilter('name')?.value;
+      if (!Array.isArray(values)) throw new Error('Expected a set-filter value array');
+      expect(values[0]).toBe(second);
+      expect(emitPluginEvent).toHaveBeenCalledTimes(1);
+      grid._cleanup();
+    });
+
+    it('treats Infinity and null as distinct restored numeric thresholds', () => {
+      const { plugin, grid, emitPluginEvent } = setup();
+      const numberState = (value: unknown) => ({
+        field: 'age',
+        order: 0,
+        visible: true,
+        filter: { type: 'number' as const, operator: 'greaterThan' as const, value },
+      });
+
+      plugin.applyColumnState('age', numberState(Infinity));
+      plugin.onColumnStateOrderApplied();
+      emitPluginEvent.mockClear();
+
+      plugin.applyColumnState('age', numberState(null));
+      plugin.onColumnStateOrderApplied();
+
+      expect(plugin.getFilter('age')?.value).toBeNull();
+      expect(emitPluginEvent).toHaveBeenCalledTimes(1);
+      grid._cleanup();
+    });
+
+    it('compares BigInt filter values without JSON serialization', () => {
+      const { plugin, grid, emitPluginEvent } = setup();
+      const textState = (value: bigint) => ({
+        field: 'name',
+        order: 0,
+        visible: true,
+        filter: { type: 'text' as const, operator: 'contains' as const, value },
+      });
+
+      plugin.applyColumnState('name', textState(BigInt(1)));
+      plugin.onColumnStateOrderApplied();
+      emitPluginEvent.mockClear();
+
+      expect(() => plugin.applyColumnState('name', textState(BigInt(2)))).not.toThrow();
+      plugin.onColumnStateOrderApplied();
+
+      expect(plugin.getFilter('name')?.value).toBe(BigInt(2));
+      expect(emitPluginEvent).toHaveBeenCalledTimes(1);
+      grid._cleanup();
+    });
+
+    it('emits when a restore removes an active filter', () => {
+      const { plugin, grid, emitPluginEvent } = setup();
+      seedInitialFilter(plugin, () => emitPluginEvent.mockClear());
+
+      plugin.applyColumnState('name', nameState());
+      plugin.onColumnStateOrderApplied();
+
+      expect(plugin.getFilter('name')).toBeUndefined();
+      expect(emitPluginEvent).toHaveBeenCalledWith('filter-change', { filters: [], source: 'column-state' });
+      grid._cleanup();
+    });
+  });
+
   it('setFilter calls requestStateChange when trackColumnState is true', () => {
     const plugin = new FilteringPlugin({ trackColumnState: true });
     const grid = createGridMock();

@@ -2,6 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { GridElement } from '../../core/plugin/base-plugin';
 import type { ColumnReorderRequestDetail } from './types';
 import { VisibilityPlugin } from './visibility-plugin';
 
@@ -56,7 +57,9 @@ function createGridMock(columns: any[] = []) {
       meta: c.meta ?? {},
     }));
 
-  return {
+  gridEl.appendChild(document.createElement('div'));
+  Object.defineProperty(gridEl, 'clientWidth', { value: 800 });
+  return Object.assign(gridEl, {
     rows: [],
     sourceRows: [],
     columns,
@@ -71,7 +74,7 @@ function createGridMock(columns: any[] = []) {
     // getPluginByName mock), answer `canMoveColumn` the way ReorderPlugin would:
     // honoring top-level `lockPosition`, legacy `meta.lockPosition`, and
     // `meta.suppressMovable`.
-    query: vi.fn((type: string, ctx?: any) => {
+    query: vi.fn((type: string, ctx?: any): unknown[] => {
       if (type === 'canMoveColumn' && reorderPresent()) {
         const col = ctx ?? {};
         if (col.lockPosition === true) return [false];
@@ -81,16 +84,9 @@ function createGridMock(columns: any[] = []) {
       }
       return [];
     }),
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn((_event: Event) => true),
+    dispatchEvent: vi.spyOn(gridEl, 'dispatchEvent'),
     requestRender: vi.fn(),
     requestStateChange: vi.fn(),
-    children: [document.createElement('div')],
-    querySelectorAll: () => [],
-    querySelector: () => null,
-    clientWidth: 800,
-    classList: { add: vi.fn(), remove: vi.fn() },
     disconnectSignal: abortCtrl.signal,
     _abortCtrl: abortCtrl,
 
@@ -127,7 +123,7 @@ function createGridMock(columns: any[] = []) {
     _setToolPanelOpen: (v: boolean) => {
       toolPanelOpen = v;
     },
-  };
+  });
 }
 
 describe('VisibilityPlugin', () => {
@@ -571,6 +567,249 @@ describe('VisibilityPlugin', () => {
   });
 
   // #endregion
+
+  describe('panel search', () => {
+    const renderedFields = (container: HTMLElement) =>
+      Array.from(container.querySelectorAll('.tbw-visibility-row'), (row) => row.getAttribute('data-field'));
+
+    const searchFor = (container: HTMLElement, value: string) => {
+      const input = container.querySelector<HTMLInputElement>('input[type="search"]')!;
+      input.value = value;
+      input.dispatchEvent(new InputEvent('input', { bubbles: true }));
+      return input;
+    };
+
+    it.each([undefined, false])('does not render search when searchable is %s', (searchable) => {
+      const panelPlugin = new VisibilityPlugin({ searchable });
+      panelPlugin.attach(grid as GridElement);
+      const container = document.createElement('div');
+      panelPlugin.getToolPanel()!.render(container);
+      expect(container.querySelector('input[type="search"]')).toBeNull();
+      expect(container.querySelector('[role="status"]')).toBeNull();
+      expect(renderedFields(container)).toEqual(['name', 'age', 'city']);
+    });
+
+    it('matches displayed labels case-insensitively without mutating grid state', () => {
+      const panelPlugin = new VisibilityPlugin({ searchable: true });
+      panelPlugin.attach(grid as GridElement);
+      const container = document.createElement('div');
+      panelPlugin.getToolPanel()!.render(container);
+      const input = searchFor(container, '  nAM  ');
+      expect(input.getAttribute('aria-label')).toBe('Search columns');
+      expect(renderedFields(container)).toEqual(['name']);
+      expect(grid.toggleColumnVisibility).not.toHaveBeenCalled();
+      expect(grid.setColumnVisible).not.toHaveBeenCalled();
+      expect(grid.setColumnOrder).not.toHaveBeenCalled();
+      expect(grid.dispatchEvent).not.toHaveBeenCalled();
+      searchFor(container, '  ');
+      expect(renderedFields(container)).toEqual(['name', 'age', 'city']);
+    });
+
+    it('searches hidden columns and label fallbacks but excludes utility columns and hidden field aliases', () => {
+      const columns = [
+        { field: 'internalName', header: 'Full Name' },
+        { field: 'email', header: '' },
+        { field: 'utility', header: 'Email utility', utility: true },
+      ];
+      const panelGrid = createGridMock(columns);
+      panelGrid._hiddenColumns.add('email');
+      const panelPlugin = new VisibilityPlugin({ searchable: true });
+      panelPlugin.attach(panelGrid as GridElement);
+      const container = document.createElement('div');
+      panelPlugin.getToolPanel()!.render(container);
+      searchFor(container, 'email');
+      expect(renderedFields(container)).toEqual(['email']);
+      expect(container.querySelector<HTMLInputElement>('input[type="checkbox"]')!.checked).toBe(false);
+      searchFor(container, 'internalName');
+      expect(renderedFields(container)).toEqual([]);
+      expect(container.querySelector('[role="status"]')!.textContent).toBe('No matching columns');
+      searchFor(container, 'full');
+      expect(renderedFields(container)).toEqual(['internalName']);
+      expect(container.querySelector('[role="status"]')!.textContent).toBe('');
+    });
+
+    it('removes reorder controls while searching and restores them on clear', () => {
+      grid.getPluginByName.mockImplementation(() => ({ moveColumn: vi.fn() }));
+      const panelPlugin = new VisibilityPlugin({ searchable: true });
+      panelPlugin.attach(grid as GridElement);
+      const container = document.createElement('div');
+      panelPlugin.getToolPanel()!.render(container);
+      expect(container.querySelectorAll('.tbw-visibility-handle')).toHaveLength(3);
+      searchFor(container, 'name');
+      expect(renderedFields(container)).toEqual(['name']);
+      expect(container.querySelector('.tbw-visibility-handle')).toBeNull();
+      expect(container.querySelector('[draggable="true"]')).toBeNull();
+      searchFor(container, '');
+      expect(container.querySelectorAll('.tbw-visibility-handle')).toHaveLength(3);
+    });
+
+    it('keeps fragments separate and toggles only matching unlocked children', async () => {
+      const panelGrid = createGridMock([
+        { field: 'name', header: 'Contact name' },
+        { field: 'locked', header: 'Contact ID', lockVisible: true },
+        { field: 'age', header: 'Age' },
+        { field: 'city', header: 'City' },
+        { field: 'phone', header: 'Contact phone' },
+      ]);
+      panelGrid.query.mockImplementation((type) =>
+        type === 'getColumnGrouping'
+          ? [[{ id: 'contact', label: 'Personal details', fields: ['name', 'locked', 'age', 'phone'] }]]
+          : [],
+      );
+      const panelPlugin = new VisibilityPlugin({ searchable: true });
+      panelPlugin.attach(panelGrid as GridElement);
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+      panelPlugin.getToolPanel()!.render(container);
+      searchFor(container, 'contact');
+      expect(renderedFields(container)).toEqual(['name', 'locked', 'phone']);
+      const groups = container.querySelectorAll('.tbw-visibility-group-header');
+      expect(groups).toHaveLength(2);
+      const groupCheckbox = groups[0].querySelector('input')!;
+      groupCheckbox.click();
+      expect(panelGrid.setColumnVisible.mock.calls).toEqual([['name', false]]);
+      await vi.waitFor(() => {
+        expect(container.querySelector<HTMLInputElement>('.tbw-visibility-group-header input')!.indeterminate).toBe(
+          true,
+        );
+      });
+      searchFor(container, 'contact id');
+      expect(container.querySelector<HTMLInputElement>('.tbw-visibility-group-header input')!.disabled).toBe(true);
+      expect(container.querySelector<HTMLInputElement>('.tbw-visibility-row input')!.disabled).toBe(true);
+      searchFor(container, 'Contact');
+      expect(container.querySelectorAll('.tbw-visibility-group-header')).toHaveLength(2);
+      searchFor(container, 'Personal details');
+      expect(renderedFields(container)).toEqual([]);
+    });
+
+    it('keeps Show All global even with no matches and preserves the query', () => {
+      grid._hiddenColumns.add('age');
+      grid._hiddenColumns.add('city');
+      const panelPlugin = new VisibilityPlugin({ searchable: true });
+      panelPlugin.attach(grid as GridElement);
+      const container = document.createElement('div');
+      panelPlugin.getToolPanel()!.render(container);
+      const input = searchFor(container, 'nothing');
+      container.querySelector<HTMLButtonElement>('.tbw-visibility-show-all')!.click();
+      expect(grid.showAllColumns).toHaveBeenCalledOnce();
+      expect(grid._hiddenColumns.size).toBe(0);
+      expect(input.value).toBe('nothing');
+      expect(renderedFields(container)).toEqual([]);
+      searchFor(container, '');
+      expect(renderedFields(container)).toEqual(['name', 'age', 'city']);
+    });
+
+    it('preserves the input, focus, and query on toggles and live column updates', async () => {
+      const columns = defaultColumns.map((column) => ({ ...column }));
+      const panelGrid = createGridMock(columns);
+      const panelPlugin = new VisibilityPlugin({ searchable: true });
+      panelPlugin.attach(panelGrid as GridElement);
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+      panelPlugin.getToolPanel()!.render(container);
+      const input = searchFor(container, 'name');
+      input.focus();
+      container.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click();
+      await vi.waitFor(() =>
+        expect(container.querySelector<HTMLInputElement>('input[type="checkbox"]')!.checked).toBe(false),
+      );
+      expect(panelGrid.toggleColumnVisibility).toHaveBeenCalledWith('name');
+      expect(document.activeElement).toBe(input);
+      expect(input.value).toBe('name');
+      columns[0].header = 'Person';
+      panelPlugin.afterRender();
+      expect(renderedFields(container)).toEqual([]);
+      columns.push({ field: 'new', header: 'New name' });
+      panelPlugin.afterRender();
+      expect(renderedFields(container)).toEqual(['new']);
+      const checkbox = container.querySelector('input[type="checkbox"]');
+      panelPlugin.afterRender();
+      expect(container.querySelector('input[type="checkbox"]')).toBe(checkbox);
+      expect(document.activeElement).toBe(input);
+    });
+
+    it('checks move permissions without per-column config scans on unchanged renders', () => {
+      const columns = defaultColumns.map((column) => ({ ...column }));
+      const panelGrid = createGridMock(columns);
+      panelGrid.getPluginByName.mockImplementation(() => ({ moveColumn: vi.fn() }));
+      const panelPlugin = new VisibilityPlugin({ searchable: true });
+      panelPlugin.attach(panelGrid as GridElement);
+      const container = document.createElement('div');
+      panelPlugin.getToolPanel()!.render(container);
+      const row = container.querySelector('.tbw-visibility-row');
+      expect(row?.classList.contains('reorderable')).toBe(true);
+      const find = vi.spyOn(columns, 'find');
+      panelPlugin.afterRender();
+      expect(find).not.toHaveBeenCalled();
+      expect(container.querySelector('.tbw-visibility-row')).toBe(row);
+    });
+
+    it('retains the instance query on remount and cleans up old input listeners', () => {
+      const panelPlugin = new VisibilityPlugin({ searchable: true });
+      panelPlugin.attach(grid as GridElement);
+      const container = document.createElement('div');
+      const cleanup = panelPlugin.getToolPanel()!.render(container)!;
+      const oldInput = searchFor(container, 'age');
+      cleanup();
+      oldInput.value = 'city';
+      oldInput.dispatchEvent(new InputEvent('input'));
+      panelPlugin.getToolPanel()!.render(container);
+      expect(container.querySelector<HTMLInputElement>('input[type="search"]')!.value).toBe('age');
+      expect(renderedFields(container)).toEqual(['age']);
+      panelPlugin.detach();
+      const input = container.querySelector<HTMLInputElement>('input[type="search"]')!;
+      input.value = 'city';
+      input.dispatchEvent(new InputEvent('input'));
+      expect(renderedFields(container)).toEqual(['age']);
+      const fresh = new VisibilityPlugin({ searchable: true });
+      fresh.attach(grid as GridElement);
+      const freshContainer = document.createElement('div');
+      fresh.getToolPanel()!.render(freshContainer);
+      expect(freshContainer.querySelector<HTMLInputElement>('input[type="search"]')!.value).toBe('');
+    });
+
+    it('localizes search text, isolates editing keys, and leaves Escape to the shell', () => {
+      Object.assign(grid.effectiveConfig, {
+        locale: {
+          'columns.searchLabel': 'Find a column',
+          'columns.searchPlaceholder': 'Type a name',
+          'columns.noMatchingColumns': 'Nothing found',
+        },
+      });
+      const panelPlugin = new VisibilityPlugin({ searchable: true });
+      panelPlugin.attach(grid as GridElement);
+      const container = document.createElement('div');
+      panelPlugin.getToolPanel()!.render(container);
+      const listener = vi.fn();
+      container.addEventListener('keydown', listener);
+      const input = searchFor(container, 'absent');
+      expect(input.getAttribute('aria-label')).toBe('Find a column');
+      expect(input.placeholder).toBe('Type a name');
+      expect(container.querySelector('[role="status"]')!.textContent).toBe('Nothing found');
+      expect(container.querySelector('[role="status"]')!.getAttribute('aria-live')).toBe('polite');
+      for (const key of ['ArrowLeft', 'ArrowDown', ' ', 'Enter', 'Tab', 'a']) {
+        const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+        input.dispatchEvent(event);
+        expect(event.defaultPrevented).toBe(false);
+      }
+      expect(listener).not.toHaveBeenCalled();
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      expect(listener).toHaveBeenCalledOnce();
+    });
+
+    it('waits for composition to end before filtering', () => {
+      const panelPlugin = new VisibilityPlugin({ searchable: true });
+      panelPlugin.attach(grid as GridElement);
+      const container = document.createElement('div');
+      panelPlugin.getToolPanel()!.render(container);
+      const input = container.querySelector<HTMLInputElement>('input[type="search"]')!;
+      input.value = 'age';
+      input.dispatchEvent(new InputEvent('input', { bubbles: true, isComposing: true }));
+      expect(renderedFields(container)).toEqual(['name', 'age', 'city']);
+      input.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+      expect(renderedFields(container)).toEqual(['age']);
+    });
+  });
 
   // #region handleQuery - context menu
 

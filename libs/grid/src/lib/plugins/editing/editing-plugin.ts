@@ -52,8 +52,8 @@ import {
   getEditorAncestor,
   hasRowChanged,
   isEnterOwnedByEditor,
-  isInsideOpenAriaOverlay,
   isEscapeForOpenOverlay,
+  isInsideOpenAriaOverlay,
   isSafePropertyKey,
   noopUpdateRow,
   shouldPreventEditClose,
@@ -652,7 +652,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         // matches FOCUSABLE_EDITOR_SELECTOR, but blurring + re-focusing it
         // would cause infinite recursion.
         if (target === this.gridElement) return;
-        if (target.matches(FOCUSABLE_EDITOR_SELECTOR)) {
+        const cell = this.#gridModeEditorCell(target);
+        if (cell) {
           // If edit is locked (navigation mode), blur the input immediately
           if (this.#gridModeEditLocked) {
             target.blur();
@@ -664,8 +665,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
           // This allows Escape to revert the cell to its pre-edit value. Identity is row + FIELD:
           // a column window move re-indexes a retained editor (#640), so an index match can name
           // another column.
-          const focusRow = internalGrid._focusRow;
-          const focusCol = internalGrid._focusCol;
+          const focusRow = Number(cell.dataset.row);
+          const focusCol = Number(cell.dataset.col);
           const column = internalGrid._visibleColumns?.[focusCol];
           const snap = this.#gridModeCellSnapshot;
           if (column?.field && (!snap || snap.rowIndex !== focusRow || snap.field !== column.field)) {
@@ -681,6 +682,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
           }
 
           this.#gridModeInputFocused = true;
+        } else {
+          // Focus can reach non-editor chrome (e.g. the Visibility search) via an
+          // external overlay whose focusout never bubbles here, so drop the edit
+          // state now — otherwise Escape there would revert the previous cell.
+          this.#gridModeInputFocused = false;
+          this.#gridModeCellSnapshot = null;
         }
       },
       { signal },
@@ -690,11 +697,9 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       'focusout',
       (e: FocusEvent) => {
         if (!this.isOwnTarget(e)) return;
-        const target = e.target as HTMLElement | null;
         const related = e.relatedTarget as HTMLElement | null;
         // Focus moving INTO a nested grid leaves our editor, even though the
         // child's host/editors match FOCUSABLE_EDITOR_SELECTOR (#585).
-        const relatedIsOwn = this.isOwnTarget(related);
         // Intra-editor focus moves MUST NOT flip the flag — the editor
         // is still logically focused. Cases observed in the wild:
         //   - Native <select> opening: SELECT → child OPTION
@@ -708,20 +713,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         // FOCUSABLE_EDITOR_SELECTOR, but focus moving to the grid host
         // means we ARE leaving the editor — the explicit Escape/Enter
         // paths handle that by setting the flag to false themselves.
-        if (target && related && relatedIsOwn) {
-          if (target.contains(related)) return;
-          const relatedEditor = getEditorAncestor(related);
-          if (relatedEditor && relatedEditor !== this.gridElement && this.gridElement.contains(relatedEditor)) {
-            return;
-          }
-        }
-        // Only clear if focus went outside grid (and external containers) or to a non-input element
-        if (
-          !related ||
-          !relatedIsOwn ||
-          (!this.gridElement.contains(related) && !this.grid.containsFocus?.(related)) ||
-          !related.matches(FOCUSABLE_EDITOR_SELECTOR)
-        ) {
+        if (!this.#gridModeEditorCell(related)) {
           this.#gridModeInputFocused = false;
           // Clear cell snapshot when leaving edit mode normally (not via Escape)
           this.#gridModeCellSnapshot = null;
@@ -736,7 +728,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       'keydown',
       (e: KeyboardEvent) => {
         if (!this.isOwnTarget(e)) return;
-        if (e.key === 'Escape' && this.#gridModeInputFocused) {
+        if (e.key === 'Escape' && this.#gridModeInputFocused && this.#gridModeEditorCell(e.target)) {
           // Check onBeforeEditClose to let overlays close first.
           if (shouldPreventEditClose(this.config, e)) {
             // Overlay is open — schedule deferred nav-mode transition
@@ -762,12 +754,44 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       (e: MouseEvent) => {
         if (!this.isOwnTarget(e)) return;
         const target = e.target as HTMLElement;
-        if (target.matches(FOCUSABLE_EDITOR_SELECTOR)) {
+        if (this.#gridModeEditorCell(target)) {
           this.#gridModeEditLocked = false; // User clicked input - allow edit
         }
       },
       { signal },
     );
+  }
+
+  /**
+   * The editing cell whose editor owns `target`, or `null` when `target` is not
+   * part of one of OUR editors. Owned: inside the cell's `.tbw-editor-host`
+   * (through shadow roots), inside a popup the cell's editor ARIA-owns
+   * (`aria-expanded` + `aria-controls`, in or outside the grid), or — outside the
+   * grid only — inside a registered external focus container.
+   */
+  #gridModeEditorCell(target: EventTarget | null): HTMLElement | null {
+    // A nested grid (e.g. a read-only grid inside a custom editor) is never our
+    // editor, even though walking up from it reaches our `.tbw-editor-host` (#585).
+    if (!(target instanceof Node) || !this.isOwnTarget(target)) return null;
+    let element = target instanceof Element ? target : null;
+    while (element) {
+      const host = element.closest('.tbw-editor-host');
+      const cell = host?.closest<HTMLElement>('.cell.editing[data-row][data-col]');
+      if (cell && this.isOwnTarget(cell)) return cell;
+      const root = element.getRootNode();
+      element = root instanceof ShadowRoot ? root.host : null;
+    }
+    const snapshot = this.#gridModeCellSnapshot;
+    if (!snapshot) return null;
+    const row = this.#internalGrid.findRenderedRowElement?.(snapshot.rowIndex);
+    const cell = row?.querySelector<HTMLElement>(
+      `:scope > .cell.editing[data-col="${indexOfColumn(this.#internalGrid._visibleColumns, snapshot.field)}"]`,
+    );
+    if (!cell) return null;
+    if (isInsideOpenAriaOverlay(target, cell)) return cell;
+    // `containsFocus` also matches in-grid chrome (e.g. the Visibility search), so it
+    // only vouches for targets outside the grid.
+    return !this.gridElement.contains(target) && this.grid.containsFocus?.(target) ? cell : null;
   }
 
   /** @internal */

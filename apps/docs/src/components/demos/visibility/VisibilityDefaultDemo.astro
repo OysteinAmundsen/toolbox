@@ -4,6 +4,9 @@ import DemoControls from '@components/DemoControls.astro';
 ---
 <div class="grid-demo not-content" id="visibility-default-demo">
   <DemoControls controls={[
+    { section: 'PANEL', name: 'searchable', label: 'Column search', type: 'boolean', default: false },
+    { section: 'PANEL', name: 'panelMode', label: 'Layout', type: 'select',
+      options: ['sidebar', 'dropdown'], default: 'sidebar' },
     { section: 'COLUMNS', name: 'hiddenColumns', label: 'Initially hidden', type: 'check-group',
       options: ['email', 'department', 'salary'], default: ['email'],
       description: 'Columns hidden by default' },
@@ -50,7 +53,10 @@ if (container) {
         hidden: hiddenArr.includes(col.field),
         lockVisible: lockedArr.includes(col.field),
       })),
-      features: { shell: true, visibility: {} },
+      features: {
+        shell: { toolPanel: { mode: opts.panelMode === 'dropdown' ? 'dropdown' : 'push' } },
+        visibility: { searchable: opts.searchable === true },
+      },
     };
     grid.rows = sampleData;
   }

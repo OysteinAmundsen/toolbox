@@ -22,12 +22,12 @@ import {
 } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, ColumnInternal } from '../../core/types';
 import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/types';
+import { dataFieldSelector } from '../shared/data-field-selector';
 import {
   createDragAlternativeMenu,
   type DragAlternativeAction,
   type DragAlternativeMenu,
 } from '../shared/drag-alternative-menu';
-import { dataFieldSelector } from '../shared/data-field-selector';
 import type { ToolPanelDefinition } from '../shell/types';
 import type { ColumnGroupInfo, ColumnReorderRequestDetail, VisibilityConfig } from './types';
 import styles from './visibility.css?inline';
@@ -43,6 +43,27 @@ type ColumnEntry = {
 
 /** A contiguous run of same-group columns, or a single ungrouped column. */
 type PanelFragment = { group: ColumnGroupInfo | null; columns: ColumnEntry[] };
+
+/** `el` holds focus in its own tree (document or shadow root). */
+const isFocused = (el: Element): boolean =>
+  el.isConnected && (el.getRootNode() as Document | ShadowRoot).activeElement === el;
+
+/**
+ * Focus fell away rather than moving somewhere the user chose: nothing in `el`'s own
+ * root is focused, and each ancestor root focuses nothing, `<body>`, or the shadow
+ * host on `el`'s path (the retargeted remnant of focus that was inside it).
+ */
+const focusWasDropped = (el: Element): boolean => {
+  const body = el.ownerDocument.body;
+  let pathHost: Element | null = null;
+  for (let node: Node = el; ;) {
+    const root = node.getRootNode() as Document | ShadowRoot;
+    const active = root.activeElement;
+    if (active && active !== body && active !== pathHost) return false;
+    if (!(root instanceof ShadowRoot)) return true;
+    pathHost = node = root.host;
+  }
+};
 
 /**
  * Column Visibility Plugin for tbw-grid
@@ -155,11 +176,18 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
 
   /** @internal */
   protected override get defaultConfig(): Partial<VisibilityConfig> {
-    return {};
+    return { searchable: false };
   }
 
   // #region Internal State
   private columnListElement: HTMLElement | null = null;
+  #searchQuery = '';
+  #searchStatus: HTMLElement | null = null;
+  #searchController: AbortController | null = null;
+  #panelSnapshot = '';
+  /** Caret of a focused search the shell tore down; restored by the next panel render. */
+  #searchRestore: { start: number | null; end: number | null; direction: 'forward' | 'backward' | 'none' } | null =
+    null;
 
   // Drag state for reorder integration
   private isDragging = false;
@@ -212,6 +240,11 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
 
   /** @internal */
   override detach(): void {
+    this.#searchController?.abort();
+    this.#searchController = null;
+    this.#searchStatus = null;
+    this.#panelSnapshot = '';
+    this.#searchRestore = null;
     this.columnListElement = null;
     this.isDragging = false;
     this.draggedField = null;
@@ -248,6 +281,13 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
       }
     }
     return columns;
+  }
+
+  /** @internal */
+  override afterRender(): void {
+    if (this.config.searchable && this.columnListElement) {
+      this.rebuildToggles(this.columnListElement, true);
+    }
   }
   // #endregion
 
@@ -300,6 +340,11 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
       tooltip: 'Column visibility',
       order: 100, // High order so it appears last
       render: (container) => this.renderPanelContent(container),
+      // Runs after the content cleanup on close/collapse, never on a config-refresh
+      // rebuild, so a closed panel never pulls focus back on reopen.
+      onClose: () => {
+        this.#searchRestore = null;
+      },
     };
   }
   // #endregion
@@ -455,6 +500,46 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     const wrapper = document.createElement('div');
     wrapper.className = 'tbw-visibility-content';
 
+    const searchController = this.config.searchable ? new AbortController() : null;
+    this.#searchController = searchController;
+    let searchInput: HTMLInputElement | null = null;
+    if (searchController) {
+      const search = document.createElement('input');
+      searchInput = search;
+      search.type = 'search';
+      search.className = 'tbw-visibility-search';
+      search.setAttribute('aria-label', this.t('columns.searchLabel', 'Search columns'));
+      search.placeholder = this.t('columns.searchPlaceholder', 'Search columns...');
+      search.value = this.#searchQuery;
+      const updateSearch = () => {
+        this.#searchQuery = search.value;
+        this.moveMenu?.close();
+        this.rebuildToggles(columnList);
+      };
+      search.addEventListener(
+        'input',
+        (event) => {
+          if (!(event as InputEvent).isComposing) updateSearch();
+        },
+        { signal: searchController.signal },
+      );
+      search.addEventListener('compositionend', updateSearch, { signal: searchController.signal });
+      search.addEventListener(
+        'keydown',
+        (event) => {
+          if (event.key !== 'Escape') event.stopPropagation();
+        },
+        { signal: searchController.signal },
+      );
+      wrapper.appendChild(search);
+
+      this.#searchStatus = document.createElement('div');
+      this.#searchStatus.className = 'tbw-visibility-search-status';
+      this.#searchStatus.setAttribute('role', 'status');
+      this.#searchStatus.setAttribute('aria-live', 'polite');
+      wrapper.appendChild(this.#searchStatus);
+    }
+
     // Column list container
     const columnList = document.createElement('div');
     columnList.className = 'tbw-visibility-list';
@@ -480,10 +565,31 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     // Append to container
     container.appendChild(wrapper);
 
+    // A column change re-merges config, and ShellPlugin rebuilds every plugin panel
+    // on merge. Give focus and caret back if that teardown dropped them (#651).
+    const restore = this.#searchRestore;
+    this.#searchRestore = null;
+    if (restore && searchInput && focusWasDropped(searchInput)) {
+      searchInput.focus({ preventScroll: true });
+      searchInput.setSelectionRange(restore.start, restore.end, restore.direction);
+    }
+
     // Return cleanup function
     return () => {
-      this.columnListElement = null;
-      this.moveMenu?.close();
+      searchController?.abort();
+      if (searchInput && isFocused(searchInput)) {
+        this.#searchRestore = {
+          start: searchInput.selectionStart,
+          end: searchInput.selectionEnd,
+          direction: searchInput.selectionDirection ?? 'none',
+        };
+      }
+      if (this.columnListElement === columnList) {
+        this.#searchController = null;
+        this.#searchStatus = null;
+        this.columnListElement = null;
+        this.moveMenu?.close();
+      }
       wrapper.remove();
     };
   }
@@ -505,9 +611,10 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
    * the `canMoveColumn` query handled by ReorderPlugin and vetoed by other plugins
    * (e.g. PinnedColumnsPlugin blocking sticky columns). Returns `false` when no
    * plugin answers, which keeps the panel non-draggable when reorder is absent.
+   * Pass `configs` when checking many columns so each lookup is O(1).
    */
-  private canMoveColumn(column: ColumnEntry): boolean {
-    const config = this.grid.columns.find((c) => c.field === column.field);
+  private canMoveColumn(column: ColumnEntry, configs?: ReadonlyMap<string, ColumnConfig>): boolean {
+    const config = configs ? configs.get(column.field) : this.grid.columns.find((c) => c.field === column.field);
     if (!config) return false;
     const responses = this.grid.query<boolean>('canMoveColumn', config);
     return responses.length > 0 && !responses.includes(false);
@@ -520,15 +627,54 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
    * shown as separate sections to match the grid's visual layout.
    * When a reorder plugin is present, adds drag handles for reordering.
    */
-  private rebuildToggles(columnList: HTMLElement): void {
-    const reorderEnabled = this.hasReorderPlugin();
-
-    columnList.innerHTML = '';
+  private rebuildToggles(columnList: HTMLElement, onlyIfChanged = false): void {
+    const query = this.config.searchable ? this.#searchQuery.trim().toLowerCase() : '';
+    const reorderEnabled = !query && this.hasReorderPlugin();
 
     // getAllColumns() returns columns in their effective display order
     // Filter out utility columns (e.g., expander column) as they're internal
-    const allColumns = this.grid.getAllColumns().filter((c) => !c.utility);
-    const fragments = this.currentFragments();
+    const matches = (column: ColumnEntry) => (column.header || column.field).toLowerCase().includes(query);
+    const allColumns = this.grid.getAllColumns().filter((c) => !c.utility && (!query || matches(c)));
+    const fragments = this.currentFragments()
+      .map((fragment) => ({
+        ...fragment,
+        columns: query ? fragment.columns.filter(matches) : fragment.columns,
+      }))
+      .filter((fragment) => fragment.columns.length > 0);
+
+    if (this.config.searchable) {
+      // afterRender() runs this on every render, so keep the unchanged-panel check linear.
+      let configs: Map<string, ColumnConfig> | undefined;
+      if (reorderEnabled) {
+        configs = new Map();
+        // First match wins, mirroring the `find()` fallback in canMoveColumn().
+        for (const c of this.grid.columns) if (!configs.has(c.field)) configs.set(c.field, c);
+      }
+      const snapshot = JSON.stringify([
+        query,
+        reorderEnabled,
+        fragments.map((fragment) => [
+          fragment.group?.id,
+          fragment.group?.label,
+          fragment.columns.map((column) => [
+            column.field,
+            column.header,
+            column.visible,
+            column.lockVisible,
+            reorderEnabled && this.canMoveColumn(column, configs),
+          ]),
+        ]),
+      ]);
+      if (onlyIfChanged && snapshot === this.#panelSnapshot) return;
+      this.#panelSnapshot = snapshot;
+    }
+
+    columnList.innerHTML = '';
+
+    if (this.#searchStatus) {
+      this.#searchStatus.textContent =
+        query && allColumns.length === 0 ? this.t('columns.noMatchingColumns', 'No matching columns') : '';
+    }
 
     if (fragments.every((f) => !f.group)) {
       // No grouping — render flat list (original behavior)
@@ -577,10 +723,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
    * Each fragment is either a group section (contiguous run of same-group columns)
    * or a single ungrouped column.
    */
-  private computeFragments(
-    allColumns: ColumnEntry[],
-    fieldToGroup: Map<string, ColumnGroupInfo>,
-  ): PanelFragment[] {
+  private computeFragments(allColumns: ColumnEntry[], fieldToGroup: Map<string, ColumnGroupInfo>): PanelFragment[] {
     const fragments: PanelFragment[] = [];
     let currentGroup: ColumnGroupInfo | null = null;
     let currentCols: ColumnEntry[] = [];
@@ -777,7 +920,10 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
   private wireMoveHandle(handle: HTMLElement, name: string, actions: () => DragAlternativeAction[]): void {
     handle.setAttribute('role', 'button');
     handle.tabIndex = -1;
-    handle.setAttribute('aria-label', `${name} — ${this.t('columns.moveHandleHint', 'drag, or activate for move options')}`);
+    handle.setAttribute(
+      'aria-label',
+      `${name} — ${this.t('columns.moveHandleHint', 'drag, or activate for move options')}`,
+    );
     handle.addEventListener('click', () => {
       this.moveMenu ??= createDragAlternativeMenu('tbw-visibility-move-menu', 'tbw-visibility-move-menu');
       this.moveMenu.open(handle, name, actions());

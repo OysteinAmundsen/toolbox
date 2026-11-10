@@ -157,6 +157,45 @@ Toggle the controls to explore hidden columns and locked columns. Click the colu
 
 See [`VisibilityConfig`](./interfaces/visibilityconfig/) for the full list of options and defaults.
 
+### Column Search
+
+Column search is most useful for grids with many columns. For wide grids, we also
+recommend [Column Virtualization](/grid/plugins/column-virtualization/): search helps
+users find columns in the panel, while virtualization reduces the number of columns
+rendered in the grid. Virtualization requires `fitMode: 'fixed'`; see its
+[layout requirements](/grid/plugins/column-virtualization/#requirements).
+
+Set `searchable: true` to add a search input above the column list. Search is disabled
+by default. Enable **Column search** in the demo above to try it in sidebar or dropdown mode.
+
+```ts
+import '@toolbox-web/grid/features/shell';
+import '@toolbox-web/grid/features/visibility';
+
+grid.gridConfig = {
+  features: { shell: true, visibility: { searchable: true } },
+};
+```
+
+The same configuration works through `gridConfig` in React, Vue, and Angular.
+For direct plugin registration, use `new VisibilityPlugin({ searchable: true })`.
+Prefer feature config for automatic dependency resolution; use direct registration
+when managing plugin instances yourself. See [features and plugins](/grid/plugins/).
+
+Search uses a trimmed, case-insensitive substring of the displayed name (`header || field`).
+Hidden columns are searchable; utility columns are excluded. Typing does not change
+grid data, column visibility, or column order. Clear the query to restore the full list.
+
+While searching:
+
+- Group checkboxes affect only matching columns in the displayed fragment, respecting locked columns.
+- Empty groups disappear, but separate fragments are not merged or reordered.
+- **Show All** still shows every column, including nonmatches, and keeps the query.
+- Panel drag handles and move menus are unavailable until the query is cleared.
+
+The query survives panel close/reopen and column updates on the same plugin instance.
+It is transient UI state, not part of saved column state. A new plugin instance starts empty.
+
 ## Programmatic API
 
 ```ts
@@ -217,6 +256,8 @@ The visibility panel uses these class names for advanced customization:
 | Class | Element |
 | --- | --- |
 | `.tbw-visibility-content` | Panel container |
+| `.tbw-visibility-search` | Opt-in search input |
+| `.tbw-visibility-search-status` | Polite empty-result status |
 | `.tbw-visibility-list` | Scrollable column list |
 | `.tbw-visibility-row` | Individual column row |
 | `.tbw-visibility-row.locked` | Non-toggleable column |
@@ -231,6 +272,16 @@ The visibility panel uses these class names for advanced customization:
 | `.tbw-visibility-move-menu-item` | An entry in that menu |
 
 ## Accessibility
+
+Opt-in search has an accessible name
+([SC 4.1.2 Name, Role, Value](https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html))
+and retains native text editing. A polite status region announces **No matching columns**
+without moving focus
+([SC 4.1.3 Status Messages](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html)).
+The input stays mounted while results update. Escape closes overlay/dropdown panels;
+persistent push sidebars stay open.
+Translate the UI with `columns.searchLabel`, `columns.searchPlaceholder`, and
+`columns.noMatchingColumns` in [`gridConfig.locale`](/grid/guides/i18n/).
 
 Reordering from the panel is drag-and-drop, which
 [WCAG 2.2 SC 2.5.7 Dragging Movements](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html)

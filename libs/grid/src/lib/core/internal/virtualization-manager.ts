@@ -23,6 +23,14 @@ import {
 /** Safety valve for `#scheduleGeometryVerification` against a layout that never settles. */
 const MAX_GEOMETRY_VERIFY_PASSES = 3;
 
+/** A rendered row's height: its box, or its tallest cell when a custom renderer overflows it. */
+function measureRenderedRow(row: HTMLElement): number {
+  let maxCellHeight = 0;
+  for (const cell of row.querySelectorAll<HTMLElement>('.cell'))
+    maxCellHeight = Math.max(maxCellHeight, cell.offsetHeight);
+  return Math.max(row.getBoundingClientRect().height, maxCellHeight);
+}
+
 // #region VirtualizationManager
 
 export class VirtualizationManager<T = any> {
@@ -252,11 +260,13 @@ export class VirtualizationManager<T = any> {
     }
 
     updateRowHeight(s.positionCache, rowIndex, height);
+    this.writeSpacerHeight(rows.length);
+  }
 
-    if (s.totalHeightEl) {
-      const newTotalHeight = this.calculateTotalSpacerHeight(rows.length);
-      s.totalHeightEl.style.height = `${newTotalHeight}px`;
-    }
+  /** Size the faux-scrollbar spacer for `totalRows` (no-op before the DOM exists). */
+  writeSpacerHeight(totalRows: number): void {
+    const spacer = this.state.totalHeightEl;
+    if (spacer) spacer.style.height = `${this.calculateTotalSpacerHeight(totalRows)}px`;
   }
 
   // #endregion
@@ -300,11 +310,7 @@ export class VirtualizationManager<T = any> {
     if (result.hasChanges) {
       s.measuredCount = result.measuredCount;
       s.averageHeight = result.averageHeight;
-
-      if (s.totalHeightEl) {
-        const newTotalHeight = this.calculateTotalSpacerHeight(rows.length);
-        s.totalHeightEl.style.height = `${newTotalHeight}px`;
-      }
+      this.writeSpacerHeight(rows.length);
     }
   }
 
@@ -357,7 +363,7 @@ export class VirtualizationManager<T = any> {
       // mapping is identity.
       bodyEl.style.transform = `translateY(${-offset}px)`;
     }
-    grid._updateAriaCounts(totalRows, grid._visibleColumns.length);
+    grid._updateAriaCounts(totalRows);
     if (!skipAfterRender) grid._afterPluginRender();
     return windowChanged;
   }
@@ -553,9 +559,7 @@ export class VirtualizationManager<T = any> {
     }
 
     // Recalculate spacer height on force refresh
-    if (force && s.totalHeightEl) {
-      s.totalHeightEl.style.height = `${this.calculateTotalSpacerHeight(totalRows)}px`;
-    }
+    if (force) this.writeSpacerHeight(totalRows);
 
     // Calculate sub-pixel transform offset
     const positionCache = s.positionCache;
@@ -570,7 +574,7 @@ export class VirtualizationManager<T = any> {
       this.measureRenderedRowHeights(start, end);
     }
 
-    grid._updateAriaCounts(totalRows, grid._visibleColumns.length);
+    grid._updateAriaCounts(totalRows);
 
     // Run plugin afterRender hooks on force refresh
     if (force && !skipAfterRender) {
@@ -714,12 +718,7 @@ export class VirtualizationManager<T = any> {
     const sampledHeights: number[] = [];
     for (const row of bodyEl.querySelectorAll<HTMLElement>('.data-grid-row')) {
       if (row.style.getPropertyValue('--tbw-row-height')) continue;
-      let maxCellHeight = 0;
-      row.querySelectorAll('.cell').forEach((cell) => {
-        const h = (cell as HTMLElement).offsetHeight;
-        if (h > maxCellHeight) maxCellHeight = h;
-      });
-      const h = Math.max(row.getBoundingClientRect().height, maxCellHeight);
+      const h = measureRenderedRow(row);
       if (h > 0) sampledHeights.push(h);
     }
     if (sampledHeights.length === 0) return;
@@ -809,17 +808,10 @@ export class VirtualizationManager<T = any> {
     // Same contract as `#measureRowHeight`: a numeric `rowHeight` is never measured over.
     if (this.#configuredRowHeight !== null) return true;
 
-    const firstRow = this.#grid._bodyEl?.querySelector('.data-grid-row');
+    const firstRow = this.#grid._bodyEl?.querySelector<HTMLElement>('.data-grid-row');
     if (!firstRow) return false;
 
-    // Find the tallest cell in the row (custom renderers may push some cells taller)
-    let maxCellHeight = 0;
-    firstRow.querySelectorAll('.cell').forEach((cell) => {
-      const h = (cell as HTMLElement).offsetHeight;
-      if (h > maxCellHeight) maxCellHeight = h;
-    });
-
-    const measuredHeight = Math.max((firstRow as HTMLElement).getBoundingClientRect().height, maxCellHeight);
+    const measuredHeight = measureRenderedRow(firstRow);
     if (measuredHeight <= 0) return false;
 
     const s = this.state;
@@ -827,9 +819,7 @@ export class VirtualizationManager<T = any> {
       s.rowHeight = measuredHeight;
     }
     this.initializePositionCache();
-    if (s.totalHeightEl) {
-      s.totalHeightEl.style.height = `${this.calculateTotalSpacerHeight(this.#grid._rows.length)}px`;
-    }
+    this.writeSpacerHeight(this.#grid._rows.length);
     return true;
   }
 

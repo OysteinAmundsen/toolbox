@@ -464,6 +464,7 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   _rowPool: RowElementInternal[];
   _resizeController: ResizeController;
   _sortState: { field: string; direction: 1 | -1 } | null;
+  sort(field: string | null, direction?: 'asc' | 'desc'): void;
   /** Original unfiltered/unprocessed rows. @internal */
   sourceRows: T[];
   /** Framework adapter instance (set by Grid directives). @internal */
@@ -579,7 +580,9 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   /** @internal Clear the cached _visibleColumns array so the next read recomputes from _columns. */
   _invalidateVisibleColumnsCache(): void;
   /** @internal */ _renderVisibleRows(start: number, end: number, epoch?: number): void;
-  /** @internal */ _updateAriaCounts(totalRows: number, totalCols: number): void;
+  /** @internal */ _updateAriaCounts(totalRows: number): void;
+  /** @internal 1-based `aria-colindex` per rendered column; unset when unwindowed (#642). */
+  _ariaColIndex?: number[];
   /** @internal */ _requestSchedulerPhase(phase: RenderPhase, source: string): void;
   /** @internal */ _rebuildRowIdMap(): void;
   /** @internal */ _emitDataChange(): void;

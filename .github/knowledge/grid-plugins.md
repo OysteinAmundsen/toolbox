@@ -27,6 +27,8 @@ related:
 - READS FROM: plugin manifests (dependencies, incompatibilities, hookPriority, queries).
 - WRITES TO: cached hook-presence flags, `cellRenderers`/`headerRenderers`/`cellEditors` maps.
 - INVARIANT: plugins execute in array order; `manifest.hookPriority` overrides (**lower = earlier**). When a hook needs DOM produced by another plugin's same hook, raise the dependent plugin's `hookPriority` (runs later) OR defer with `queueMicrotask()`.
+- INVARIANT: priority-ordered dispatch goes through `#getPluginsForHook` (cached per hook) via `#claim` (claimable `on*` events: first `true` wins) or `#notify` (all, return ignored). Per-cell/per-row hooks (`afterCellRender`/`afterRowRender`) and `renderRow` stay inline loops — render hot path.
+- INVARIANT: PluginManager's public methods are plugin-development API (`plugin-development/architecture.mdx` table; `plugin/types.ts` structural type) — never drop one as "internal". `getPlugins()` duplicates `getAll()` but stays: HierarchyPlugin calls `getPlugins?.()` (optional call — a `\.getPlugins\(\)` grep misses it; grep the bare name).
 - INVARIANT: one PluginManager per grid; plugins are stateful singletons. Dependencies validated on attach; incompatibilities warned at runtime (dev only).
 
 ## plugin-lifecycle

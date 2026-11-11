@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import '../../lib/core/grid';
+import { GroupingRowsPlugin } from '../../lib/plugins/grouping-rows';
 import { nextFrame, waitUpgrade } from '../../../test/helpers';
 
 describe('grid.sort() API', () => {
@@ -115,5 +116,61 @@ describe('grid.sort() API', () => {
     grid.sort(null);
     expect(events.length).toBe(2);
     expect(events[1]).toEqual({ field: 'id', direction: 0 });
+  });
+
+  it('sort(null) announces the cleared sort like the header cycle', async () => {
+    const grid: any = document.createElement('tbw-grid');
+    document.body.appendChild(grid);
+    grid.gridConfig = {
+      columns: [{ field: 'id', header: 'ID', width: 80, type: 'number', sortable: true }],
+      fitMode: 'fixed',
+    };
+    grid.rows = [{ id: 2 }, { id: 1 }];
+    await waitUpgrade(grid);
+
+    grid.sort('id', 'asc');
+    await nextFrame(2);
+    grid.sort(null);
+    await nextFrame(2);
+
+    expect(grid.querySelector('.tbw-sr-only')?.textContent).toBe('Sort cleared');
+  });
+
+  it('sort(null) rebuilds the row model through row-structure plugins', async () => {
+    const grid: any = document.createElement('tbw-grid');
+    document.body.appendChild(grid);
+    const phases: string[] = [];
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', width: 80, type: 'number', sortable: true },
+        { field: 'dept', header: 'Dept', width: 80 },
+      ],
+      fitMode: 'fixed',
+      initialSort: { field: 'id', direction: 'desc' },
+      plugins: [new GroupingRowsPlugin({ groupOn: (r: any) => r.dept, defaultExpanded: true })],
+    };
+    grid.rows = [
+      { id: 3, dept: 'B' },
+      { id: 1, dept: 'A' },
+      { id: 2, dept: 'B' },
+    ];
+    await waitUpgrade(grid);
+    expect(grid.sortModel).toEqual({ field: 'id', direction: 'desc' });
+    const shape = () => grid._rows.map((r: any) => (r.__isGroupRow ? `group:${r.groupKey ?? r.key}` : r.id));
+    const unsorted = shape();
+
+    grid.sort('id', 'asc');
+    await nextFrame(2);
+    const request = grid._requestSchedulerPhase.bind(grid);
+    grid._requestSchedulerPhase = (phase: number, source: string) => {
+      phases.push(source);
+      request(phase, source);
+    };
+    grid.sort(null);
+    await nextFrame(2);
+
+    expect(phases).toContain('sort-clear');
+    expect(grid.sortModel).toBeNull();
+    expect(shape()).toEqual(unsorted);
   });
 });

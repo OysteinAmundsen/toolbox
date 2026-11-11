@@ -106,6 +106,10 @@ export function updateAriaCounts(
   return true;
 }
 
+/** 1-based `aria-colindex` of rendered column `i`: its position among ALL visible columns (#642). */
+export const ariaColIndex = (grid: { _ariaColIndex?: number[] }, i: number): string =>
+  String(grid._ariaColIndex?.[i] ?? i + 1);
+
 // #endregion
 
 // #region Label Updates

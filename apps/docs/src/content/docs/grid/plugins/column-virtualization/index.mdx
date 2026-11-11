@@ -212,10 +212,12 @@ its editor.
   ([#641](https://github.com/OysteinAmundsen/toolbox/issues/641)).
 - **Responsive card layout** shows only the windowed columns
   ([#635](https://github.com/OysteinAmundsen/toolbox/issues/635)).
-- **Accessibility**: `aria-colcount` / `aria-colindex` describe the rendered window, not the full grid
-  ([#642](https://github.com/OysteinAmundsen/toolbox/issues/642)).
 
 :::
+
+**Accessibility**: screen readers still get the full grid. `aria-colcount` is the number of visible
+columns, and each header and cell's `aria-colindex` is its position among all of them — not within
+the rendered window.
 
 The rendered window is computed **after** every other column plugin (pinning, grouping, pivot),
 whatever their order in `plugins`, from their final output. Pinned order, group header rows, and

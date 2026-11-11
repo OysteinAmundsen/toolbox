@@ -9,6 +9,7 @@
 import { GridClasses } from '../constants';
 import { toIconAttr } from '../plugin/base-plugin';
 import type { ColumnInternal, GridHost, GridIcons, HeaderCellContext, IconValue, InternalGrid } from '../types';
+import { ariaColIndex } from './aria';
 import { addPart } from './columns';
 import { columnWidthLabel } from './resize';
 import { sanitizeToFragment, setSanitizedHTML } from './sanitize';
@@ -178,8 +179,7 @@ export function renderHeader(grid: GridHost): void {
     addPart(cell, 'header-cell');
     cell.setAttribute('role', 'columnheader');
 
-    // aria-colindex is 1-based
-    cell.setAttribute('aria-colindex', String(i + 1));
+    cell.setAttribute('aria-colindex', ariaColIndex(grid, i));
     cell.setAttribute('data-field', col.field);
     cell.setAttribute('data-col', String(i)); // Add data-col for consistency with body cells
     if (col.type) cell.setAttribute('data-type', col.type);
@@ -262,11 +262,6 @@ export function renderHeader(grid: GridHost): void {
     }
 
     headerRow.appendChild(cell);
-  });
-
-  // Ensure every sortable header has a baseline aria-sort if not already set during construction.
-  headerRow.querySelectorAll(`.cell.${GridClasses.SORTABLE}`).forEach((el) => {
-    if (!el.getAttribute('aria-sort')) el.setAttribute('aria-sort', 'none');
   });
 
   // Set ARIA role only if header has children (role="row" requires columnheader children)

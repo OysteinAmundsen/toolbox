@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { applySort, builtInSort, defaultComparator, reapplyCoreSort, toggleSort } from './sorting';
+import { applySort, builtInSort, clearSort, defaultComparator, reapplyCoreSort, toggleSort } from './sorting';
 
 // Mock renderHeader to avoid import resolution issues in tests
 vi.mock('./header', () => ({
@@ -43,6 +43,12 @@ function makeGrid(opts: Partial<any> = {}) {
       },
     },
     dispatchEvent: (ev: any) => events.push(ev),
+    sort(field: string | null) {
+      if (field === null && this._sortState) {
+        const col = this._columns.find((c: any) => c.field === this._sortState.field);
+        if (col) clearSort(this, col);
+      }
+    },
     _dispatchHeaderClick: () => false as boolean,
     refreshVirtualWindow: () => {
       /* empty */
@@ -62,6 +68,27 @@ function makeGrid(opts: Partial<any> = {}) {
   };
   return grid;
 }
+
+describe('clearSort / applySort original-order snapshot', () => {
+  it('applySort snapshots the unsorted order once, not when re-sorting', () => {
+    const g = makeGrid();
+    applySort(g, g._columns[0], 1);
+    expect(g.__originalOrder.map((r: any) => r.id)).toEqual([3, 1, 2]);
+    applySort(g, g._columns[0], -1);
+    expect(g.__originalOrder.map((r: any) => r.id)).toEqual([3, 1, 2]);
+  });
+
+  it('clearSort restores the snapshot and emits direction 0 for the given column', () => {
+    const g = makeGrid();
+    applySort(g, g._columns[1], 1);
+    clearSort(g, { field: 'name' });
+
+    expect(g._sortState).toBeNull();
+    expect(g._rows.map((r: any) => r.id)).toEqual([3, 1, 2]);
+    expect(g.__originalOrder).toEqual([]);
+    expect(g.__events.at(-1).detail).toEqual({ field: 'name', direction: 0 });
+  });
+});
 
 describe('toggleSort', () => {
   it('sets ascending sort on first toggle', () => {

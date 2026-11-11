@@ -10,29 +10,27 @@
  * configure features that require plugins they haven't loaded.
  */
 
-import type { BaseGridPlugin, PluginManifest, PluginPropertyDefinition } from '../plugin';
+import type { BaseGridPlugin, PluginManifest } from '../plugin';
 import type { ColumnConfig, GridConfig } from '../types';
 import {
-    CONFIG_RULE_ERROR,
-    CONFIG_RULE_WARN,
-    INCOMPATIBLE_PLUGINS,
-    MISSING_DEPENDENCY,
-    MISSING_PLUGIN,
-    MISSING_PLUGIN_CONFIG,
-    OPTIONAL_DEPENDENCY,
-    debugDiagnostic,
-    throwDiagnostic,
-    warnDiagnostic,
+  CONFIG_RULE_ERROR,
+  CONFIG_RULE_WARN,
+  INCOMPATIBLE_PLUGINS,
+  MISSING_DEPENDENCY,
+  MISSING_PLUGIN,
+  MISSING_PLUGIN_CONFIG,
+  OPTIONAL_DEPENDENCY,
+  debugDiagnostic,
+  throwDiagnostic,
+  warnDiagnostic,
 } from './diagnostics';
 import { isDevelopment } from './utils';
 
 /**
- * Internal property definition with plugin name attached.
- * Extends PluginPropertyDefinition with required pluginName for validation.
+ * A known plugin-owned property: `[property, pluginName, isUsed?]`. Without `isUsed`, any defined
+ * value counts as used. Tuples, not objects: the registry ships in core.
  */
-interface InternalPropertyDefinition extends PluginPropertyDefinition {
-  pluginName: string;
-}
+type KnownProperty = [property: string, pluginName: string, isUsed?: (value: unknown) => boolean];
 
 // #region Known Properties Registry
 /**
@@ -62,49 +60,25 @@ interface InternalPropertyDefinition extends PluginPropertyDefinition {
  * A build-time script could generate these arrays from plugin manifests,
  * creating a single source of truth. For now, they're maintained manually.
  */
-const KNOWN_COLUMN_PROPERTIES: InternalPropertyDefinition[] = [
+const KNOWN_COLUMN_PROPERTIES: KnownProperty[] = [
   // EditingPlugin
-  {
-    property: 'editable',
-    pluginName: 'editing',
-    level: 'column',
-    description: '',
-    isUsed: (v) => v === true || typeof v === 'function',
-  },
-  { property: 'editor', pluginName: 'editing', level: 'column', description: '' },
-  { property: 'editorParams', pluginName: 'editing', level: 'column', description: '' },
+  ['editable', 'editing', (v) => v === true || typeof v === 'function'],
+  ['editor', 'editing'],
+  ['editorParams', 'editing'],
   // GroupingColumnsPlugin
-  { property: 'group', pluginName: 'groupingColumns', level: 'column', description: '' },
+  ['group', 'groupingColumns'],
   // PinnedColumnsPlugin
-  {
-    property: 'pinned',
-    pluginName: 'pinnedColumns',
-    level: 'column',
-    description: '',
-    isUsed: (v) => v === 'left' || v === 'right' || v === 'start' || v === 'end',
-  },
+  ['pinned', 'pinnedColumns', (v) => v === 'left' || v === 'right' || v === 'start' || v === 'end'],
 ];
 
 /**
  * Static registry of known plugin-owned grid config properties.
  */
-const KNOWN_CONFIG_PROPERTIES: InternalPropertyDefinition[] = [
+const KNOWN_CONFIG_PROPERTIES: KnownProperty[] = [
   // EditingPlugin
-  {
-    property: 'rowEditable',
-    pluginName: 'editing',
-    level: 'config',
-    description: '',
-    isUsed: (v) => typeof v === 'function',
-  },
+  ['rowEditable', 'editing', (v) => typeof v === 'function'],
   // GroupingColumnsPlugin
-  {
-    property: 'columnGroups',
-    pluginName: 'groupingColumns',
-    level: 'config',
-    description: '',
-    isUsed: (v) => Array.isArray(v) && v.length > 0,
-  },
+  ['columnGroups', 'groupingColumns', (v) => Array.isArray(v) && v.length > 0],
 ];
 // #endregion
 
@@ -185,65 +159,38 @@ export function validatePluginProperties<T>(
   plugins: readonly BaseGridPlugin[],
   gridId?: string,
 ): void {
-  // Use static registries of known plugin-owned properties
-  const columnProps = KNOWN_COLUMN_PROPERTIES;
-  const configProps = KNOWN_CONFIG_PROPERTIES;
+  // Group errors by plugin to avoid spamming multiple errors; the first hit names the plugin's error.
+  const missingPlugins = new Map<string, { description: string; fields: string[]; isConfigProperty: boolean }>();
 
-  // Group errors by plugin to avoid spamming multiple errors
-  const missingPlugins = new Map<string, { description: string; fields: string[]; isConfigProperty?: boolean }>();
-
-  // Helper to add an error for a missing plugin
-  function addError(pluginName: string, description: string, field: string, isConfigProperty = false) {
-    if (!missingPlugins.has(pluginName)) {
-      missingPlugins.set(pluginName, { description, fields: [], isConfigProperty });
-    }
-    // Entry is guaranteed to exist after the set above
-    const entry = missingPlugins.get(pluginName)!;
-    if (!entry.fields.includes(field)) {
-      entry.fields.push(field);
-    }
-  }
-
-  // Helper: explicit `features: { <name>: false }` is an intentional opt-out.
-  // When the user explicitly disables a feature, we suppress "missing plugin"
-  // diagnostics for that plugin's owned properties so column/config definitions
-  // (e.g. `editor`, `editable`) can remain in place while the feature is toggled
-  // off. The plugin can be re-enabled later without removing those properties.
+  // Explicit `features: { <name>: false }` is an intentional opt-out: suppress "missing plugin"
+  // diagnostics for that plugin's owned properties so column/config definitions (e.g. `editor`,
+  // `editable`) can remain in place while the feature is toggled off.
   const features = (config as { features?: Record<string, unknown> }).features;
-  function isExplicitlyDisabled(pluginName: string): boolean {
-    return !!features && features[pluginName] === false;
-  }
 
-  // Validate grid config properties
-  for (const def of configProps) {
-    const value = (config as Record<string, unknown>)[def.property];
-    const isUsed = def.isUsed ? def.isUsed(value) : value !== undefined;
-
-    if (isUsed && !hasPlugin(plugins, def.pluginName) && !isExplicitlyDisabled(def.pluginName)) {
-      const desc = def.description || `the "${def.property}" ${def.level} property`;
-      addError(def.pluginName, desc, def.property, true);
+  /** Report every used property of `owner` whose plugin is missing; `field` is unset for the config. */
+  const check = (owner: object, props: KnownProperty[], level: 'config' | 'column', field?: string) => {
+    for (const [property, pluginName, isUsed] of props) {
+      const value = (owner as Record<string, unknown>)[property];
+      if (!(isUsed ? isUsed(value) : value !== undefined)) continue;
+      if (hasPlugin(plugins, pluginName) || features?.[pluginName] === false) continue;
+      const entry = missingPlugins.get(pluginName) ?? {
+        description: `the "${property}" ${level} property`,
+        fields: [],
+        isConfigProperty: !field,
+      };
+      missingPlugins.set(pluginName, entry);
+      const name = field ?? property;
+      if (!entry.fields.includes(name)) entry.fields.push(name);
     }
-  }
+  };
 
-  // Validate column properties
-  const columns = config.columns;
-  if (columns && columns.length > 0) {
-    for (const column of columns) {
-      // Utility columns are system columns (plugin-generated, e.g. Selection's
-      // `pinned: 'left'` checkbox) and reach here via later no-op merges or
-      // `gridConfig` round-trips — never treat them as user misconfiguration (#626).
-      if ((column as ColumnConfig).utility === true) continue;
-      for (const def of columnProps) {
-        const value = (column as unknown as Record<string, unknown>)[def.property];
-        // Use custom isUsed check if provided, otherwise check for defined value
-        const isUsed = def.isUsed ? def.isUsed(value) : value !== undefined;
-
-        if (isUsed && !hasPlugin(plugins, def.pluginName) && !isExplicitlyDisabled(def.pluginName)) {
-          const field = (column as ColumnConfig).field || '<unknown>';
-          const desc = def.description || `the "${def.property}" ${def.level} property`;
-          addError(def.pluginName, desc, field);
-        }
-      }
+  check(config, KNOWN_CONFIG_PROPERTIES, 'config');
+  for (const column of config.columns ?? []) {
+    // Utility columns are system columns (plugin-generated, e.g. Selection's
+    // `pinned: 'left'` checkbox) and reach here via later no-op merges or
+    // `gridConfig` round-trips — never treat them as user misconfiguration (#626).
+    if ((column as ColumnConfig).utility !== true) {
+      check(column, KNOWN_COLUMN_PROPERTIES, 'column', (column as ColumnConfig).field || '<unknown>');
     }
   }
 

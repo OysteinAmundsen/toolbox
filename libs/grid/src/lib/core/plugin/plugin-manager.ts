@@ -30,6 +30,18 @@ import type {
   ScrollEvent,
 } from './base-plugin';
 
+/** Event hooks a plugin can claim by returning `true` (later plugins are then skipped). */
+type ClaimHookName = Extract<
+  HookName,
+  'onKeyDown' | 'onCellClick' | 'onRowClick' | 'onHeaderClick' | 'onCellMouseDown' | 'onCellMouseMove' | 'onCellMouseUp'
+>;
+
+/** Notification hooks every implementing plugin receives, return value ignored. */
+type NotifyHookName = Extract<
+  HookName,
+  'processConfig' | 'afterStructuralRender' | 'afterRender' | 'onScrollRender' | 'onScroll'
+>;
+
 /**
  * Insert a provided instance of every missing dependency that declares
  * `provide`, right before the first plugin that needs it. Provided instances
@@ -65,7 +77,7 @@ export class PluginManager {
   /** Plugin instances in order of attachment */
   private plugins: BaseGridPlugin[] = [];
 
-  /** Get all registered plugins (read-only) */
+  /** Get all registered plugins (read-only). Documented plugin-development API — alias of {@link getAll}. */
   getPlugins(): readonly BaseGridPlugin[] {
     return this.plugins;
   }
@@ -431,9 +443,7 @@ export class PluginManager {
    * into `config.shell`).
    */
   processConfig(config: GridConfig): void {
-    for (const plugin of this.#getPluginsForHook('processConfig')) {
-      plugin.processConfig!(config);
-    }
+    this.#notify('processConfig', config);
   }
 
   /**
@@ -451,9 +461,7 @@ export class PluginManager {
    * before paint. Used by plugins that wrap/relocate the freshly built grid DOM.
    */
   afterStructuralRender(): void {
-    for (const plugin of this.#getPluginsForHook('afterStructuralRender')) {
-      plugin.afterStructuralRender!();
-    }
+    this.#notify('afterStructuralRender');
   }
 
   /**
@@ -508,9 +516,7 @@ export class PluginManager {
    * Execute afterRender hook on all plugins.
    */
   afterRender(): void {
-    for (const plugin of this.#getPluginsForHook('afterRender')) {
-      plugin.afterRender!();
-    }
+    this.#notify('afterRender');
   }
 
   /**
@@ -600,9 +606,7 @@ export class PluginManager {
    * Called after scroll-triggered row rendering for lightweight visual state updates.
    */
   onScrollRender(): void {
-    for (const plugin of this.#getPluginsForHook('onScrollRender')) {
-      plugin.onScrollRender!();
-    }
+    this.#notify('onScrollRender');
   }
 
   /**
@@ -627,12 +631,7 @@ export class PluginManager {
    * When true, the grid should use variable heights mode with position caching.
    */
   hasRowHeightPlugin(): boolean {
-    for (const plugin of this.plugins) {
-      if (typeof plugin.getRowHeight === 'function') {
-        return true;
-      }
-    }
-    return false;
+    return this.plugins.some((plugin) => typeof plugin.getRowHeight === 'function');
   }
 
   /**
@@ -779,103 +778,62 @@ export class PluginManager {
 
   // #region Event Hooks
   /**
-   * Execute onKeyDown hook on all plugins.
-   * Returns true if any plugin handled the event.
+   * Run a claimable event hook on its plugins in `hookPriority` order until one handles the
+   * event (returns `true`). Shared by every `on*` hook below that can be claimed.
    */
+  #claim(hook: ClaimHookName, event: unknown): boolean {
+    for (const plugin of this.#getPluginsForHook(hook)) {
+      if ((plugin[hook] as (event: unknown) => boolean | void)(event)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Run a notification hook on all its plugins in `hookPriority` order (return values ignored).
+   * Not used for the per-cell/per-row hooks, which stay inline on the render hot path.
+   */
+  #notify(hook: NotifyHookName, arg?: unknown): void {
+    for (const plugin of this.#getPluginsForHook(hook)) (plugin[hook] as (arg?: unknown) => void)(arg);
+  }
+
+  /** Execute onKeyDown hook on all plugins. Returns true if any plugin handled the event. */
   onKeyDown(event: KeyboardEvent): boolean {
-    for (const plugin of this.#getPluginsForHook('onKeyDown')) {
-      if (plugin.onKeyDown!(event)) {
-        return true;
-      }
-    }
-    return false;
+    return this.#claim('onKeyDown', event);
   }
 
-  /**
-   * Execute onCellClick hook on all plugins.
-   * Returns true if any plugin handled the event.
-   */
+  /** Execute onCellClick hook on all plugins. Returns true if any plugin handled the event. */
   onCellClick(event: CellClickEvent): boolean {
-    for (const plugin of this.#getPluginsForHook('onCellClick')) {
-      if (plugin.onCellClick!(event)) {
-        return true;
-      }
-    }
-    return false;
+    return this.#claim('onCellClick', event);
   }
 
-  /**
-   * Execute onRowClick hook on all plugins.
-   * Returns true if any plugin handled the event.
-   */
+  /** Execute onRowClick hook on all plugins. Returns true if any plugin handled the event. */
   onRowClick(event: RowClickEvent): boolean {
-    for (const plugin of this.#getPluginsForHook('onRowClick')) {
-      if (plugin.onRowClick!(event)) {
-        return true;
-      }
-    }
-    return false;
+    return this.#claim('onRowClick', event);
   }
 
-  /**
-   * Execute onHeaderClick hook on all plugins.
-   * Returns true if any plugin handled the event.
-   */
+  /** Execute onHeaderClick hook on all plugins. Returns true if any plugin handled the event. */
   onHeaderClick(event: HeaderClickEvent): boolean {
-    for (const plugin of this.#getPluginsForHook('onHeaderClick')) {
-      if (plugin.onHeaderClick!(event)) {
-        return true;
-      }
-    }
-    return false;
+    return this.#claim('onHeaderClick', event);
   }
 
-  /**
-   * Execute onScroll hook on all plugins.
-   */
+  /** Execute onScroll hook on all plugins. */
   onScroll(event: ScrollEvent): void {
-    for (const plugin of this.#getPluginsForHook('onScroll')) {
-      plugin.onScroll!(event);
-    }
+    this.#notify('onScroll', event);
   }
 
-  /**
-   * Execute onCellMouseDown hook on all plugins.
-   * Returns true if any plugin handled the event.
-   */
+  /** Execute onCellMouseDown hook on all plugins. Returns true if any plugin handled the event. */
   onCellMouseDown(event: CellMouseEvent): boolean {
-    for (const plugin of this.#getPluginsForHook('onCellMouseDown')) {
-      if (plugin.onCellMouseDown!(event)) {
-        return true;
-      }
-    }
-    return false;
+    return this.#claim('onCellMouseDown', event);
   }
 
-  /**
-   * Execute onCellMouseMove hook on all plugins.
-   * Returns true if any plugin handled the event.
-   */
+  /** Execute onCellMouseMove hook on all plugins. Returns true if any plugin handled the event. */
   onCellMouseMove(event: CellMouseEvent): boolean {
-    for (const plugin of this.#getPluginsForHook('onCellMouseMove')) {
-      if (plugin.onCellMouseMove!(event)) {
-        return true;
-      }
-    }
-    return false;
+    return this.#claim('onCellMouseMove', event);
   }
 
-  /**
-   * Execute onCellMouseUp hook on all plugins.
-   * Returns true if any plugin handled the event.
-   */
+  /** Execute onCellMouseUp hook on all plugins. Returns true if any plugin handled the event. */
   onCellMouseUp(event: CellMouseEvent): boolean {
-    for (const plugin of this.#getPluginsForHook('onCellMouseUp')) {
-      if (plugin.onCellMouseUp!(event)) {
-        return true;
-      }
-    }
-    return false;
+    return this.#claim('onCellMouseUp', event);
   }
 
   // #endregion

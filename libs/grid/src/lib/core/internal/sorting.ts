@@ -221,19 +221,24 @@ function executeBuiltInSortInPlace(rows: any[], field: string, direction: 1 | -1
 }
 
 /**
+ * Rebuild every rendered row after `_rows` was reordered: bump the epoch and invalidate pooled
+ * rows (templated cells must reflect the new order), re-render the header (sort indicators,
+ * `aria-sort`) and refresh the window.
+ */
+function rerenderSortedRows(grid: GridHost): void {
+  grid.__rowRenderEpoch++;
+  for (const row of grid._rowPool) row.__epoch = -1;
+  grid._schedulerRenderHeader();
+  grid.refreshVirtualWindow(true);
+}
+
+/**
  * Apply sort result to grid and update UI.
  * Called after sync or async sort completes.
  */
 function finalizeSortResult<T>(grid: GridHost<T>, sortedRows: T[], col: ColumnConfig<T>, dir: 1 | -1): void {
   grid._rows = sortedRows;
-  // Bump epoch so renderVisibleRows triggers full inline rebuild
-  grid.__rowRenderEpoch++;
-  // Invalidate pooled rows to guarantee rebuild
-  for (let i = 0; i < grid._rowPool.length; i++) {
-    grid._rowPool[i].__epoch = -1;
-  }
-  grid._schedulerRenderHeader();
-  grid.refreshVirtualWindow(true);
+  rerenderSortedRows(grid);
   emitSortChange(grid, col, dir);
 }
 
@@ -284,49 +289,27 @@ function hasRowStructurePlugins(grid: GridHost): boolean {
  * Restores original row order when clearing sort.
  */
 export function toggleSort(grid: GridHost, col: ColumnConfig<any>): void {
-  if (!grid._sortState || grid._sortState.field !== col.field) {
-    if (!grid._sortState) grid.__originalOrder = grid._rows.slice();
-    applySort(grid, col, 1);
-  } else if (grid._sortState.direction === 1) {
-    applySort(grid, col, -1);
-  } else {
-    grid._sortState = null;
+  if (!grid._sortState || grid._sortState.field !== col.field) applySort(grid, col, 1);
+  else if (grid._sortState.direction === 1) applySort(grid, col, -1);
+  else grid.sort(null);
+}
 
-    // When row-model plugins are active (grouping, tree, etc.), delegate to the
-    // render scheduler so #rebuildRowModel runs the full pipeline on base rows.
-    if (hasRowStructurePlugins(grid)) {
-      // RenderPhase.ROWS = 4 — triggers rebuildRowModel which skips reapplyCoreSort
-      // when _sortState is null, then runs processRows to rebuild groups.
-      grid._requestSchedulerPhase(4, 'sort-clear');
-      emitSortChange(grid, col, 0);
-      return;
-    }
-
-    // Fast path: no row-model plugins — direct _rows manipulation is safe.
-    // Force full row rebuild after clearing sort so templated cells reflect original order
-    grid.__rowRenderEpoch++;
-    // Invalidate existing pooled row epochs so virtualization triggers a full inline rebuild
-    for (let i = 0; i < grid._rowPool.length; i++) {
-      grid._rowPool[i].__epoch = -1;
-    }
+/**
+ * Clear the core sort and restore the pre-sort row order. Shared by the header click cycle and
+ * `grid.sort(null)`; `col` only names the column in the announcement and the `sort-change` event.
+ */
+export function clearSort(grid: GridHost, col: ColumnConfig): void {
+  grid._sortState = null;
+  // When row-model plugins are active (grouping, tree, etc.), delegate to the render scheduler:
+  // RenderPhase.ROWS = 4 rebuilds the row model, which skips reapplyCoreSort when `_sortState` is
+  // null, then runs processRows to rebuild groups. Direct `_rows` manipulation would corrupt them.
+  if (hasRowStructurePlugins(grid)) grid._requestSchedulerPhase(4, 'sort-clear');
+  else {
     grid._rows = grid.__originalOrder.slice();
     grid.__originalOrder = [];
-    grid._schedulerRenderHeader();
-    // After re-render ensure cleared column shows aria-sort="none" baseline.
-    const headers = grid._headerRowEl?.querySelectorAll('[role="columnheader"].sortable');
-    if (headers) {
-      for (let i = 0; i < headers.length; i++) {
-        const h = headers[i];
-        if (!h.getAttribute('aria-sort')) h.setAttribute('aria-sort', 'none');
-        else if (h.getAttribute('aria-sort') === 'ascending' || h.getAttribute('aria-sort') === 'descending') {
-          // The active column was re-rendered already, but normalize any missing ones.
-          if (!grid._sortState) h.setAttribute('aria-sort', 'none');
-        }
-      }
-    }
-    grid.refreshVirtualWindow(true);
-    emitSortChange(grid, col, 0);
+    rerenderSortedRows(grid);
   }
+  emitSortChange(grid, col, 0);
 }
 
 /**
@@ -380,6 +363,8 @@ export function reapplyCoreSort<T>(grid: InternalGrid<T>, rows: T[], skipOrigina
  * This prevents sorting from corrupting plugin-generated row structures.
  */
 export function applySort(grid: GridHost, col: ColumnConfig<any>, dir: 1 | -1): void {
+  // Snapshot the unsorted order once, so clearing the sort can restore it.
+  if (!grid._sortState) grid.__originalOrder = grid._rows.slice();
   grid._sortState = { field: col.field, direction: dir };
 
   // When row-model plugins are active, delegate to the render scheduler.
@@ -405,7 +390,6 @@ export function applySort(grid: GridHost, col: ColumnConfig<any>, dir: 1 | -1): 
     // array (core hands `#rows` through when unsorted) or a plugin stage's cached
     // result (e.g. Filtering's `cachedResult`, reused while its input is unchanged).
     // The O(n) copy is small next to the O(n log n) sort.
-    // __originalOrder was already saved by toggleSort before calling applySort.
     grid._rows = grid._rows.slice();
     executeBuiltInSortInPlace(grid._rows as any[], sortState.field, dir, columns);
     finalizeSortResult(grid, grid._rows, col, dir);

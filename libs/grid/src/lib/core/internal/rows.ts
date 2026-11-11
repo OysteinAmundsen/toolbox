@@ -90,7 +90,7 @@ function clearEditingState(rowEl: RowElementInternal): void {
  * Dynamic attributes (data-col, data-row, etc.) are set after cloning.
  */
 const cellTemplate = document.createElement('template');
-cellTemplate.innerHTML = '<div class="cell" role="gridcell" part="cell"></div>';
+cellTemplate.innerHTML = '<div class="cell" role="gridcell" part="cell" aria-selected="false"></div>';
 
 /**
  * Row template for cloning. Pre-configured with static attributes.
@@ -119,8 +119,7 @@ export function createRowFromTemplate(): HTMLDivElement {
  * Invalidate the cell cache (call when rows or columns change).
  */
 export function invalidateCellCache(grid: InternalGrid): void {
-  grid.__cellDisplayCache = undefined;
-  grid.__cellCacheEpoch = undefined;
+  grid.__cellsDirty = true;
   grid.__hasSpecialColumns = undefined; // Reset fast-path check
 }
 
@@ -376,6 +375,7 @@ function reconcileRow(
   epoch: number | undefined,
   structureValid: boolean,
   dataRefChanged: boolean,
+  contentDirty: boolean | undefined,
 ): void {
   const hasEditing = hasEditingCells(rowEl);
   // In grid edit mode every row carries editors — but only rows that were NOT
@@ -388,26 +388,17 @@ function reconcileRow(
     (!dataRefChanged && (!!grid._isGridEditMode || (grid._activeEditRows ?? -1) >= 0)) ||
     grid._activeEditRows === rowIndex;
 
-  if (!structureValid) {
-    if (hasEditing && isActivelyEditedRow) {
-      // Correct row and it owns live editors — preserve them. A changed column set (a moved
-      // column window, #640) re-keys the cells by field instead of patching them by position;
-      // an unchanged one keeps every cell and only re-stamps indices (`aria-colindex`, #642).
-      rewindowEditingRow(grid, rowEl, rowData, rowIndex);
-      rowEl.__rowDataRef = rowData;
-      return;
+  if (!structureValid || (hasEditing && !isActivelyEditedRow)) {
+    const windowOnly = epoch !== undefined && grid.__windowEpoch === epoch && !dataRefChanged && !rowEl.__isCustomRow;
+    if ((hasEditing && isActivelyEditedRow) || windowOnly) {
+      // Re-key editors/window cells instead of patching by position. An outgoing editor may
+      // commit on blur, so its row must still patch non-editing cells and derived values.
+      rewindowRow(grid, rowEl, rowData, rowIndex, windowOnly && !contentDirty && !hasEditing);
+    } else {
+      resetCustomRow(rowEl);
+      if (hasEditing) clearEditingState(rowEl);
+      renderInlineRow(grid, rowEl, rowData, rowIndex);
     }
-    resetCustomRow(rowEl);
-    if (hasEditing) clearEditingState(rowEl);
-    renderInlineRow(grid, rowEl, rowData, rowIndex);
-    rowEl.__epoch = epoch;
-    rowEl.__rowDataRef = rowData;
-    return;
-  }
-
-  if (hasEditing && !isActivelyEditedRow) {
-    clearEditingState(rowEl);
-    renderInlineRow(grid, rowEl, rowData, rowIndex);
     rowEl.__epoch = epoch;
     rowEl.__rowDataRef = rowData;
     return;
@@ -520,6 +511,8 @@ export function renderVisibleRows(
   epoch?: number,
   renderRowHook?: RenderRowHook,
 ): void {
+  const contentDirty = grid.__cellsDirty;
+  grid.__cellsDirty = false;
   const needed = Math.max(0, end - start);
   const bodyEl = grid._bodyEl;
   const columns = grid._visibleColumns;
@@ -610,7 +603,7 @@ export function renderVisibleRows(
       structureValid = false;
     }
 
-    reconcileRow(grid, rowEl, rowData, rowIndex, epoch, structureValid, dataRefChanged);
+    reconcileRow(grid, rowEl, rowData, rowIndex, epoch, structureValid, dataRefChanged, contentDirty);
 
     applyChangedClass(grid, rowEl, rowData);
     applyRowClass(grid, rowEl, rowData);
@@ -748,7 +741,7 @@ function patchPlainCells(
 
     const col = columns[i];
     const value = resolveCellValue(rowData, col, rowIndex);
-    cell.textContent = value == null ? '' : String(value);
+    cell.textContent = String(value ?? '');
     if (loader) cell.appendChild(loader);
     // aria-selected only valid for gridcell, not checkbox (but this path has no special cols)
     patchCellFocus(cell, focusRow === rowIndex && focusCol === i);
@@ -759,50 +752,6 @@ function patchPlainCells(
 
 /** Matches template source that tries to reach the prototype/proxy machinery. */
 const UNSAFE_TEMPLATE_RE = /Reflect\.|\bProxy\b|ownKeys\(/;
-
-/**
- * Write the output of a column renderer into the cell.
- *
- * Renderers may return a string (sanitized HTML), a `Node` (adopted directly),
- * `null`/`undefined` (fall back to the raw value), or a framework-owned handle
- * (left alone — the adapter has already rendered in place).
- */
-function applyRendererOutput(
-  grid: GridHost,
-  cell: HTMLElement,
-  col: ColumnInternal,
-  rowData: any,
-  value: unknown,
-  cellRenderer: ColumnViewRenderer<any, unknown>,
-): void {
-  // Pass cellEl for framework adapters that want to cache per-cell
-  const produced = cellRenderer({
-    row: rowData,
-    value,
-    field: col.field,
-    column: col,
-    grid: grid as any,
-    cellEl: cell,
-  });
-  if (typeof produced === 'string') {
-    // Release editor views before wiping cell content
-    grid.__frameworkAdapter?.releaseCell?.(cell);
-    setSanitizedHTML(cell, produced);
-  } else if (produced instanceof Node) {
-    // Skip when the container is already a child of the cell — the framework
-    // adapter reused it and re-rendered in place.
-    if (produced.parentElement !== cell) {
-      grid.__frameworkAdapter?.releaseCell?.(cell);
-      cell.innerHTML = '';
-      cell.appendChild(produced);
-    }
-  } else if (produced == null) {
-    // Renderer returned null/undefined - show raw value
-    grid.__frameworkAdapter?.releaseCell?.(cell);
-    cell.textContent = value == null ? '' : String(value);
-  }
-  // If produced is truthy but not a string or Node, the framework handles it
-}
 
 /**
  * Write the output of a compiled or inline view template into the cell.
@@ -837,11 +786,11 @@ function applyFormattedValue(grid: GridHost, cell: HTMLElement, col: ColumnInter
     let displayStr: string;
     try {
       const formatted = formatFn(value, rowData);
-      displayStr = formatted == null ? '' : String(formatted);
+      displayStr = String(formatted ?? '');
     } catch (e) {
       // Log format errors as warnings (user configuration issue)
       warnDiagnostic(FORMAT_ERROR, `Format error in column '${col.field}': ${e}`, grid.id);
-      displayStr = value == null ? '' : String(value);
+      displayStr = String(value ?? '');
     }
     cell.textContent = displayStr;
   } else renderPlainValue(cell, col, value, false);
@@ -868,32 +817,26 @@ function patchCellContent(
 ): void {
   // Renderer priority chain: column → typeDefaults → adapter → built-in.
   const cellRenderer = resolveRenderer(grid, col);
-  let value: unknown;
+  // External views manage their own state; do not evaluate accessors or disturb their loaders.
+  if (col.externalView && !cellRenderer && !col.__compiledView && !col.__viewTemplate) return;
+  const value = resolveCellValue(rowData, col, rowIndex);
   // Same row object: an active loader is kept, not remounted. The row breadcrumb
   // skips the per-cell DOM query for rows that never showed a cell loader.
   const loader = (rowEl as RowElementInternal).__hasCellLoading ? parkCellLoadingOverlay(cell) : null;
 
   if (cellRenderer) {
     // Must re-invoke to get updated content.
-    value = resolveCellValue(rowData, col, rowIndex);
-    applyRendererOutput(grid, cell, col, rowData, value, cellRenderer);
+    renderViaRenderer(grid, cell, col, cellRenderer, value, rowData, true);
   } else if (col.__compiledView) {
     // Compiled view template — re-evaluate with current row data.
-    value = resolveCellValue(rowData, col, rowIndex);
     const output = col.__compiledView({ row: rowData, value, field: col.field, column: col });
     applyTemplateOutput(grid, cell, col.__compiledView.__blocked ? null : output);
   } else if (col.__viewTemplate) {
     // Inline view template — re-evaluate with current row data.
-    value = resolveCellValue(rowData, col, rowIndex);
     const rawTpl = col.__viewTemplate.innerHTML;
     const html = UNSAFE_TEMPLATE_RE.test(rawTpl) ? null : evalTemplateString(rawTpl, { row: rowData, value });
     applyTemplateOutput(grid, cell, html);
-  } else if (col.externalView) {
-    // External view cells are mounted once and manage their own state.
-    if (loader) cell.appendChild(loader);
-    return;
   } else {
-    value = resolveCellValue(rowData, col, rowIndex);
     applyFormattedValue(grid, cell, col, rowData, value);
   }
   if (loader) cell.appendChild(loader);
@@ -983,6 +926,7 @@ function renderViaRenderer(
   viewRenderer: ColumnViewRenderer<any>,
   value: unknown,
   rowData: any,
+  replacing?: boolean,
 ): boolean {
   // Pass cellEl for framework adapters that want to cache per-cell
   const produced = viewRenderer({
@@ -993,7 +937,9 @@ function renderViaRenderer(
     grid: grid as any,
     cellEl: cell,
   });
+  const adapter = replacing ? grid.__frameworkAdapter : undefined;
   if (typeof produced === 'string') {
+    adapter?.releaseCell?.(cell);
     // Sanitize HTML from viewRenderer to prevent XSS from user-controlled data
     setSanitizedHTML(cell, produced);
     return true;
@@ -1002,12 +948,13 @@ function renderViaRenderer(
     // Skip when the container is already a child of the cell — the framework
     // adapter reused it and has re-rendered in place.
     if (produced.parentElement !== cell) {
-      cell.textContent = '';
-      cell.appendChild(produced);
+      adapter?.releaseCell?.(cell);
+      cell.replaceChildren(produced);
     }
   } else if (produced == null) {
+    adapter?.releaseCell?.(cell);
     // Renderer returned null/undefined - show raw value
-    cell.textContent = value == null ? '' : String(value);
+    cell.textContent = String(value ?? '');
   }
   // If produced is truthy but not a string or Node (e.g., framework placeholder),
   // don't modify the cell - the framework adapter handles rendering.
@@ -1062,7 +1009,7 @@ function renderPlainValue(cell: HTMLElement, col: ColumnInternal, value: unknown
     // Wrap checkbox in span to satisfy ARIA: gridcell can contain checkbox
     cell.innerHTML = booleanCellHTML(!!value);
   } else {
-    cell.textContent = value == null ? '' : String(value);
+    cell.textContent = String(value ?? '');
   }
 }
 
@@ -1207,12 +1154,7 @@ function renderCell(
   applyCellTabIndex(cell, col, rowData);
 
   // Initialize focus state (must match fastPatchRow for consistent behavior)
-  if (grid._focusRow === rowIndex && grid._focusCol === colIndex) {
-    cell.classList.add('cell-focus');
-    cell.setAttribute('aria-selected', 'true');
-  } else {
-    cell.setAttribute('aria-selected', 'false');
-  }
+  patchCellFocus(cell, grid._focusRow === rowIndex && grid._focusCol === colIndex);
 
   // Apply cellClass callback if configured
   applyCellClass(grid, cell, col, rowData, rowIndex);
@@ -1223,26 +1165,27 @@ function renderCell(
 }
 
 /**
- * Bring a row that owns live editors onto a changed rendered column set — a moved column window
- * (#640), reorder, hide/show — keyed by field. Cells whose column is still rendered stay in the DOM
- * untouched (an editor keeps its draft and focus); only cells around them are dropped or built, so
- * the `afterCellRender` hook can give new ones editors.
+ * Reconcile a moved column window or live editing row by field. Window-only moves keep renderer
+ * content; definition/data changes still patch it. Editors always keep their drafts and focus.
  */
-function rewindowEditingRow(grid: GridHost, rowEl: RowElementInternal, rowData: unknown, rowIndex: number): void {
+function rewindowRow(
+  grid: GridHost,
+  rowEl: RowElementInternal,
+  rowData: unknown,
+  rowIndex: number,
+  windowOnly: boolean,
+): void {
   const columns = grid._visibleColumns;
-  // Per-field queues, consumed in DOM order, so columns sharing a field map deterministically.
-  const wanted = new Map<string, number>();
-  for (const c of columns) wanted.set(c.field, (wanted.get(c.field) ?? 0) + 1);
-  const kept = new Map<string, HTMLElement[]>();
+  // null marks a wanted field whose existing cell has not been found.
+  const kept = new Map<string, HTMLElement | null>();
+  for (const col of columns) kept.set(col.field, null);
   const dropped: HTMLElement[] = [];
-  for (const cell of Array.from(rowEl.children) as HTMLElement[]) {
+  for (const child of rowEl.children) {
+    const cell = child as HTMLElement;
     if (!cell.classList.contains('cell')) continue;
     const field = cell.getAttribute('data-field') ?? '';
-    const queue = kept.get(field) ?? [];
-    if (queue.length < (wanted.get(field) ?? 0)) {
-      queue.push(cell);
-      kept.set(field, queue);
-    } else dropped.push(cell);
+    if (kept.get(field) === null) kept.set(field, cell);
+    else dropped.push(cell);
   }
   // Removing a focused editor fires no blur, and editors commit on blur: blur it first so its draft lands.
   const active = rowEl.ownerDocument.activeElement as HTMLElement | null;
@@ -1283,7 +1226,8 @@ function rewindowEditingRow(grid: GridHost, rowEl: RowElementInternal, rowData: 
   let next = rowEl.firstElementChild;
   for (let i = 0; i < columns.length; i++) {
     const col = columns[i];
-    const cell = kept.get(col.field)?.shift();
+    const cell = kept.get(col.field);
+    kept.delete(col.field);
     if (!cell) {
       rowEl.insertBefore(renderCell(grid, rowEl, col, i, rowData, rowIndex, hasCellHook), next);
       continue;
@@ -1299,11 +1243,14 @@ function rewindowEditingRow(grid: GridHost, rowEl: RowElementInternal, rowData: 
     applyCellClass(grid, cell, col, rowData, rowIndex);
     if (cell.classList.contains(GridClasses.EDITING)) continue;
     patchCellFocus(cell, grid._focusRow === rowIndex && grid._focusCol === i);
-    patchCellContent(grid, rowEl, cell, col, i, rowData, rowIndex, hasCellHook);
+    if (!windowOnly) patchCellContent(grid, rowEl, cell, col, i, rowData, rowIndex, hasCellHook);
+    else if (hasCellHook) {
+      emitAfterCellRender(grid, rowEl, cell, col, i, rowData, rowIndex, resolveCellValue(rowData, col, rowIndex));
+    }
   }
   // A reorder moved a kept cell holding the focused editor; a DOM move drops focus (the input and
   // its draft survive the move), so give it back.
-  if (active?.isConnected && rowEl.contains(active) && rowEl.ownerDocument.activeElement !== active) {
+  if (active && rowEl.contains(active) && rowEl.ownerDocument.activeElement !== active) {
     active.focus({ preventScroll: true });
   }
 }

@@ -12,6 +12,8 @@ import ShowSource from '@components/ShowSource.astro';
 
 The Column Virtualization plugin improves performance for grids with many columns.
 
+Horizontal scroll updates the window in the scroll animation frame without reprocessing the row data. Body cells whose columns remain rendered keep their DOM and renderer content, including pinned cells and framework views. Batched data changes and editor commits still refresh retained content. Only entering and leaving columns are created or released; cell hooks receive the updated column indices.
+
 ## Installation
 
 ```ts

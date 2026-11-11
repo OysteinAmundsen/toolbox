@@ -471,13 +471,13 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   __frameworkAdapter?: FrameworkAdapter;
   __originalOrder: T[];
   __rowRenderEpoch: number;
+  /** Latest window-only epoch; definition changes advance the render epoch past it. */
+  __windowEpoch?: number;
   __didInitialAutoSize?: boolean;
   __lightDomColumnsCache?: ColumnInternal[];
   __originalColumnNodes?: HTMLElement[];
-  /** Cell display value cache. @internal */
-  __cellDisplayCache?: Map<number, string[]>;
-  /** Cache epoch for cell display values. @internal */
-  __cellCacheEpoch?: number;
+  /** Content invalidation awaiting a row render, independent of column-window epochs. @internal */
+  __cellsDirty?: boolean;
   /** Cached header row count for virtualization. @internal */
   __cachedHeaderRowCount?: number;
   /** Cached flag for whether grid has special columns (custom renderers, etc.). @internal */

@@ -546,6 +546,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   // #region Implementation Details (Internal only)
   __rowRenderEpoch = 0;
+  /** @internal Last window-only epoch, distinct from column-definition changes. */
+  declare __windowEpoch?: number;
   __didInitialAutoSize = false;
 
   /** Light DOM columns cache - delegates to ConfigManager */
@@ -1691,6 +1693,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
             this.#hScrollRaf = requestAnimationFrame(() => {
               this.#hScrollRaf = 0;
               this.#pluginManager?.onScroll(this.#readScrollGeometry(fauxScrollbar.scrollTop));
+              // Already in a scroll frame: keep a moved column window in this paint.
+              this.#scheduler.flushPending();
             });
           },
           { passive: true, signal: scrollSignal },
@@ -2256,11 +2260,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   /**
    * @internal Re-window the rendered columns (HEADER-phase flush after `requestColumnWindowRender`):
-   * drop the cached window, rebuild every pooled row's cells (epoch) and the template.
+   * drop the cached window and reconcile pooled cells by field instead of rebuilding them.
    */
   _schedulerRewindow(): void {
     this.#visibleColumnsCache = undefined;
-    this.__rowRenderEpoch++;
+    this.__windowEpoch = ++this.__rowRenderEpoch;
     updateTemplate(this);
   }
 

@@ -15,5 +15,10 @@
     "ignoreDeprecations": "6.0"
   },
   "include": ["**/*.ts"],
-  "exclude": ["node_modules", "test-results"]
+  "exclude": ["node_modules", "test-results"],
+  "references": [
+    {
+      "path": "../libs/grid"
+    }
+  ]
 }

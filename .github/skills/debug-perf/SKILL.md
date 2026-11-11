@@ -177,6 +177,13 @@ support for a CSS feature does not prove its native implementation is faster.
 
 ### E2E Performance Regression Tests
 
+For horizontal column-window latency and pinned-column drift, run
+`bun nx e2e e2e --grep="column virtualization keeps fast" --workers=1 --reporter=list`.
+It loads built UMD bundles without a server; `COLUMN_SCROLL_BUNDLE` can point at a
+saved baseline bundle. Sample the rAF scheduled by the native scroll event, not
+an arbitrary rAF immediately after assigning `scrollLeft` (that may precede the
+event). The test records coverage, pin drift and window-render median/p95.
+
 The project has a comprehensive e2e performance test suite at `e2e/tests/performance-regression.spec.ts` (700+ lines). Use it to:
 
 ```bash

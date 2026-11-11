@@ -37,6 +37,8 @@ Column virtualization improves performance when dealing with many columns (50+).
 
 The plugin automatically enables when column count exceeds the threshold.
 
+Horizontal scroll updates the column window in the scroll animation frame, without rebuilding the row data model. Overlapping body cells retain their DOM and renderer content; only entering and leaving columns are created or released. Batched data changes and editor commits still refresh retained content. Cell hooks still run with updated column indices. This preserves pinned cells and avoids remounting framework views while their columns remain rendered.
+
 Pinned columns and utility columns (selection checkbox, master-detail expander, row-drag handle) are never virtualized away: they are always rendered, so pinned ones stay visible while scrolling horizontally. Unpinned utility columns scroll out of view like any unpinned column; pin them to keep them on screen.
 
 ## Export, Clipboard and Column APIs

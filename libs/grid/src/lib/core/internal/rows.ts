@@ -1,5 +1,6 @@
 import { FOCUSABLE_EDITOR_SELECTOR, GridClasses } from '../constants';
 import type { ColumnInternal, ColumnViewRenderer, GridHost, InternalGrid, RowElementInternal } from '../types';
+import { ariaColIndex } from './aria';
 import {
   CELL_CLASS_ERROR,
   FORMAT_ERROR,
@@ -19,46 +20,29 @@ import { resolveCellValue } from './value-accessor';
 export type RenderRowHook = (row: any, rowEl: HTMLElement, rowIndex: number) => boolean;
 
 // #region Type Defaults Resolution
+/** The framework adapter's app-level type default for `col.type`, if any. */
+function adapterTypeDefault<TRow>(grid: InternalGrid<TRow>, col: ColumnInternal<TRow>) {
+  return col.type ? grid.__frameworkAdapter?.getTypeDefault?.<TRow>(col.type, grid._hostElement) : undefined;
+}
+
 /**
  * Resolves the renderer for a column using the priority chain:
  * 1. Column-level (`column.renderer` / `column.viewRenderer`)
- *    NOTE: typeDefaults are applied to columns at config merge time,
- *    so columns with matching types already have their renderer set.
- * 2. App-level (framework adapter's `getTypeDefault`)
+ *    NOTE: typeDefaults from gridConfig are applied to columns at config merge time
+ *    (`ConfigManager.#applyTypeDefaultsToColumns()`), so they already appear as `col.renderer`.
+ * 2. App-level (framework adapter's `getTypeDefault`, registered dynamically)
  * 3. Returns undefined (caller uses built-in or fallback)
  */
 export function resolveRenderer<TRow>(
   grid: InternalGrid<TRow>,
   col: ColumnInternal<TRow>,
 ): ColumnViewRenderer<TRow, unknown> | undefined {
-  // 1. Column-level renderer (highest priority)
-  // NOTE: typeDefaults from gridConfig are applied to columns at config merge time
-  // by ConfigManager.#applyTypeDefaultsToColumns(), so they appear here as col.renderer
-  const columnRenderer = col.renderer || col.viewRenderer;
-  if (columnRenderer) return columnRenderer;
-
-  // No type specified - no type defaults to check
-  if (!col.type) return undefined;
-
-  // 2. App-level registry (via framework adapter)
-  // This is for framework adapters that register type defaults dynamically
-  const adapter = grid.__frameworkAdapter;
-  if (adapter?.getTypeDefault) {
-    const appDefault = adapter.getTypeDefault<TRow>(col.type, grid._hostElement);
-    if (appDefault?.renderer) {
-      return appDefault.renderer;
-    }
-  }
-
-  // 3. No custom renderer - caller uses built-in/fallback
-  return undefined;
+  return col.renderer || col.viewRenderer || adapterTypeDefault(grid, col)?.renderer || undefined;
 }
 
 /**
  * Resolves the format function for a column using the priority chain:
- * 1. Column-level (`column.format`)
- *    NOTE: typeDefaults are applied to columns at config merge time,
- *    so columns with matching types already have their format set.
+ * 1. Column-level (`column.format`) — typeDefaults are merged in at config time, as above.
  * 2. App-level (framework adapter's `getTypeDefault`)
  * 3. Returns undefined (caller uses built-in or fallback)
  */
@@ -66,26 +50,8 @@ export function resolveFormat<TRow>(
   grid: InternalGrid<TRow>,
   col: ColumnInternal<TRow>,
 ): ((value: unknown, row: TRow) => string) | undefined {
-  // 1. Column-level format (highest priority)
-  // NOTE: typeDefaults from gridConfig are applied to columns at config merge time
-  // by ConfigManager.#applyTypeDefaultsToColumns(), so they appear here as col.format
-  if (col.format) return col.format;
-
-  // No type specified - no type defaults to check
-  if (!col.type) return undefined;
-
-  // 2. App-level registry (via framework adapter)
-  // This is for framework adapters that register type defaults dynamically
-  const adapter = grid.__frameworkAdapter;
-  if (adapter?.getTypeDefault) {
-    const appDefault = adapter.getTypeDefault<TRow>(col.type, grid._hostElement);
-    if (appDefault?.format) {
-      return appDefault.format as (value: unknown, row: TRow) => string;
-    }
-  }
-
-  // 3. No custom format - caller uses built-in/fallback
-  return undefined;
+  return (col.format || adapterTypeDefault(grid, col)?.format || undefined) as
+    ((value: unknown, row: TRow) => string) | undefined;
 }
 // #endregion
 
@@ -425,9 +391,9 @@ function reconcileRow(
   if (!structureValid) {
     if (hasEditing && isActivelyEditedRow) {
       // Correct row and it owns live editors — preserve them. A changed column set (a moved
-      // column window, #640) re-keys the cells by field instead of patching them by position.
-      if (cellsMatchColumns(rowEl, grid._visibleColumns)) fastPatchRow(grid, rowEl, rowData, rowIndex);
-      else rewindowEditingRow(grid, rowEl, rowData, rowIndex);
+      // column window, #640) re-keys the cells by field instead of patching them by position;
+      // an unchanged one keeps every cell and only re-stamps indices (`aria-colindex`, #642).
+      rewindowEditingRow(grid, rowEl, rowData, rowIndex);
       rowEl.__rowDataRef = rowData;
       return;
     }
@@ -693,9 +659,10 @@ function hasSpecialColumns(grid: GridHost, columns: ColumnInternal[], colsLen: n
   if (cached !== undefined) return cached;
 
   let special = false;
-  const adapter = grid.__frameworkAdapter;
   for (let i = 0; i < colsLen; i++) {
     const col = columns[i];
+    // Adapter-level type defaults (framework adapters); cached per grid, so the eager lookup is cheap.
+    const typeDefault = adapterTypeDefault(grid, col);
     if (
       col.__viewTemplate ||
       col.__compiledView ||
@@ -706,9 +673,8 @@ function hasSpecialColumns(grid: GridHost, columns: ColumnInternal[], colsLen: n
       col.cellClass ||
       col.type === 'date' ||
       col.type === 'boolean' ||
-      // Check for adapter-level type defaults (framework adapters)
-      (col.type && adapter?.getTypeDefault?.(col.type, grid._hostElement)?.renderer) ||
-      (col.type && adapter?.getTypeDefault?.(col.type, grid._hostElement)?.format)
+      typeDefault?.renderer ||
+      typeDefault?.format
     ) {
       special = true;
       break;
@@ -878,14 +844,7 @@ function applyFormattedValue(grid: GridHost, cell: HTMLElement, col: ColumnInter
       displayStr = value == null ? '' : String(value);
     }
     cell.textContent = displayStr;
-  } else if (col.type === 'date') {
-    cell.textContent = formatDateValue(value);
-  } else if (col.type === 'boolean') {
-    // Boolean cells have inner span with checkbox role for ARIA compliance
-    cell.innerHTML = booleanCellHTML(!!value);
-  } else {
-    cell.textContent = value == null ? '' : String(value);
-  }
+  } else renderPlainValue(cell, col, value, false);
 }
 
 /**
@@ -1003,11 +962,11 @@ function fastPatchRow(grid: GridHost, rowEl: HTMLElement, rowData: any, rowIndex
 
 // #region Cell Rendering
 /** Clone the cell template and stamp the per-cell identity attributes. */
-function buildCellElement(col: ColumnInternal, colIndex: number, rowIndex: number): HTMLDivElement {
+function buildCellElement(grid: GridHost, col: ColumnInternal, colIndex: number, rowIndex: number): HTMLDivElement {
   // Template cloning is 3-4x faster than createElement + setAttribute.
   const cell = createCellFromTemplate();
   // role/class/part are already set in the template; only dynamic attrs here.
-  cell.setAttribute('aria-colindex', String(colIndex + 1)); // aria-colindex is 1-based
+  cell.setAttribute('aria-colindex', ariaColIndex(grid, colIndex));
   cell.setAttribute('data-col', String(colIndex));
   cell.setAttribute('data-row', String(rowIndex));
   cell.setAttribute('data-field', col.field); // Field name for column identification
@@ -1147,7 +1106,7 @@ function renderCellContent(
   const tplHolder = col.__viewTemplate;
   if (tplHolder) {
     const rawTpl = tplHolder.innerHTML;
-    if (/Reflect\.|\bProxy\b|ownKeys\(/.test(rawTpl)) {
+    if (UNSAFE_TEMPLATE_RE.test(rawTpl)) {
       cell.textContent = '';
       cell.setAttribute('data-blocked-template', '');
       return false;
@@ -1229,7 +1188,7 @@ function renderCell(
   rowIndex: number,
   hasCellHook: boolean,
 ): HTMLDivElement {
-  const cell = buildCellElement(col, colIndex, rowIndex);
+  const cell = buildCellElement(grid, col, colIndex, rowIndex);
 
   let value = resolveCellValue(rowData, col, rowIndex);
   // Resolve format using priority chain: column → typeDefaults → adapter
@@ -1261,18 +1220,6 @@ function renderCell(
   // Call cell-level plugin hook if any plugin registered it
   if (hasCellHook) emitAfterCellRender(grid, rowEl, cell, col, colIndex, rowData, rowIndex, value);
   return cell;
-}
-
-/** Whether the row's cells show exactly `columns`, in order (by `data-field`). */
-function cellsMatchColumns(rowEl: HTMLElement, columns: readonly ColumnInternal[]): boolean {
-  const children = rowEl.children;
-  let n = 0;
-  for (let i = 0; i < children.length; i++) {
-    const cell = children[i];
-    if (!cell.classList.contains('cell')) continue;
-    if (columns[n++]?.field !== cell.getAttribute('data-field')) return false;
-  }
-  return n === columns.length;
 }
 
 /**
@@ -1344,10 +1291,9 @@ function rewindowEditingRow(grid: GridHost, rowEl: RowElementInternal, rowData: 
     // Kept cells keep their relative order under a window move; only a reorder moves one.
     if (cell !== next) rowEl.insertBefore(cell, next);
     next = cell.nextElementSibling;
-    if (cell.getAttribute('data-col') !== String(i)) {
-      cell.setAttribute('data-col', String(i));
-      cell.setAttribute('aria-colindex', String(i + 1));
-    }
+    // `aria-colindex` is absolute: hiding an off-window column shifts it without moving `data-col` (#642).
+    cell.setAttribute('data-col', String(i));
+    cell.setAttribute('aria-colindex', ariaColIndex(grid, i));
     if (cell.getAttribute('data-row') !== rowIndexStr) cell.setAttribute('data-row', rowIndexStr);
     // As in `fastPatchRow`: editing cells keep `cellClass` current, but their focus and content belong to the editor.
     applyCellClass(grid, cell, col, rowData, rowIndex);

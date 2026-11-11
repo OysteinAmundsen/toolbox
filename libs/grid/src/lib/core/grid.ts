@@ -32,7 +32,7 @@ import { animateRow, animateRowById, animateRows } from './internal/row-animatio
 import { resolveRowIdOrThrow, RowManager, tryResolveRowId } from './internal/row-manager';
 import { releasePooledRow } from './internal/row-teardown';
 import { invalidateCellCache, renderVisibleRows, syncHeaderRowCount } from './internal/rows';
-import { applySort, reapplyCoreSort, toggleSort } from './internal/sorting';
+import { applySort, clearSort, reapplyCoreSort, toggleSort } from './internal/sorting';
 import { addPluginStyles, injectStyles } from './internal/style-injector';
 import { getActiveGridTag, GRID_TAG_NAME, setActiveGridTag } from './internal/tag-registry';
 import {
@@ -145,7 +145,75 @@ import type {
 // Injected by Vite at build time from package.json
 declare const __GRID_VERSION__: string;
 
+// Typed listener overloads live on a merged interface: as class overrides they shipped a
+// runtime method that only forwarded to `super`. Safe merge: the interface declares only
+// overloads of methods HTMLElement already implements. `T = any` mirrors the class (required).
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging, @typescript-eslint/no-explicit-any
+export interface DataGridElement<T = any> {
+  /**
+   * Add a typed event listener for grid events.
+   *
+   * These overloads provide type-safe event handling for DataGrid-specific events.
+   * The event detail is automatically typed based on the event name.
+   *
+   * **Prefer {@link on | grid.on()}** for most use cases — it auto-unwraps the
+   * detail payload and returns an unsubscribe function for easy cleanup.
+   *
+   * Use `addEventListener` when you need standard DOM options like `once`,
+   * `capture`, `passive`, or `signal` (AbortController).
+   *
+   * @example
+   * ```typescript
+   * // Recommended: use grid.on() instead
+   * const off = grid.on('cell-click', (detail) => {
+   *   console.log(detail.field, detail.value);
+   * });
+   *
+   * // addEventListener is useful when you need DOM listener options
+   * grid.addEventListener('cell-click', (e) => {
+   *   console.log(e.detail.field, e.detail.value);
+   * }, { once: true });
+   *
+   * // Or with AbortController for batch cleanup
+   * const controller = new AbortController();
+   * grid.addEventListener('sort-change', (e) => {
+   *   fetchData({ sortBy: e.detail.field });
+   * }, { signal: controller.signal });
+   * controller.abort(); // removes all listeners tied to this signal
+   * ```
+   *
+   * @category Events
+   */
+  addEventListener<K extends keyof DataGridEventMap<T>>(
+    type: K,
+    listener: (this: DataGridElement<T>, ev: CustomEvent<DataGridEventMap<T>[K]>) => void,
+    options?: boolean | AddEventListenerOptions,
+  ): void;
+  addEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | AddEventListenerOptions,
+  ): void;
+
+  /**
+   * Remove a typed event listener for grid events.
+   *
+   * @category Events
+   */
+  removeEventListener<K extends keyof DataGridEventMap<T>>(
+    type: K,
+    listener: (this: DataGridElement<T>, ev: CustomEvent<DataGridEventMap<T>[K]>) => void,
+    options?: boolean | EventListenerOptions,
+  ): void;
+  removeEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | EventListenerOptions,
+  ): void;
+}
+
 /** @since 0.1.1 */
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- typed listener overloads, see above
 export class DataGridElement<T = any> extends HTMLElement implements InternalGrid<T> {
   // TODO: Rename to 'data-grid' when migration is complete
   static readonly tagName = GRID_TAG_NAME;
@@ -322,6 +390,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     return this.#pluginManager;
   }
 
+  /** The attached plugins (empty before the plugin manager exists). */
+  get #plugins(): BaseGridPlugin[] {
+    return (this.#pluginManager?.getAll() ?? []) as BaseGridPlugin[];
+  }
+
   // Event Listeners
   #eventListenersAdded = false; // Guard against adding duplicate component-level listeners
   #scrollAbortController?: AbortController; // Separate controller for DOM scroll listeners (recreated on DOM changes)
@@ -356,6 +429,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // Row ID Map - O(1) lookup for rows by ID
   #rowIdMap = new Map<string, { row: T; index: number }>();
   #rowIdMapDirty = false;
+  #initialSortCleared = false;
   // #endregion
 
   // #region Derived State
@@ -391,10 +465,17 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // `_columns`, so `#baseColumns` and column APIs always hold the full list (#603).
   // Cached — invalidated when _columns is set or _invalidateVisibleColumnsCache() is called
   #visibleColumnsCache?: ColumnInternal<T>[];
+  #visibleColumnCount = 0;
+  /** @internal 1-based `aria-colindex` per rendered column; unset when unwindowed (#642). */
+  _ariaColIndex?: number[];
   get _visibleColumns(): ColumnInternal<T>[] {
     if (!this.#visibleColumnsCache) {
       const visible = this._columns.filter((c) => !c.hidden);
-      this.#visibleColumnsCache = this.#pluginManager?.windowColumns(visible) ?? visible;
+      const rendered = this.#pluginManager?.windowColumns(visible) ?? visible;
+      this.#visibleColumnsCache = rendered;
+      // ARIA describes the full grid, not the window (#642).
+      this.#visibleColumnCount = visible.length;
+      this._ariaColIndex = rendered === visible ? undefined : rendered.map((c) => indexOfColumn(visible, c) + 1);
     }
     return this.#visibleColumnsCache;
   }
@@ -1228,13 +1309,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Update cached scroll plugin flag and re-setup scroll listeners if needed
     // This ensures horizontal scroll listener is added when plugins with onScroll handlers are added
     const hadScrollPlugins = this.#hasScrollPlugins;
-    this.#hasScrollPlugins = this.#pluginManager?.getAll().some((p) => p.onScroll) ?? false;
+    this.#hasScrollPlugins = this.#plugins.some((p) => p.onScroll);
 
     // Re-setup scroll listeners if scroll plugins were added (flag changed from false to true)
     if (!hadScrollPlugins && this.#hasScrollPlugins) {
-      const gridContent = this.#renderRoot.querySelector('.tbw-grid-content');
-      const gridRoot = gridContent ?? this.#renderRoot.querySelector('.tbw-grid-root');
-      this.#setupScrollListeners(gridRoot);
+      this.#setupScrollListeners(this.#findGridRoot());
     }
   }
 
@@ -1243,37 +1322,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   #destroyPlugins(): void {
     this.#pluginManager?.detachAll();
-  }
-
-  /**
-   * Gets a renderer factory for tool panels from registered framework adapters.
-   * Returns a factory function that tries each adapter in order until one handles the element.
-   */
-  #getToolPanelRendererFactory():
-    ((element: HTMLElement) => ((container: HTMLElement) => void | (() => void)) | undefined) | undefined {
-    const adapters = DataGridElement.getAdapters();
-    if (adapters.length === 0 && !this.__frameworkAdapter) return undefined;
-
-    // Also check for instance-level adapter (e.g., __frameworkAdapter from Angular Grid directive)
-    const instanceAdapter = this.__frameworkAdapter;
-
-    return (element: HTMLElement) => {
-      // Try instance adapter first (from Grid directive)
-      if (instanceAdapter?.createToolPanelRenderer) {
-        const renderer = instanceAdapter.createToolPanelRenderer(element);
-        if (renderer) return renderer;
-      }
-
-      // Try global adapters
-      for (const adapter of adapters) {
-        if (adapter.createToolPanelRenderer) {
-          const renderer = adapter.createToolPanelRenderer(element);
-          if (renderer) return renderer;
-        }
-      }
-
-      return undefined;
-    };
   }
 
   /**
@@ -1302,11 +1350,22 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   /**
    * @internal Plugin API - build a renderer factory from registered framework
-   * adapters. Generic adapter capability (not shell-specific).
+   * adapters. Generic adapter capability (not shell-specific). The factory tries
+   * the instance adapter (e.g. the Angular Grid directive's `__frameworkAdapter`)
+   * first, then each global adapter, until one handles the element.
    */
   _getToolPanelRendererFactory():
     ((element: HTMLElement) => ((container: HTMLElement) => void | (() => void)) | undefined) | undefined {
-    return this.#getToolPanelRendererFactory();
+    const instance = this.__frameworkAdapter;
+    const adapters = DataGridElement.getAdapters();
+    if (!instance && !adapters.length) return undefined;
+    return (element: HTMLElement) => {
+      for (const adapter of [instance, ...adapters]) {
+        const renderer = adapter?.createToolPanelRenderer?.(element);
+        if (renderer) return renderer;
+      }
+      return undefined;
+    };
   }
   // #endregion
 
@@ -1487,10 +1546,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @returns The grid root element the refs were resolved from, or `null` when
    *   the structure has not been rendered yet.
    */
+  /** The grid root: `.tbw-grid-content` when the shell wraps the grid, else `.tbw-grid-root`. */
+  #findGridRoot(): Element | null {
+    return this.#renderRoot.querySelector('.tbw-grid-content') ?? this.#renderRoot.querySelector('.tbw-grid-root');
+  }
+
   #cacheDomRefs(): Element | null {
     // Shell changes the DOM structure - need to find elements appropriately
-    const gridContent = this.#renderRoot.querySelector('.tbw-grid-content');
-    const gridRoot = gridContent ?? this.#renderRoot.querySelector('.tbw-grid-root');
+    const gridRoot = this.#findGridRoot();
 
     this._headerRowEl = gridRoot?.querySelector('.header-row') as HTMLElement;
     // Faux scrollbar pattern:
@@ -1578,7 +1641,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this._virtualization.container = fauxScrollbar ?? this;
 
     // Cache whether any plugin has scroll handlers (checked once during setup)
-    this.#hasScrollPlugins = this.#pluginManager?.getAll().some((p) => p.onScroll) ?? false;
+    this.#hasScrollPlugins = this.#plugins.some((p) => p.onScroll);
 
     if (fauxScrollbar && rowsEl) {
       fauxScrollbar.addEventListener(
@@ -1627,14 +1690,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
             if (this.#hScrollRaf) return;
             this.#hScrollRaf = requestAnimationFrame(() => {
               this.#hScrollRaf = 0;
-              const scrollEvent = this.#pooledScrollEvent;
-              scrollEvent.scrollTop = fauxScrollbar.scrollTop;
-              scrollEvent.scrollLeft = scrollArea.scrollLeft;
-              scrollEvent.scrollHeight = fauxScrollbar.scrollHeight;
-              scrollEvent.scrollWidth = scrollArea.scrollWidth;
-              scrollEvent.clientHeight = fauxScrollbar.clientHeight;
-              scrollEvent.clientWidth = scrollArea.clientWidth;
-              this.#pluginManager?.onScroll(scrollEvent);
+              this.#pluginManager?.onScroll(this.#readScrollGeometry(fauxScrollbar.scrollTop));
             });
           },
           { passive: true, signal: scrollSignal },
@@ -1686,80 +1742,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // #endregion
 
   // #region Event System
-  /**
-   * Add a typed event listener for grid events.
-   *
-   * This override provides type-safe event handling for DataGrid-specific events.
-   * The event detail is automatically typed based on the event name.
-   *
-   * **Prefer {@link on | grid.on()}** for most use cases — it auto-unwraps the
-   * detail payload and returns an unsubscribe function for easy cleanup.
-   *
-   * Use `addEventListener` when you need standard DOM options like `once`,
-   * `capture`, `passive`, or `signal` (AbortController).
-   *
-   * @example
-   * ```typescript
-   * // Recommended: use grid.on() instead
-   * const off = grid.on('cell-click', (detail) => {
-   *   console.log(detail.field, detail.value);
-   * });
-   *
-   * // addEventListener is useful when you need DOM listener options
-   * grid.addEventListener('cell-click', (e) => {
-   *   console.log(e.detail.field, e.detail.value);
-   * }, { once: true });
-   *
-   * // Or with AbortController for batch cleanup
-   * const controller = new AbortController();
-   * grid.addEventListener('sort-change', (e) => {
-   *   fetchData({ sortBy: e.detail.field });
-   * }, { signal: controller.signal });
-   * controller.abort(); // removes all listeners tied to this signal
-   * ```
-   *
-   * @category Events
-   */
-  override addEventListener<K extends keyof DataGridEventMap<T>>(
-    type: K,
-    listener: (this: DataGridElement<T>, ev: CustomEvent<DataGridEventMap<T>[K]>) => void,
-    options?: boolean | AddEventListenerOptions,
-  ): void;
-  override addEventListener(
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    options?: boolean | AddEventListenerOptions,
-  ): void;
-  override addEventListener(
-    type: string,
-    listener: EventListenerOrEventListenerObject | ((ev: CustomEvent) => void),
-    options?: boolean | AddEventListenerOptions,
-  ): void {
-    super.addEventListener(type, listener as EventListener, options);
-  }
-
-  /**
-   * Remove a typed event listener for grid events.
-   *
-   * @category Events
-   */
-  override removeEventListener<K extends keyof DataGridEventMap<T>>(
-    type: K,
-    listener: (this: DataGridElement<T>, ev: CustomEvent<DataGridEventMap<T>[K]>) => void,
-    options?: boolean | EventListenerOptions,
-  ): void;
-  override removeEventListener(
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    options?: boolean | EventListenerOptions,
-  ): void;
-  override removeEventListener(
-    type: string,
-    listener: EventListenerOrEventListenerObject | ((ev: CustomEvent) => void),
-    options?: boolean | EventListenerOptions,
-  ): void {
-    super.removeEventListener(type, listener as EventListener, options);
-  }
 
   /**
    * Subscribe to a typed grid event. **Recommended** over `addEventListener`.
@@ -2009,7 +1991,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (pendingInitialState) {
       this.#configManager.initialColumnState = undefined;
       this.#initialColumnState = undefined;
-      const plugins = (this.#pluginManager?.getAll() ?? []) as BaseGridPlugin[];
+      const plugins = this.#plugins;
       this.#configManager.applyState(pendingInitialState, plugins);
       this.#baseColumns = [...this.#configManager.columns];
     }
@@ -2108,7 +2090,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
 
     // Apply initialSort on first data load (no active sort and config specifies one)
-    if (!this._sortState && this.#effectiveConfig.initialSort) {
+    if (!this._sortState && !this.#initialSortCleared && this.#effectiveConfig.initialSort) {
       const { field, direction } = this.#effectiveConfig.initialSort;
       const col = (this._columns as ColumnConfig<T>[]).find((c) => c.field === field);
       if (col) {
@@ -2189,11 +2171,19 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #ariaState: AriaState = createAriaState();
 
   /** Updates ARIA row/col counts. Delegates to aria.ts module. */
-  _updateAriaCounts(rowCount: number, colCount: number): void {
+  _updateAriaCounts(rowCount: number): void {
     // aria-rowcount includes the header rows so it is never below the last
-    // data row's aria-rowindex (#586).
-    const headerRowCount = this.__cachedHeaderRowCount ?? 1;
-    updateAriaCounts(this.#ariaState, this.__rowsBodyEl, this._bodyEl, rowCount, colCount, headerRowCount);
+    // data row's aria-rowindex (#586). aria-colcount counts every visible column,
+    // not just a `windowColumns` window (#642) — reading the getter refreshes it.
+    const colCount = this._visibleColumns && this.#visibleColumnCount;
+    updateAriaCounts(
+      this.#ariaState,
+      this.__rowsBodyEl,
+      this._bodyEl,
+      rowCount,
+      colCount,
+      this.__cachedHeaderRowCount ?? 1,
+    );
   }
 
   // --- Methods exposed for extracted managers ---
@@ -2221,7 +2211,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // and the header share of aria-rowcount (#586). The counts call is cached, so
     // it is a no-op unless the header count actually moved.
     syncHeaderRowCount(this);
-    this._updateAriaCounts(this._rows.length, this._visibleColumns.length);
+    this._updateAriaCounts(this._rows.length);
   }
 
   /** @internal Emit a plugin event through the plugin manager. */
@@ -2236,9 +2226,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#configManager.parseLightDomColumns(this);
     this.#configManager.merge();
     this.#updatePluginConfigs();
-    validatePluginProperties(this.#effectiveConfig, this.#pluginManager?.getPlugins() ?? [], this.id);
-    validatePluginConfigRules(this.#pluginManager?.getPlugins() ?? [], this.id);
-    validatePluginIncompatibilities(this.#pluginManager?.getPlugins() ?? [], this.id);
+    const plugins = this.#plugins;
+    validatePluginProperties(this.#effectiveConfig, plugins, this.id);
+    validatePluginConfigRules(plugins, this.id);
+    validatePluginIncompatibilities(plugins, this.id);
     this.#updateAriaLabels();
     this.#baseColumns = [...this._columns];
   }
@@ -2284,11 +2275,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Recalculate spacer height after plugins modify the DOM in afterRender.
     if (this._virtualization.enabled && this._virtualization.totalHeightEl) {
-      queueMicrotask(() => {
-        if (!this._virtualization.totalHeightEl) return;
-        const newTotalHeight = this.#virtManager.calculateTotalSpacerHeight(this._rows.length);
-        this._virtualization.totalHeightEl.style.height = `${newTotalHeight}px`;
-      });
+      queueMicrotask(() => this.#virtManager.writeSpacerHeight(this._rows.length));
     }
 
     // Auto-size columns on first render if fitMode is 'fixed'
@@ -2462,21 +2449,21 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     );
   }
 
+  /** The rendered row element of a row ID, or `null` when unknown or virtualized out. */
+  #renderedRowById(rowId: string): HTMLElement | null | undefined {
+    this.#ensureRowIdMap();
+    const entry = this.#rowIdMap.get(rowId);
+    return entry && this.findRenderedRowElement?.(entry.index);
+  }
+
   /**
    * Update a row's loading state in the DOM.
    * @param rowId - The row's unique identifier
    * @param loading - Whether the row is loading
    */
   #updateRowLoadingState(rowId: string, loading: boolean): void {
-    // Find the row element by row ID
-    this.#ensureRowIdMap();
-    const rowData = this.#rowIdMap.get(rowId);
-    if (!rowData) return;
-
-    const rowEl = this.findRenderedRowElement?.(rowData.index);
-    if (!rowEl) return;
-
-    setRowLoadingState(rowEl, loading, this.#effectiveConfig?.loadingRenderer, this.__frameworkAdapter);
+    const rowEl = this.#renderedRowById(rowId);
+    if (rowEl) setRowLoadingState(rowEl, loading, this.#effectiveConfig?.loadingRenderer, this.__frameworkAdapter);
   }
 
   /**
@@ -2486,17 +2473,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @param loading - Whether the cell is loading
    */
   #updateCellLoadingState(rowId: string, field: string, loading: boolean): void {
-    // Find the row element by row ID
-    this.#ensureRowIdMap();
-    const rowData = this.#rowIdMap.get(rowId);
-    if (!rowData) return;
-
-    const rowEl = this.findRenderedRowElement?.(rowData.index);
-    if (!rowEl) return;
-
+    const rowEl = this.#renderedRowById(rowId);
     // Find the cell by field
     const colIndex = this._visibleColumns.findIndex((c) => c.field === field);
-    if (colIndex < 0) return;
+    if (!rowEl || colIndex < 0) return;
 
     // Match the `data-col` marker rather than indexing `children`: a plugin-rendered
     // custom row (responsive card, group header) and the row-loading overlay also live
@@ -2531,7 +2511,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#initialColumnState = undefined; // Clear to avoid re-applying
       // Temporarily merge config so applyState has columns to work with
       this.#configManager.merge();
-      const plugins = (this.#pluginManager?.getAll() ?? []) as BaseGridPlugin[];
+      const plugins = this.#plugins;
       this.#configManager.applyState(state, plugins);
     }
 
@@ -2545,22 +2525,29 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#scheduler.requestPhase(RenderPhase.FULL, 'setup');
   }
 
-  #onScrollBatched(scrollTop: number): void {
-    // PERF: Read all geometry values BEFORE DOM writes to avoid forced synchronous layout.
-    // refreshVirtualWindow and onScrollRender write to the DOM (transforms, innerHTML, attributes).
-    // Reading geometry after those writes forces the browser to synchronously compute layout.
-    // By reading first, we batch reads together, then do all writes.
-    //
-    // Reads are unconditional now because the public `tbw-scroll` event always fires
-    // (and needs scrollHeight/clientHeight for its detail). The plugin pooled-event
-    // path also consumes these values when #hasScrollPlugins is true.
+  /**
+   * Read the scroll geometry into the pooled plugin scroll event (no allocation per frame).
+   * Callers read BEFORE any DOM write: reading after one forces a synchronous layout.
+   */
+  #readScrollGeometry(scrollTop: number): ScrollEvent {
     const fauxScrollbar = this._virtualization.container;
     const scrollArea = this.#scrollAreaEl;
-    const scrollLeft = scrollArea?.scrollLeft ?? 0;
-    const scrollHeight = fauxScrollbar?.scrollHeight ?? 0;
-    const scrollWidth = scrollArea?.scrollWidth ?? 0;
-    const clientHeight = fauxScrollbar?.clientHeight ?? 0;
-    const clientWidth = scrollArea?.clientWidth ?? 0;
+    const e = this.#pooledScrollEvent;
+    e.scrollTop = scrollTop;
+    e.scrollLeft = scrollArea?.scrollLeft ?? 0;
+    e.scrollHeight = fauxScrollbar?.scrollHeight ?? 0;
+    e.scrollWidth = scrollArea?.scrollWidth ?? 0;
+    e.clientHeight = fauxScrollbar?.clientHeight ?? 0;
+    e.clientWidth = scrollArea?.clientWidth ?? 0;
+    return e;
+  }
+
+  #onScrollBatched(scrollTop: number): void {
+    // PERF: Read all geometry values BEFORE DOM writes (refreshVirtualWindow, onScrollRender)
+    // to avoid forced synchronous layout. Reads are unconditional: the public `tbw-scroll`
+    // event always fires and needs scrollHeight/clientHeight; plugins get the pooled event.
+    const geometry = this.#readScrollGeometry(scrollTop);
+    const { scrollHeight, clientHeight } = geometry;
 
     // Faux scrollbar pattern: content never scrolls, just update transforms
     // Old content stays visible until new transforms are applied
@@ -2585,18 +2572,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       }, 100);
     }
 
-    // Dispatch to plugins (using cached flag and pooled event object to avoid GC)
-    // Geometry values were read before DOM writes above - use pre-read values.
-    if (this.#hasScrollPlugins) {
-      const scrollEvent = this.#pooledScrollEvent;
-      scrollEvent.scrollTop = scrollTop;
-      scrollEvent.scrollLeft = scrollLeft;
-      scrollEvent.scrollHeight = scrollHeight;
-      scrollEvent.scrollWidth = scrollWidth;
-      scrollEvent.clientHeight = clientHeight;
-      scrollEvent.clientWidth = clientWidth;
-      this.#pluginManager?.onScroll(scrollEvent);
-    }
+    // Dispatch to plugins (cached flag; geometry was read before the DOM writes above).
+    if (this.#hasScrollPlugins) this.#pluginManager?.onScroll(geometry);
 
     // Public `tbw-scroll` CustomEvent — always dispatched (vertical only).
     // Detail must be a fresh object literal: consumers may retain or store it,
@@ -2653,24 +2630,23 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (!row || !col) return false;
 
     const field = col.field;
-    const value = readCellField(row, field);
+    const cellClickEvent: CellClickEvent = {
+      row,
+      rowIndex,
+      colIndex,
+      column: col,
+      field,
+      value: readCellField(row, field),
+      cellEl,
+      originalEvent: event,
+    };
 
     // Emit cell-activate FIRST (cancelable) - consumers can prevent plugin behavior
     const activateEvent = new CustomEvent('cell-activate', {
       cancelable: true,
       bubbles: true,
       composed: true,
-      detail: {
-        rowIndex,
-        colIndex,
-        column: col,
-        field,
-        value,
-        row,
-        cellEl,
-        trigger: 'pointer' as const,
-        originalEvent: event,
-      },
+      detail: { ...cellClickEvent, trigger: 'pointer' as const },
     });
     this.dispatchEvent(activateEvent);
 
@@ -2678,17 +2654,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (activateEvent.defaultPrevented) {
       return true; // Treated as "handled"
     }
-
-    const cellClickEvent: CellClickEvent = {
-      row,
-      rowIndex,
-      colIndex,
-      column: col,
-      field,
-      value,
-      cellEl,
-      originalEvent: event,
-    };
 
     // Let plugins handle (editing, selection, etc.)
     const handled = this.#pluginManager?.onCellClick(cellClickEvent) ?? false;
@@ -3560,7 +3525,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   getColumnState(): GridColumnState {
-    const plugins = this.#pluginManager?.getAll() ?? [];
+    const plugins = this.#plugins;
     return this.#configManager.collectState(plugins as BaseGridPlugin[]);
   }
 
@@ -3618,7 +3583,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const prevSort = this._sortState;
     const prevRendered = this._visibleColumns;
 
-    const plugins = (this.#pluginManager?.getAll() ?? []) as BaseGridPlugin[];
+    const plugins = this.#plugins;
     this.#configManager.applyState(state, plugins);
 
     // If the applied state contains sort entries, plugins may have updated
@@ -3723,33 +3688,16 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   sort(field: string | null, direction?: 'asc' | 'desc'): void {
-    // Clear sort
+    const sorted = this._sortState?.field;
+    const col = (this._columns as ColumnConfig<T>[]).find((c) => c.field === (field ?? sorted));
     if (field === null) {
-      if (!this._sortState) return;
-      const prevField = this._sortState.field;
-      this._sortState = null;
-      this.__rowRenderEpoch++;
-      for (let i = 0; i < this._rowPool.length; i++) this._rowPool[i].__epoch = -1;
-      this._rows = this.__originalOrder.slice();
-      this.__originalOrder = [];
-      renderHeader(this);
-      this.refreshVirtualWindow(true);
-      this.dispatchEvent(new CustomEvent('sort-change', { detail: { field: prevField, direction: 0 } }));
-      this._pluginManager?.emitPluginEvent?.('sort-change', { field: prevField, direction: 0 });
-      this.requestStateChange?.();
-      return;
-    }
-
-    const col = (this._columns as ColumnConfig<T>[]).find((c) => c.field === field);
-    if (!col) return;
-
-    if (direction) {
-      // Explicit direction
-      if (!this._sortState) this.__originalOrder = this._rows.slice();
-      applySort(this, col, direction === 'desc' ? -1 : 1);
-    } else {
-      // Toggle: delegates to existing cycle logic
-      toggleSort(this, col);
+      this.#initialSortCleared = true;
+      // Clear sort — the column may be gone; the event and announcement still name its field.
+      if (sorted != null) clearSort(this, col ?? { field: sorted });
+    } else if (col) {
+      // An explicit direction, or toggle through the header click cycle.
+      if (direction) applySort(this, col, direction === 'desc' ? -1 : 1);
+      else toggleSort(this, col);
     }
   }
   // #endregion
@@ -3765,7 +3713,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @internal Plugin API
    */
   requestStateChange(): void {
-    const plugins = (this.#pluginManager?.getAll() ?? []) as BaseGridPlugin[];
+    const plugins = this.#plugins;
     this.#configManager.requestStateChange(plugins);
   }
 
@@ -3790,7 +3738,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.__originalOrder = [];
 
     // Use ConfigManager to reset state
-    const plugins = (this.#pluginManager?.getAll() ?? []) as BaseGridPlugin[];
+    const plugins = this.#plugins;
     this.#configManager.resetState(plugins);
 
     // Re-initialize columns from config

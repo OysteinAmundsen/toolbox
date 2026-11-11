@@ -99,6 +99,19 @@ what has already been ruled out. Then, in order of yield observed on this codeba
 bun nx build grid
 node .github/skills/bundle-check/attribute-bundle.mjs dist/libs/grid/index.js [rows]
 
+# What does terser actually emit for one source? Prints its minified output (gaps as `…`).
+# Read it to spot near-identical blocks worth deduping — the reliable lever once tuning is exhausted.
+node .github/skills/bundle-check/dump-source.mjs internal/rows.ts [dist/libs/grid/index.js]
+```
+
+Measure gzip the way the budget gate does (`zlib.gzipSync`, default level) — PowerShell's
+`GZipStream` gives a different number:
+
+```bash
+node -e "const z=require('zlib'),b=require('fs').readFileSync('dist/libs/grid/index.js');console.log(b.length,z.gzipSync(b).length)"
+```
+
+```bash
 # Does a CSS pipeline change render identically? Real grid from dist/ in Chromium; every
 # computed property of every element + ::before/::after, stylesheet A vs stylesheet B.
 # Build the baseline in a detached worktree — `git stash` silently stashes nothing once

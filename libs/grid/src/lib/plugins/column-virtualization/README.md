@@ -61,7 +61,8 @@ Rows with open editors follow horizontal scrolling like other rows: an editor wh
 >
 > - Widening the grid or narrowing a column only re-windows on the next horizontal scroll ([#641](https://github.com/OysteinAmundsen/toolbox/issues/641)).
 > - Responsive card layout shows only the windowed columns ([#635](https://github.com/OysteinAmundsen/toolbox/issues/635)).
-> - `aria-colcount` / `aria-colindex` describe the rendered window, not the full grid ([#642](https://github.com/OysteinAmundsen/toolbox/issues/642)).
+
+Screen readers still get the full grid: `aria-colcount` is the number of visible columns, and each header and cell's `aria-colindex` is its position among all of them — not within the rendered window.
 
 The window is computed **after** every other column plugin (pinning, grouping, pivot), whatever their order in `plugins`, from their final output — so pinned order, group header rows, and pivot columns are preserved. Custom plugins that map columns onto rendered DOM cells by index should use `this.visibleColumns` (the rendered columns), not `this.columns`.
 

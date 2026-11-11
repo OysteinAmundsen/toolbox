@@ -53,6 +53,7 @@ All DOM-, CSS-, and happy-dom-environment quirks are grouped here. Check this se
 - **Popover API** (`showPopover`/`hidePopover`) is not available in happy-dom. Use `supportsPopover()` guards in the plugin and test `popover.textContent` rather than popover visibility state.
 - **`KeyboardEvent` works in happy-dom** — construct it for real (`new KeyboardEvent('keydown', { key: 'F10', shiftKey: true, bubbles: true })`) and dispatch it on the grid host to exercise the full key pipeline. An object literal cast (`{ key: 'Enter' } as KeyboardEvent`) is only for calling a hook such as `plugin.onKeyDown(...)` directly — it cannot be dispatched.
 - **`select.selectedOptions` is stale in happy-dom** — once read, the cached collection misses later programmatic `option.selected` writes. Assert selection via `Array.from(select.options).map((o) => o.selected)`, and never read `selectedOptions` in source code.
+- **Removing a focused element in happy-dom fires no `blur`/`focusout`** and resets `document.activeElement` to `<body>`, even inside a shadow root. Browsers may instead leave the retargeted shadow host there. To test that state, stub the getter: find the `activeElement` descriptor up the prototype chain, then `vi.spyOn(document, 'activeElement', 'get')` to return the host while `shadow.activeElement` is `null`. Example: `integration/visibility-search-columns.spec.ts` (PR #653).
 
 ### Event-dispatch quirks
 

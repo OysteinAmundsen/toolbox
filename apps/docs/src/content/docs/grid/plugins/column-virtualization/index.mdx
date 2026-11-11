@@ -167,6 +167,12 @@ columns scrolled out of view. The [Export](/grid/plugins/export/) and
 [Clipboard](/grid/plugins/clipboard/) plugins therefore include every column when you export or copy
 without a cell selection, or pass `columns` explicitly.
 
+If you also use the [Visibility plugin](/grid/plugins/visibility/), enable
+`visibility: { searchable: true }` in `gridConfig.features` to help users find columns
+in a long panel list. [Column search](/grid/plugins/visibility/#column-search) covers
+the full column list, including hidden columns and columns outside the rendered
+window. It only filters the panel list; virtualization controls what the grid renders.
+
 ## Selection and Focus
 
 [Selection](/grid/plugins/selection/) ranges, the selection anchor, and the `col` of every

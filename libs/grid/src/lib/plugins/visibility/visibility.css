@@ -11,6 +11,32 @@
     padding: var(--tbw-panel-padding, var(--tbw-spacing-md, 0.5rem));
   }
 
+  .tbw-visibility-search {
+    box-sizing: border-box;
+    min-width: 0;
+    flex-shrink: 0;
+    margin: var(--tbw-panel-padding, var(--tbw-spacing-md, 0.5rem));
+    padding: var(--tbw-button-padding, 0.5rem 0.75rem);
+    border: 1px solid var(--tbw-color-border);
+    border-radius: var(--tbw-border-radius, 0.25rem);
+    background: var(--tbw-color-bg);
+    color: var(--tbw-color-fg);
+    font: inherit;
+    font-size: var(--tbw-font-size-sm, 0.8125rem);
+  }
+
+  .tbw-visibility-search:focus-visible {
+    outline: 2px solid var(--tbw-color-accent);
+    outline-offset: 1px;
+  }
+
+  .tbw-visibility-search-status {
+    color: var(--tbw-color-fg-muted);
+    font-size: var(--tbw-font-size-sm, 0.8125rem);
+    padding-inline: var(--tbw-panel-padding, var(--tbw-spacing-md, 0.5rem));
+    overflow-wrap: anywhere;
+  }
+
   .tbw-visibility-row {
     display: flex;
     align-items: center;

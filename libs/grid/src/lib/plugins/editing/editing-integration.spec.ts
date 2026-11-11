@@ -12,7 +12,10 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { nextFrame, waitUpgrade } from '../../../../test/helpers';
+import type { DataGridElement } from '../../core/grid';
+import { ShellPlugin } from '../shell/shell-plugin';
 import { UndoRedoPlugin } from '../undo-redo/undo-redo-plugin';
+import { VisibilityPlugin } from '../visibility/visibility-plugin';
 import { EditingPlugin } from './editing-plugin';
 
 describe('EditingPlugin', () => {
@@ -1437,6 +1440,147 @@ describe('EditingPlugin', () => {
   // #region Grid Mode Tests
 
   describe('grid mode (mode: "grid")', () => {
+    it.each(['navigation', 'editor', 'locked'] as const)(
+      'does not treat Visibility search as an editor from %s (#651)',
+      async (origin) => {
+        const element = grid as DataGridElement<{ id: string; name: string }>;
+        const shell = new ShellPlugin({ toolPanel: { mode: 'overlay' } });
+        element.gridConfig = {
+          getRowId: (row) => row.id,
+          columns: [{ field: 'name', editable: true }],
+          plugins: [shell, new VisibilityPlugin({ searchable: true }), new EditingPlugin({ mode: 'grid' })],
+        };
+        element.rows = [{ id: '1', name: 'Alice' }];
+        await waitUpgrade(element);
+        element.focusCell(0, 'name');
+        const editor = element.querySelector<HTMLInputElement>('.tbw-editor-host input')!;
+        if (origin !== 'navigation') editor.focus();
+        if (origin === 'locked') {
+          editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+          expect(document.activeElement).toBe(element);
+        }
+        shell.openToolPanel('columns');
+        const search = element.querySelector<HTMLInputElement>('input[type="search"]')!;
+        search.focus();
+        expect(document.activeElement).toBe(search);
+        element.updateRow('1', { name: 'Server update' }, 'sync');
+        await waitUpgrade(element);
+        const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+        search.dispatchEvent(escape);
+        expect(element.rows[0].name).toBe('Server update');
+        expect(escape.defaultPrevented).toBe(false);
+        expect(shell.isToolPanelOpen).toBe(false);
+      },
+    );
+
+    it('still reverts a real editor on Escape (#651)', async () => {
+      const element = grid as DataGridElement<{ id: string; name: string }>;
+      element.gridConfig = {
+        getRowId: (row) => row.id,
+        columns: [{ field: 'name', editable: true }],
+        plugins: [new EditingPlugin({ mode: 'grid' })],
+      };
+      element.rows = [{ id: '1', name: 'Alice' }];
+      await waitUpgrade(element);
+      element.focusCell(0, 'name');
+      const editor = element.querySelector<HTMLInputElement>('.tbw-editor-host input')!;
+      editor.focus();
+      element.updateRow('1', { name: 'Draft' }, 'sync');
+      const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+      editor.dispatchEvent(escape);
+      expect(element.rows[0].name).toBe('Alice');
+      expect(escape.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(element);
+    });
+
+    it('drops the edit when focus reaches Visibility search through an external overlay (#651)', async () => {
+      const element = grid as DataGridElement<{ id: string; name: string }>;
+      const shell = new ShellPlugin({ toolPanel: { mode: 'overlay' } });
+      element.gridConfig = {
+        getRowId: (row) => row.id,
+        columns: [{ field: 'name', editable: true }],
+        plugins: [shell, new VisibilityPlugin({ searchable: true }), new EditingPlugin({ mode: 'grid' })],
+      };
+      element.rows = [{ id: '1', name: 'Alice' }];
+      await waitUpgrade(element);
+      const overlay = document.createElement('div');
+      const overlayButton = document.createElement('button');
+      overlay.appendChild(overlayButton);
+      document.body.appendChild(overlay);
+      element.registerExternalFocusContainer(overlay);
+      element.focusCell(0, 'name');
+      element.querySelector<HTMLInputElement>('.tbw-editor-host input')!.focus();
+      shell.openToolPanel('columns');
+      overlayButton.focus();
+      const search = element.querySelector<HTMLInputElement>('input[type="search"]')!;
+      search.focus();
+      element.updateRow('1', { name: 'Server update' }, 'sync');
+      await waitUpgrade(element);
+      const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+      search.dispatchEvent(escape);
+      expect(element.rows[0].name).toBe('Server update');
+      expect(escape.defaultPrevented).toBe(false);
+    });
+
+    it('treats a nested grid inside a custom editor as leaving the editor (#585)', async () => {
+      const element = grid as DataGridElement<{ id: string; name: string }>;
+      let child: HTMLElement | null = null;
+      element.gridConfig = {
+        getRowId: (row) => row.id,
+        columns: [
+          {
+            field: 'name',
+            editable: true,
+            editor: () => {
+              const wrap = document.createElement('div');
+              child = document.createElement('tbw-grid');
+              Object.assign(child, { gridConfig: { columns: [{ field: 'x' }] }, rows: [{ x: 1 }] });
+              wrap.append(document.createElement('input'), child);
+              return wrap;
+            },
+          },
+        ],
+        plugins: [new EditingPlugin({ mode: 'grid' })],
+      };
+      element.rows = [{ id: '1', name: 'Alice' }];
+      await waitUpgrade(element);
+      await waitUpgrade(child!);
+      element.querySelector<HTMLInputElement>('.tbw-editor-host input')!.focus();
+      child!.focus();
+      expect(document.activeElement).toBe(child);
+      element.updateRow('1', { name: 'Changed' }, 'sync');
+      element.focus();
+      element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      expect(element.rows[0].name).toBe('Changed');
+    });
+
+    it('keeps the Escape snapshot while focus is in an ARIA-owned popup inside the grid (#651)', async () => {
+      const element = grid as DataGridElement<{ id: string; name: string }>;
+      element.gridConfig = {
+        getRowId: (row) => row.id,
+        columns: [{ field: 'name', editable: true }],
+        plugins: [new EditingPlugin({ mode: 'grid' })],
+      };
+      element.rows = [{ id: '1', name: 'Alice' }];
+      await waitUpgrade(element);
+      element.focusCell(0, 'name');
+      const editor = element.querySelector<HTMLInputElement>('.tbw-editor-host input')!;
+      const popup = document.createElement('div');
+      popup.id = 'tbw-test-popup';
+      const option = document.createElement('button');
+      popup.appendChild(option);
+      editor.closest('.cell')!.appendChild(popup);
+      editor.setAttribute('aria-expanded', 'true');
+      editor.setAttribute('aria-controls', popup.id);
+      editor.focus();
+      option.focus();
+      expect(document.activeElement).toBe(option);
+      element.updateRow('1', { name: 'Draft' }, 'sync');
+      editor.focus();
+      editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      expect(element.rows[0].name).toBe('Alice');
+    });
+
     it('renders all editable cells with editors immediately', async () => {
       grid.gridConfig = {
         columns: [

@@ -10,15 +10,29 @@
  * Controls the visibility sidebar panel that lets users show/hide individual columns.
  * The sidebar is toggled via a button in the grid toolbar or programmatically.
  *
- * Currently has no configurable options — reserved as an extension point for
- * future flags (e.g. default open state, panel title). The grid always keeps
- * at least one column visible; columns flagged with `lockVisible: true` are
+ * Search is opt-in. The grid always keeps at least one column visible;
+ * columns flagged with `lockVisible: true` are
  * un-hideable individually.
  *
  * @since 0.1.1
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type, @typescript-eslint/no-empty-interface
-export interface VisibilityConfig {}
+export interface VisibilityConfig {
+  /**
+   * Show a search input that filters the panel by displayed column name.
+   * Does not filter grid data or change column visibility.
+   * Matches a trimmed, case-insensitive substring of `header || field`.
+   * Group toggles affect matching children only; Show All remains global.
+   * Panel reordering is unavailable while a nonempty query is active.
+   * The query is transient UI state retained by this plugin instance.
+   * Most useful for grids with many columns. For wide grids, also consider
+   * `ColumnVirtualizationPlugin` with `fitMode: 'fixed'` to reduce the number
+   * of rendered columns; search only narrows the panel list.
+   * @see https://toolboxjs.com/grid/plugins/column-virtualization/
+   * @default false
+   * @since 3.12.0
+   */
+  searchable?: boolean;
+}
 
 /** Internal state managed by the visibility plugin */
 export interface VisibilityState {

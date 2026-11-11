@@ -1,5 +1,24 @@
 # Changelog
 
+## [3.12.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.11.1...grid-3.12.0) (2026-11-11)
+
+
+### Features
+
+* **server-side:** reload cached root blocks ([#646](https://github.com/OysteinAmundsen/toolbox/issues/646)) ([#648](https://github.com/OysteinAmundsen/toolbox/issues/648)) ([a0ac590](https://github.com/OysteinAmundsen/toolbox/commit/a0ac590614cc9f889e7967c066b38a64b08617e3))
+* **visibility:** add opt-in column search ([#651](https://github.com/OysteinAmundsen/toolbox/issues/651)) ([#653](https://github.com/OysteinAmundsen/toolbox/issues/653)) ([ac161a2](https://github.com/OysteinAmundsen/toolbox/commit/ac161a297f077fa059a4f803e7435100bf3d5595))
+
+
+### Bug Fixes
+
+* **grid:** absolute aria-colcount/aria-colindex under column virtualization ([#642](https://github.com/OysteinAmundsen/toolbox/issues/642)) ([#654](https://github.com/OysteinAmundsen/toolbox/issues/654)) ([43294e1](https://github.com/OysteinAmundsen/toolbox/commit/43294e1f16b66cdd61745e2d5bcddd5cd7db27db))
+* **server-side/filtering:** restore initial column-state filters before the first block request ([#647](https://github.com/OysteinAmundsen/toolbox/issues/647)) ([#650](https://github.com/OysteinAmundsen/toolbox/issues/650)) ([fb9a335](https://github.com/OysteinAmundsen/toolbox/commit/fb9a335a9100b25926c845234d0995c24aa0c95a))
+
+
+### Performance Improvements
+
+* **grid:** retain column-window cells during horizontal scrolling ([#645](https://github.com/OysteinAmundsen/toolbox/issues/645)) ([#655](https://github.com/OysteinAmundsen/toolbox/issues/655)) ([0698f78](https://github.com/OysteinAmundsen/toolbox/commit/0698f78fe933bcf9bdf4148601bf5e766b62b43c))
+
 ## [3.11.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.11.0...grid-3.11.1) (2026-11-08)
 
 

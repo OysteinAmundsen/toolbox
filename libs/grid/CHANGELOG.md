@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.12.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.12.0...grid-3.12.1) (2026-11-12)
+
+
+### Enhancements
+
+* **shell:** support resizing push-mode tool panels ([#656](https://github.com/OysteinAmundsen/toolbox/issues/656)) ([#657](https://github.com/OysteinAmundsen/toolbox/issues/657)) ([d6704b4](https://github.com/OysteinAmundsen/toolbox/commit/d6704b41c3b0316419400ec1d31bdd1670d020ee))
+
 ## [3.12.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.11.1...grid-3.12.0) (2026-11-11)
 
 

@@ -20,6 +20,7 @@
     "paths": {},
     "ignoreDeprecations": "6.0"
   },
+  "references": [{ "path": "../../libs/grid" }],
   "include": ["tests/**/*.ts"],
   "exclude": ["node_modules", "test-results"]
 }

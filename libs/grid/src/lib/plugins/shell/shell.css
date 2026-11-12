@@ -173,10 +173,8 @@
        virtualization, so cells that would be hidden by an overlay panel
        remain reachable.
 
-       The overlay shadow is dropped (nothing to lift off) and the resize
-       handle is suppressed: the panel's width is part of the layout, so
-       drag-to-resize would fight the flex container instead of cooperating
-       with it. */
+       The overlay shadow is dropped (nothing to lift off). The shared splitter
+       resizes the non-shrinking panel while the grid takes the remaining width. */
     .tbw-shell-body[data-mode='push'] {
       .tbw-tool-panel {
         position: relative;
@@ -203,10 +201,6 @@
           border-left: none;
           border-right: 1px solid var(--tbw-tool-panel-border);
         }
-      }
-
-      .tbw-tool-panel-resize {
-        display: none;
       }
     }
 

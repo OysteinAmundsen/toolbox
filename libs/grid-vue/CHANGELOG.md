@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.5](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.6.4...grid-vue-2.6.5) (2026-11-16)
+
+
+### Bug Fixes
+
+* **grid/grid-react/grid-vue:** emit ESM-valid .js specifiers in published .d.ts for node16/nodenext ([#659](https://github.com/OysteinAmundsen/toolbox/issues/659)) ([#660](https://github.com/OysteinAmundsen/toolbox/issues/660)) ([ab17ae9](https://github.com/OysteinAmundsen/toolbox/commit/ab17ae9b7e456d9504b202f861d86706079ae081))
+
 ## [2.6.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.6.3...grid-vue-2.6.4) (2026-10-23)
 
 

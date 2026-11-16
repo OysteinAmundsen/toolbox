@@ -24,8 +24,25 @@
         "cwd": "{workspaceRoot}"
       }
     },
+    "typecheck-nodenext": {
+      "command": "bunx tsc -p tools/typecheck-nodenext/tsconfig.json --noEmit",
+      "dependsOn": [
+        { "projects": ["grid"], "target": "build" },
+        { "projects": ["grid-react"], "target": "build" },
+        { "projects": ["grid-vue"], "target": "build" }
+      ],
+      "inputs": [
+        "default",
+        "{workspaceRoot}/tools/typecheck-nodenext/**",
+        { "dependentTasksOutputFiles": "**/*.d.ts" }
+      ],
+      "options": {
+        "cwd": "{workspaceRoot}"
+      }
+    },
     "build": {
       "outputs": ["{projectRoot}/{options.outDir}", "{workspaceRoot}/dist/libs/grid-vue"],
+      "inputs": ["production", "^production", "{workspaceRoot}/tools/vite-dts-esm-specifiers.ts"],
       "defaultConfiguration": "production",
       "dependsOn": [
         "typecheck",

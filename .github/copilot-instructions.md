@@ -93,7 +93,9 @@ Loaded on demand from `.github/knowledge/` — read relevant files before starti
 | `adapters-react`             | React adapter               | Portal manager, overlay editors, feature-prop coverage assertion                                                            |
 | `adapters-vue`               | Vue adapter                 | Teleport manager, overlay editors, typed slots                                                                              |
 | `adapters-angular`           | Angular adapter             | `mountComponentRenderer`, per-feature directives, ng-packagr secondary entries                                              |
-| `build-and-deploy`           | Build, CI, tooling          | Vite config, bundle budgets, Nx/tsconfig, dependency clusters, CI pipeline, bench regression, demos layout                  |
+| `build-and-deploy`           | Build, CI, tooling          | Vite config, bundle budgets, Nx/tsconfig, dependency clusters, CI pipeline, workspace tooling                               |
+| `bench-regression`           | Benchmark regression        | Vitest measurements, CI comparison, uncertainty bounds                                                                      |
+| `demos-layout`               | Demo applications           | Route shells, shared fixtures, cross-framework parity                                                                       |
 | `release-versioning`         | Release & versioning        | release-please branch model, `Release-As` recipes, peer-dep cascade, dist-tags, `@since`, v3 cleanup plan                   |
 | `docs-agent-endpoints`       | Agent doc endpoints         | llms.txt / llms-full.txt / per-framework variants, MDX→markdown transform, docs `outDir`                                    |
 | `build-css`                  | Styling & CSS               | CSS layers, custom properties, partials, themes, style injection, demo-asset aliases                                        |

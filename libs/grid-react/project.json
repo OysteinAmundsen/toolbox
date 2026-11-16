@@ -26,6 +26,7 @@
     },
     "build": {
       "outputs": ["{projectRoot}/{options.outDir}", "{workspaceRoot}/dist/libs/grid-react"],
+      "inputs": ["production", "^production", "{workspaceRoot}/tools/vite-dts-esm-specifiers.ts"],
       "defaultConfiguration": "production",
       "dependsOn": [
         "typecheck",

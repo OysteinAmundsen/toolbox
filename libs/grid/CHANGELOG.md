@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.12.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.12.0...grid-3.12.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* **grid/grid-react/grid-vue:** emit ESM-valid .js specifiers in published .d.ts for node16/nodenext ([#659](https://github.com/OysteinAmundsen/toolbox/issues/659)) ([#660](https://github.com/OysteinAmundsen/toolbox/issues/660)) ([ab17ae9](https://github.com/OysteinAmundsen/toolbox/commit/ab17ae9b7e456d9504b202f861d86706079ae081))
+
+
+### Enhancements
+
+* **shell:** support resizing push-mode tool panels ([#656](https://github.com/OysteinAmundsen/toolbox/issues/656)) ([#657](https://github.com/OysteinAmundsen/toolbox/issues/657)) ([d6704b4](https://github.com/OysteinAmundsen/toolbox/commit/d6704b41c3b0316419400ec1d31bdd1670d020ee))
+
 ## [3.12.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.11.1...grid-3.12.0) (2026-11-11)
 
 

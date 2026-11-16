@@ -13,6 +13,7 @@
     },
     "build": {
       "outputs": ["{projectRoot}/{options.outDir}", "{workspaceRoot}/dist/libs/grid"],
+      "inputs": ["production", "^production", "{workspaceRoot}/tools/vite-dts-esm-specifiers.ts"],
       "defaultConfiguration": "production",
       "dependsOn": ["typecheck"],
       "options": {
@@ -29,6 +30,14 @@
       }
     },
     "test": {
+      "inputs": [
+        "default",
+        "^production",
+        {
+          "externalDependencies": ["vitest"]
+        },
+        "{workspaceRoot}/tools/vite-dts-esm-specifiers.ts"
+      ],
       "outputs": ["{projectRoot}/{options.coverage.reportsDirectory}", "{workspaceRoot}/coverage/libs/grid"],
       "options": {
         "passWithNoTests": true,

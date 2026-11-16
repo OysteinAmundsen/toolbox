@@ -210,6 +210,9 @@ jobs:
         run: bun nx affected -t build --base=${{ steps.nx-shas.outputs.base }}
           --head=${{ steps.nx-shas.outputs.head }}
 
+      - name: Type-check published declarations with NodeNext
+        run: bun nx run grid-vue:typecheck-nodenext
+
       - name: Enforce bundle budgets (affected)
         run:
           bun nx affected -t bundle-check --base=${{ steps.nx-shas.outputs.base }}

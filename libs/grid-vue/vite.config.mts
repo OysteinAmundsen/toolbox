@@ -6,6 +6,7 @@ import type { Plugin } from 'vite';
 import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
 import { bundleBudget } from '../../tools/vite-bundle-budget';
+import { rewriteDtsSpecifiers } from '../../tools/vite-dts-esm-specifiers';
 
 // These options were migrated by @nx/vite:convert-to-inferred from the project.json file.
 const configValues = { default: {}, development: {}, production: {} };
@@ -65,7 +66,9 @@ export default defineConfig(() => ({
       tsconfigPath: path.join(import.meta.dirname, 'tsconfig.lib.json'),
       // Preserve @toolbox-web/grid imports in .d.ts output instead of resolving to relative paths
       pathsToAliases: false,
-      afterBuild: () => {
+      afterBuild: (emittedFiles) => {
+        // ESM-valid `.js` specifiers for node16/nodenext consumers (#659)
+        rewriteDtsSpecifiers(emittedFiles);
         // Copy package.json after DTS generation
         copyFileSync(path.resolve(import.meta.dirname, 'package.json'), path.resolve(outDir, 'package.json'));
       },

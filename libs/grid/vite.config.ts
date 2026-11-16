@@ -8,6 +8,7 @@ import dts from 'vite-plugin-dts';
 import { gzipSync } from 'zlib';
 import { bundleBudget } from '../../tools/vite-bundle-budget';
 import { assertSingleStateCopy, coreImports } from '../../tools/vite-core-imports';
+import { rewriteDtsSpecifiers } from '../../tools/vite-dts-esm-specifiers';
 
 // These options were migrated by @nx/vite:convert-to-inferred from the project.json file.
 const configValues = { default: {}, development: {}, production: {} };
@@ -561,6 +562,7 @@ export default defineConfig(({ command }) => ({
       tsconfigPath: resolve(__dirname, 'tsconfig.lib.json'),
       rollupTypes: false, // Disable type bundling to avoid import() resolution errors
       skipDiagnostics: false, // Fail build on TypeScript errors
+      afterBuild: rewriteDtsSpecifiers, // ESM-valid `.js` specifiers for node16/nodenext consumers (#659)
     }),
     // Only run build-specific plugins during actual build, not during tests
     ...(command === 'build'

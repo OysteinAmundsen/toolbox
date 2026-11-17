@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.12.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.12.1...grid-3.12.2) (2026-11-17)
+
+
+### Bug Fixes
+
+* **grid:** keep omitted light-DOM sortable undefined so column and type defaults apply ([#661](https://github.com/OysteinAmundsen/toolbox/issues/661)) ([0ee4647](https://github.com/OysteinAmundsen/toolbox/commit/0ee4647a0234f9317c451571e8afb67f57aca79f))
+
 ## [3.12.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.12.0...grid-3.12.1) (2026-11-16)
 
 

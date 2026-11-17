@@ -78,7 +78,7 @@ Every feature, fix, or refactor must complete **all seven steps** before it is c
 
    If neither produced anything, state "no new knowledge" explicitly rather than skipping the step.
 
-7. **Suggest a commit** — End the final message with the `📦 **Good commit point:** ...` line described in the Commit Hygiene section. Do not run `git commit` yourself unless the user explicitly asked in the current turn.
+7. **Suggest a commit** — End the final message with the `📦 **Good commit point:** ...` line described in the Commit Hygiene section. Do not run `git commit` yourself unless the user explicitly asked in the current turn (exception: the amend in a `/qa-pr` review loop, see "Standing consent: `/qa-pr`").
 
 **Bugs found but not fixed → file a GitHub issue.** If the task uncovers a real bug outside its scope, do not leave it as a line in the summary or a `TENSION` in a knowledge file. File it with `gh issue create --label bug`, following `.github/ISSUE_TEMPLATE/bug_report.md`. Title it `fix(<scope>): …` like recent bug issues, and search for duplicates first (`gh issue list --state all --search …`). Include a reproduction with measured evidence, plus the root-cause location if known. Reference the issue number from any knowledge entry. This is standing consent for creating bug issues only. It does not cover PRs, pushes, or any other remote mutation. Not a bug: local-environment leftovers (stale `node_modules`, gitignored generated files, a missing browser build). Mention those to the user instead.
 
@@ -171,6 +171,10 @@ The following commands are **forbidden** unless the user has, in the current tur
 
 "Implicit consent" does not exist. A request like _"finish this work"_ or _"commit this"_ is **only** consent for local commits. It is **not** consent to push or open a PR. If you are unsure, **stop and ask** with a one-line confirmation prompt before running the command.
 
+### Standing consent: `/qa-pr`
+
+Invoking `/qa-pr <PR>` is explicit consent, for that PR only and until its review loop ends, to: `git add` + `git commit --amend --no-edit` on the PR's checked-out head branch (tip commit only, never `main`), `git push --force-with-lease=<branch>:<sha before amend> origin HEAD:<branch>` to that same branch, `gh pr edit <PR> --add-reviewer @copilot`, and replying to / resolving its review threads. It does not cover a bare `--force`, any other branch, tags, merging, closing, approving, or creating PRs. The procedure and its preflight checks live in `.github/skills/qa-pr/SKILL.md` → "Review loop".
+
 ### Always allowed (read-only)
 
 - `git status`, `git log`, `git diff`, `git show`, `git branch -v`
@@ -188,7 +192,7 @@ The following commands are **forbidden** unless the user has, in the current tur
 
 ### Requires explicit user request
 
-- **`git commit`** — Do **not** run `git commit` on the user's behalf. The delivery checklist's final step is to **suggest** a commit message (`📦 **Good commit point:** ...`), not to execute it. The user runs the commit. Only run `git commit` yourself when the user has explicitly asked in the current turn (e.g. _"commit this"_, _"go ahead and commit"_). A user request to "finish the work" or "fix the failing test" is **not** consent to commit.
+- **`git commit`** — Do **not** run `git commit` on the user's behalf. The delivery checklist's final step is to **suggest** a commit message (`📦 **Good commit point:** ...`), not to execute it. The user runs the commit. Only run `git commit` yourself when the user has explicitly asked in the current turn (e.g. _"commit this"_, _"go ahead and commit"_), or for the amend inside a `/qa-pr` review loop (see "Standing consent: `/qa-pr`"). A user request to "finish the work" or "fix the failing test" is **not** consent to commit.
 
 ### Branch discipline
 

@@ -206,14 +206,18 @@ export function GridColumn<TRow = unknown, TValue = unknown>(props: GridColumnPr
 
   if (header !== undefined) attrs['header'] = header;
   if (type !== undefined) attrs['type'] = type;
-  if (editable !== undefined) attrs['editable'] = editable;
-  if (sortable !== undefined) attrs['sortable'] = sortable;
-  if (resizable !== undefined) attrs['resizable'] = resizable;
+  // React 19 removes a custom-element attribute whose value is `false`, which the
+  // grid reads as "inherit the default". Serialize so an explicit `false` reaches
+  // the element as `attr="false"`. `hidden` stays boolean: React sets it as the
+  // native `HTMLElement.hidden` property, where the string "false" is truthy.
+  if (editable !== undefined) attrs['editable'] = String(editable);
+  if (sortable !== undefined) attrs['sortable'] = String(sortable);
+  if (resizable !== undefined) attrs['resizable'] = String(resizable);
   if (widthStr !== undefined) attrs['width'] = widthStr;
   if (minWidth !== undefined) attrs['min-width'] = minWidth;
   if (order !== undefined) attrs['order'] = order;
   if (hidden !== undefined) attrs['hidden'] = hidden;
-  if (lockVisible !== undefined) attrs['lock-visible'] = lockVisible;
+  if (lockVisible !== undefined) attrs['lock-visible'] = String(lockVisible);
 
   if (options) {
     const serialized = serializeColumnOptions(options);

@@ -123,6 +123,7 @@ related: [adapters-react, adapters-vue, adapters-angular, grid-core, grid-featur
 ## parity audit (2026-08, pre-3.0 sweep)
 
 - INVARIANT (column props): expose ONLY props core reads — `parseLightDomColumns()` (`core/internal/columns.ts`): `field, type, header, sortable, width, minWidth|min-width, order, resizable, options`; plugins add `editable`, `hidden`+`lock-visible`, `pinned`. Core `ColumnConfig` has NO `align`/`maxWidth`.
+- INVARIANT (boolean column props): omitted → NO attribute (inherit defaults); explicit `false` → `attr="false"`. React 19 drops custom-element attrs set to `false` → `GridColumn` sends `String(v)` (not `hidden`: native property, `"false"` is truthy). Vue: `adapters-vue.md`. Tests: `grid-column.spec.ts`, `TbwGridColumn.spec.ts`.
 - INVARIANT (tool panel props): `id, title, icon, tooltip, order` only (`plugins/shell/shell.ts` ~l.492). Vue `label` = alias for `title`.
 - INVARIANT (accessors): all 5 feature accessors expose `isReady` in all 3; `useGrid`/`injectGrid` expose `ready()`. SINGLE impl per adapter: `useGridIsReady(getGrid)` (`@internal`; React `lib/use-grid-is-ready.ts` + Vue mirror), used by `useGrid` + accessors; never re-inline. Angular tracks inline (signals, no hook boundary). Guard: `src/features/accessor-parity.spec.ts` (React+Vue).
 - REMOVED (no-ops, zero reads in `libs/grid/src`, non-breaking): Vue `TbwGridColumn.align`/`maxWidth`, `TbwGridToolPanel.position`/`width`; React `GridColumn.format`/`multi`, `data-has-format`/`data-has-options` markers.

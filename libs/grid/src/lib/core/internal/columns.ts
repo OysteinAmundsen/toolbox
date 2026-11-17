@@ -43,7 +43,7 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
       // so a Vue template `:sortable="false"` reaches the DOM as
       // `sortable="false"`. Without this guard `hasAttribute('sortable')`
       // would return true and force the column to be sortable.
-      const sortable = el.hasAttribute('sortable') && el.getAttribute('sortable') !== 'false';
+      const sortable = el.hasAttribute('sortable') ? el.getAttribute('sortable') !== 'false' : undefined;
       // `__element` exposes the originating light-DOM element so plugins can
       // read their own attributes in `processColumns` (issue #272). Core no
       // longer parses plugin-owned attributes such as `editable` (editing),
@@ -406,8 +406,8 @@ export function mergeColumns(
       // Merge this column's properties into the existing one
       if (c.header && !existing.header) existing.header = c.header;
       if (c.type && !existing.type) existing.type = c.type;
-      if (c.sortable) existing.sortable = true;
-      if (c.resizable) existing.resizable = true;
+      if (existing.sortable == null || c.sortable === true) existing.sortable = c.sortable;
+      if (existing.resizable == null || c.resizable === true) existing.resizable = c.resizable;
       if (c.width != null && existing.width == null) existing.width = c.width;
       if (c.minWidth != null && existing.minWidth == null) existing.minWidth = c.minWidth;
       if (c.__viewTemplate) existing.__viewTemplate = c.__viewTemplate;
@@ -434,8 +434,8 @@ export function mergeColumns(
     const m: ColumnInternal = { ...c };
     if (d.header && !m.header) m.header = d.header;
     if (d.type && !m.type) m.type = d.type;
-    m.sortable = c.sortable || d.sortable;
-    if (c.resizable === true || d.resizable === true) m.resizable = true;
+    m.sortable = c.sortable ?? d.sortable;
+    m.resizable = c.resizable ?? d.resizable;
     // Merge width/minWidth from DOM if not set programmatically
     if (d.width != null && m.width == null) m.width = d.width;
     if (d.minWidth != null && m.minWidth == null) m.minWidth = d.minWidth;

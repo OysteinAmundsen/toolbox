@@ -4,7 +4,7 @@
  * @vitest-environment happy-dom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GridColumn } from './grid-column';
+import { GridColumn, type GridColumnProps } from './grid-column';
 import { getColumnEditor, getColumnRenderer } from './react-grid-adapter';
 
 describe('GridColumn', () => {
@@ -16,7 +16,11 @@ describe('GridColumn', () => {
     ReactDOM = await import('react-dom/client');
   });
 
+  let mountedRoots: Array<{ unmount(): void }> = [];
+
   afterEach(() => {
+    for (const root of mountedRoots) root.unmount();
+    mountedRoots = [];
     document.body.innerHTML = '';
   });
 
@@ -26,6 +30,44 @@ describe('GridColumn', () => {
     });
     return container.querySelector('tbw-grid-column') as HTMLElement;
   }
+
+  async function renderColumn(props: GridColumnProps): Promise<HTMLElement> {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = ReactDOM.createRoot(container);
+    mountedRoots.push(root);
+    root.render(React.createElement(GridColumn, props));
+    return waitForColumnEl(container);
+  }
+
+  it('omits boolean attributes when their props are not set', async () => {
+    const columnEl = await renderColumn({ field: 'name' });
+    for (const attr of ['sortable', 'resizable', 'editable', 'hidden', 'lock-visible']) {
+      expect(columnEl.hasAttribute(attr)).toBe(false);
+    }
+  });
+
+  // React 19 removes a custom-element attribute set to `false`; the grid would
+  // then read the column as "inherit defaults" instead of an explicit opt-out.
+  it('forwards explicit false as attr="false"', async () => {
+    const columnEl = await renderColumn({
+      field: 'name',
+      sortable: false,
+      resizable: false,
+      editable: false,
+      lockVisible: false,
+    });
+    expect(columnEl.getAttribute('sortable')).toBe('false');
+    expect(columnEl.getAttribute('resizable')).toBe('false');
+    expect(columnEl.getAttribute('editable')).toBe('false');
+    expect(columnEl.getAttribute('lock-visible')).toBe('false');
+  });
+
+  it('forwards explicit true and keeps hidden as the native boolean property', async () => {
+    const columnEl = await renderColumn({ field: 'name', sortable: true, hidden: false });
+    expect(columnEl.getAttribute('sortable')).toBe('true');
+    expect(columnEl.hasAttribute('hidden')).toBe(false);
+  });
 
   it('renders tbw-grid-column with mapped attributes', async () => {
     const container = document.createElement('div');

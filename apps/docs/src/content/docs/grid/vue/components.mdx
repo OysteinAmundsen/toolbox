@@ -106,6 +106,10 @@ Generic parameters: `TRow = unknown`, `TValue = any`. Specify them
 | `lockVisible` | `boolean`                     | no       |
 | `options`  | [`ColumnOptions`](#columnoptions) | no      |
 
+Omitted boolean props are not rendered as attributes, so the column inherits its
+`gridConfig.columns` setting, type default, or core default — the same as a plain
+`<tbw-grid-column>`. Pass `false` explicitly to opt out.
+
 #### ColumnOptions
 
 `options` supplies the choice list for `select` / `typeahead` column types. Pass either

@@ -25,36 +25,48 @@ import {
  * @typeParam TValue - Cell value type. Defaults to `any` because the value
  *   shape is per-column and awkward to narrow inside template expressions.
  */
-const props = defineProps<{
-  /** Field path in the row object */
-  field: string;
-  /** Column header text */
-  header?: string;
-  /** Data type for the column */
-  type?: ColumnType;
-  /** Column width */
-  width?: string | number;
-  /** Minimum column width */
-  minWidth?: string | number;
-  /** Initial column display index */
-  order?: number;
-  /** Whether the column is sortable */
-  sortable?: boolean;
-  /** Whether the column is resizable */
-  resizable?: boolean;
-  /** Whether the column is editable */
-  editable?: boolean;
-  /** Whether the column is hidden */
-  hidden?: boolean;
-  /** Prevent the column from being hidden */
-  lockVisible?: boolean;
-  /**
-   * Select/typeahead options. Serialized onto the element's `options`
-   * attribute, so values and labels must not contain `,` or `:` — pass
-   * richer option objects through `gridConfig.columns[].options` instead.
-   */
-  options?: ColumnOptions;
-}>();
+const props = withDefaults(
+  defineProps<{
+    /** Field path in the row object */
+    field: string;
+    /** Column header text */
+    header?: string;
+    /** Data type for the column */
+    type?: ColumnType;
+    /** Column width */
+    width?: string | number;
+    /** Minimum column width */
+    minWidth?: string | number;
+    /** Initial column display index */
+    order?: number;
+    /** Whether the column is sortable */
+    sortable?: boolean;
+    /** Whether the column is resizable */
+    resizable?: boolean;
+    /** Whether the column is editable */
+    editable?: boolean;
+    /** Whether the column is hidden */
+    hidden?: boolean;
+    /** Prevent the column from being hidden */
+    lockVisible?: boolean;
+    /**
+     * Select/typeahead options. Serialized onto the element's `options`
+     * attribute, so values and labels must not contain `,` or `:` — pass
+     * richer option objects through `gridConfig.columns[].options` instead.
+     */
+    options?: ColumnOptions;
+  }>(),
+  // Vue casts absent boolean props to `false`, which would serialize as
+  // `attr="false"` and override the core column/type defaults. Keep omitted
+  // flags undefined so the attribute is not rendered, matching React/Angular.
+  {
+    sortable: undefined,
+    resizable: undefined,
+    editable: undefined,
+    hidden: undefined,
+    lockVisible: undefined,
+  },
+);
 
 // The core light-DOM parser reads select/typeahead options from an `options`
 // CSV attribute. Bound via `v-bind` (not `:options`) because the template's

@@ -75,6 +75,9 @@ For each file (or each hunk, when reviewing a diff), check:
   `--base <ref>` in `branch` mode). It runs the one-file `tsc --ignoreConfig` recipe on each touched spec and reports
   only errors on changed lines, since specs on `main` already carry dozens of pre-existing errors. It exits 1 when
   one of those lands on a changed line.
+  Its one-file recipe sets no `--jsx`, so an edited import of a `.tsx` module reports `TS6142` — a recipe artifact;
+  confirm with `bunx tsc --noEmit --pretty false -p <lib>/tsconfig.spec.json`. React specs for `.tsx` sources are
+  usually `*.spec.ts`: search both extensions before creating a new spec.
 
 ### Security (OWASP-aware)
 

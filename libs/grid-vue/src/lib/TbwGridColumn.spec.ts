@@ -56,6 +56,21 @@ describe('TbwGridColumn.vue', () => {
       expect(el.getAttribute('type')).toBe('enum');
       expect(el.getAttribute('align')).toBe('center');
     });
+
+    it('omits boolean attributes when their props are not set', () => {
+      const el = mount({ field: 'name' });
+      for (const attr of ['sortable', 'resizable', 'editable', 'hidden', 'lock-visible']) {
+        expect(el.hasAttribute(attr)).toBe(false);
+      }
+    });
+
+    it('forwards explicit boolean props', () => {
+      const el = mount({ field: 'name', sortable: false, resizable: true, lockVisible: false });
+      expect(el.getAttribute('sortable')).toBe('false');
+      expect(el.hasAttribute('resizable')).toBe(true);
+      expect(el.getAttribute('resizable')).not.toBe('false');
+      expect(el.getAttribute('lock-visible')).toBe('false');
+    });
   });
 
   describe('slot registration', () => {

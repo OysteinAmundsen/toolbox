@@ -267,6 +267,58 @@ describe('parseLightDomTypeDefaults', () => {
 });
 
 describe('mergeColumns', () => {
+  it.each(['sortable', 'resizable'] as const)(
+    'preserves %s defaults and explicit settings when supplementing programmatic columns',
+    (flag) => {
+      const host = document.createElement('div');
+      host.innerHTML = `
+        <tbw-grid-column field="default"></tbw-grid-column>
+        <tbw-grid-column field="disabled"></tbw-grid-column>
+        <tbw-grid-column field="domDisabled" ${flag}="false"></tbw-grid-column>
+        <tbw-grid-column field="enabled" ${flag}></tbw-grid-column>
+        <tbw-grid-column field="disabledOverride" ${flag}></tbw-grid-column>
+      `;
+      const merged = mergeColumns(
+        [
+          { field: 'default' },
+          { field: 'disabled', [flag]: false },
+          { field: 'domDisabled' },
+          { field: 'enabled' },
+          { field: 'disabledOverride', [flag]: false },
+        ],
+        parseLightDomColumns(host),
+      );
+      const valueOf = (field: string) => merged.find((col) => col.field === field)?.[flag];
+
+      expect(valueOf('default')).toBeUndefined();
+      expect(valueOf('disabled')).toBe(false);
+      expect(valueOf('domDisabled')).toBe(false);
+      expect(valueOf('enabled')).toBe(true);
+      expect(valueOf('disabledOverride')).toBe(false);
+    },
+  );
+
+  it.each(['sortable', 'resizable'] as const)(
+    'keeps the first defined %s across duplicate DOM columns unless a later one enables it',
+    (flag) => {
+      const host = document.createElement('div');
+      host.innerHTML = `
+        <tbw-grid-column field="off" ${flag}="false"></tbw-grid-column>
+        <tbw-grid-column field="off"></tbw-grid-column>
+        <tbw-grid-column field="on" ${flag}="false"></tbw-grid-column>
+        <tbw-grid-column field="on" ${flag}></tbw-grid-column>
+        <tbw-grid-column field="late"></tbw-grid-column>
+        <tbw-grid-column field="late" ${flag}="false"></tbw-grid-column>
+      `;
+      const merged = mergeColumns([{ field: 'other' }], parseLightDomColumns(host));
+      const valueOf = (field: string) => merged.find((col) => col.field === field)?.[flag];
+
+      expect(valueOf('off')).toBe(false);
+      expect(valueOf('on')).toBe(true);
+      expect(valueOf('late')).toBe(false);
+    },
+  );
+
   it('returns empty when both inputs empty', () => {
     expect(mergeColumns(undefined as any, undefined as any)).toEqual([]);
   });

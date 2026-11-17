@@ -10,8 +10,8 @@
 //
 // Usage:
 //   bun .github/skills/qa-pr/wait-copilot-review.mjs <pr> [--request] [--timeout <minutes>] [--repo owner/name]
-//     --request          first run `gh pr edit <pr> --add-reviewer @copilot` (a remote write:
-//                        only with the user's consent for this round)
+//     --request          first run `gh pr edit <pr> --add-reviewer @copilot` (a remote write,
+//                        covered by the `/qa-pr` standing consent for that PR)
 //     --timeout <min>    give up after this many minutes (default 25)
 //     --repo o/n         target repo (default: auto-detected via `gh repo view`)
 //

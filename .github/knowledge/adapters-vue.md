@@ -64,6 +64,7 @@ related: [adapters, adapters-react, adapters-angular, grid-core, grid-features]
 - SELF-RESOLUTION: when an SFC's template root tag equals the component's own kebab tag (`TbwGridColumn.vue` rendering `<tbw-grid-column>`), vue-tsc resolves it to the COMPONENT, not the custom element — so `:options="serializedString"` typechecks against the rich `ColumnOptions` prop and fails `TS2322`. Bind DOM-only attributes via `v-bind="attrOverrides"` where `attrOverrides` is a `computed<Record<string, string>>` built imperatively (an inline ternary yields a union that fails the annotation).
 - `onScopeDispose` is INVALID inside `onMounted` — use a scope-level `let unsub` + `onBeforeUnmount` (hit in `features/selection.ts` and `features/undo-redo.ts`).
 - A literal `</script>` inside a JSDoc `@example` terminates the SFC's script block. Write the example as a plain ```ts fence.
+- INVARIANT: optional boolean props forwarded to light-DOM attributes MUST default to `undefined` (`withDefaults(..., { flag: undefined })` / `default: undefined`). Vue casts absent Booleans to `false` → `attr="false"` → explicit opt-out, overriding core column/type defaults (React/Angular omit the attr). Test: `TbwGridColumn.spec.ts` "omits boolean attributes".
 
 ## composables outside a component instance
 

@@ -125,8 +125,8 @@ Define column configuration declaratively.
 | `type`         | `string`  | Column type. Built-ins: `'string'`, `'number'`, `'boolean'`, `'date'`, `'select'`. Any custom/plugin-registered type string is also accepted. |
 | `width`        | `string`  | Column width as a CSS grid track — `"120"` (px), `"100px"`, `"20%"`, `"2fr"`, `"minmax(120px, 1fr)"`, `"max-content"` |
 | `min-width`    | `number`  | Minimum column width in pixels (pixels only). Applies when `width` is omitted, and floors drag-resize. |
-| `sortable`     | `boolean` | Enable sorting (presence = true)                                 |
-| `resizable`    | `boolean` | Enable resizing (presence = true)                                |
+| `sortable`     | `boolean` | Enable sorting by presence; `"false"` disables it. When omitted, the column inherits its configured or type default, then defaults to true. |
+| `resizable`    | `boolean` | Enable resizing by presence; `"false"` disables it. When omitted, the column inherits its configured or type default, then defaults to true. |
 | `order`        | `number`  | Initial column position (0-based index; must be non-negative integer). Columns without `order` fill positions in declaration order. Only affects initial render; user reorder takes precedence. |
 | `editable`     | `boolean` | Enable editing (presence = true, requires EditingPlugin)         |
 | `options`      | `string`  | Select options: `"value1:Label1,value2:Label2"` or `"val1,val2"` |

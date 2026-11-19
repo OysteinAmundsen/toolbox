@@ -29,8 +29,10 @@ import type {
 } from '../server-side/datasource-types';
 import { collapseAll, expandAll, expandToKey, toggleExpand } from './tree-data';
 import { isFormFieldKeyTarget } from '../shared/form-field-target';
+import type { RowMoveQuery, RowMoveResolution } from '../shared/row-move';
 import { mapViewportToRoots } from './tree-datasource';
 import { detectTreeStructure, inferChildrenField } from './tree-detect';
+import { resolveTreeMove } from './tree-move';
 import styles from './tree.css?inline';
 import type {
   ExpandCollapseAnimation,
@@ -149,8 +151,9 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
     ],
     queries: [
       {
-        type: 'canMoveRow',
-        description: 'Returns false for rows with children (parent nodes cannot be reordered)',
+        type: 'rows:resolve-move',
+        description:
+          'Resolves row drag-drop moves in the tree: siblings reorder with their subtrees, parent changes need canReparent',
       },
       {
         type: 'datasource:viewport-mapping',
@@ -265,6 +268,9 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
    */
   #rowMeta = new WeakMap<object, FlattenedTreeRow>();
 
+  /** Index of each rendered tree row in the final row list (rebuilt in `endHierarchy`). */
+  #rowOrder = new WeakMap<object, number>();
+
   /** Cached original (unwrapped) renderer to prevent re-wrapping on repeated processColumns calls. */
   private originalTreeColumnRenderer: ColumnViewRenderer | undefined;
   /** Property used by the original renderer, matching core's renderer precedence. */
@@ -307,14 +313,8 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
    * @internal
    */
   override handleQuery(query: PluginQuery): unknown {
-    if (query.type === 'canMoveRow') {
-      // Tree rows with children cannot be reordered
-      const row = query.context as { [key: string]: unknown } | null | undefined;
-      const childrenField = this.config.childrenField ?? 'children';
-      const children = row?.[childrenField];
-      if (Array.isArray(children) && children.length > 0) {
-        return false;
-      }
+    if (query.type === 'rows:resolve-move') {
+      return this.#resolveRowMove(query.context as RowMoveQuery);
     }
 
     if (query.type === 'datasource:viewport-mapping') {
@@ -325,6 +325,63 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
     }
 
     return undefined;
+  }
+
+  /**
+   * `rows:resolve-move` (#663): siblings reorder with their subtrees, parent
+   * changes go through {@link TreeConfig.canReparent}. Not a tree → `undefined`
+   * (RowDragDrop's flat splice applies).
+   */
+  #resolveRowMove(query: RowMoveQuery): RowMoveResolution | false | undefined {
+    // Incoming rows may carry a subtree even while this grid's own data is still flat.
+    if (this.flattenedRows.length === 0 && query.op !== 'insert') return undefined;
+    // A sorted level re-sorts on the next render, so a manual order cannot stick.
+    if (query.op === 'move' && this.#levelSort) return false;
+    // An active data source renders its own nodes, not `sourceRows`: an insert would vanish.
+    if (query.op === 'insert' && this.queryBoolean('datasource:is-active')) return false;
+    const field = this.config.childrenField ?? 'children';
+    if (query.op === 'insert') query = { ...query, target: this.#insertTarget(query.target) };
+    const answer = resolveTreeMove(
+      {
+        roots: this.sourceRows as TreeRow[],
+        childrenField: field,
+        metaOf: (row) => this.#rowMeta.get(row as object),
+        metaByKey: (key) => this.rowKeyMap.get(key),
+        canReparent: this.config.canReparent,
+        orderOf: (row) => this.#rowOrder.get(row as object),
+        // A copied ancestor keeps its node key (so it stays expanded) and its "children
+        // loaded" state — fetched, or embedded (so a list emptied by the move isn't fetched).
+        onCopy: (original, copy) => {
+          const key = this.#rowKeys.get(original);
+          if (key !== undefined) this.#rowKeys.set(copy, key);
+          const embedded = original[field];
+          if (this.#loadedRows.has(original) || (Array.isArray(embedded) && embedded.length > 0)) {
+            this.#loadedRows.add(copy);
+          }
+        },
+      },
+      query,
+    );
+    // Into a parent still loading its children: the copy would abort that load and, holding
+    // the moved row, never retry it. Allowed again once the load has settled.
+    const into = answer ? answer.toParent : null;
+    if (into && this.#loads.get(this.#rowMeta.get(into as object)?.key ?? '')?.row === into) return false;
+    return answer;
+  }
+
+  /**
+   * A drop target that is neither a tree node nor a root (a GroupingRows header)
+   * stands for the next displayed tree row — rows dropped on a header land
+   * before that group's first row (`position` stays `'before'`).
+   */
+  #insertTarget(target: unknown): unknown {
+    if (target == null) return target;
+    const roots = new Set(this.sourceRows);
+    const isTreeRow = (row: unknown) => roots.has(row) || this.#rowMeta.has(row as object);
+    if (isTreeRow(target)) return target;
+    const rows = this.rows;
+    for (let i = rows.indexOf(target) + 1; i > 0 && i < rows.length; i++) if (isTreeRow(rows[i])) return rows[i];
+    return null;
   }
 
   // #endregion
@@ -435,6 +492,9 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
       !detectTreeStructure(treeRows, this.config.childrenField ?? 'children', this.config.hasChildren)
     ) {
       this.flattenedRows = [];
+      // Flat data: no row is a tree node any more (stale metadata misplaced cross-grid inserts).
+      this.#rowMeta = new WeakMap();
+      this.#rowOrder = new WeakMap();
       this.#rootOwners = [];
       this.#rootCount = 0;
       this.rowKeyMap.clear();
@@ -521,6 +581,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
     // ancestor don't return stale entries via getRowMeta().
     const processed = this.#rowMeta;
     this.#rowMeta = new WeakMap();
+    this.#rowOrder = new WeakMap();
     this.flattenedRows = [];
     this.rowKeyMap.clear();
     this.keysToAnimate.clear();
@@ -540,6 +601,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
       this.flattenedRows.push(meta);
       this.rowKeyMap.set(meta.key, meta);
       this.#rowMeta.set(row as object, meta);
+      this.#rowOrder.set(row as object, i);
       currentKeys.add(meta.key);
       if (!this.previousVisibleKeys.has(meta.key) && meta.depth > 0) {
         this.keysToAnimate.add(meta.key);

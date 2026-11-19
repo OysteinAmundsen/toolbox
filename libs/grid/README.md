@@ -821,6 +821,7 @@ const responses = grid.queryPlugins<boolean>({
 | `sort:set-model`      | `SortModel`         | —                   | Set sort model programmatically |
 | `canMoveColumn`       | `ColumnConfig`      | `boolean`           | Can the column be reordered?    |
 | `canMoveRow`          | row object          | `boolean`           | Can the row be reordered?       |
+| `rows:resolve-move`   | `RowMoveQuery`      | `RowMoveResolution` | Translate a row move (Tree)     |
 | `clipboard:copy`      | —                   | —                   | Trigger copy action             |
 | `export:csv`          | —                   | —                   | Trigger CSV export              |
 | `getContextMenuItems` | `ContextMenuParams` | `ContextMenuItem[]` | Get menu items for context menu |

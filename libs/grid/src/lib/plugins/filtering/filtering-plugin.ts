@@ -13,6 +13,7 @@ import { BaseGridPlugin, type GridElement, type PluginManifest, type PluginQuery
 import { isUtilityColumn } from '../../core/plugin/expander-column';
 import type { ColumnConfig, ColumnState } from '../../core/types';
 import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/types';
+import type { RowMoveQuery } from '../shared/row-move';
 import {
   BLANK_FILTER_VALUE,
   compileFilters,
@@ -200,6 +201,10 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
         type: 'filter:get-predicate',
         description:
           'Compiles the active filters on generated fields selected by the context `(field) => boolean` into one row predicate',
+      },
+      {
+        type: 'rows:resolve-move',
+        description: 'Vetoes row reorders while an async `filterHandler` owns the displayed rows',
       },
     ],
   };
@@ -572,6 +577,11 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
     if (query.type === 'filter:get-predicate') {
       return this.compileGeneratedFilters(query.context as (field: string) => boolean);
+    }
+    if (query.type === 'rows:resolve-move') {
+      // `processRows` serves the handler's cached result, so a manual reorder could not stick (#663).
+      const op = (query.context as RowMoveQuery).op;
+      return op === 'move' && this.config.filterHandler && this.filters.size ? false : undefined;
     }
     return undefined;
   }

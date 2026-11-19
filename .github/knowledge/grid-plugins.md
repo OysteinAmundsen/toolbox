@@ -30,6 +30,8 @@ related:
 - INVARIANT: priority-ordered dispatch goes through `#getPluginsForHook` (cached per hook) via `#claim` (claimable `on*` events: first `true` wins) or `#notify` (all, return ignored). Per-cell/per-row hooks (`afterCellRender`/`afterRowRender`) and `renderRow` stay inline loops — render hot path.
 - INVARIANT: PluginManager's public methods are plugin-development API (`plugin-development/architecture.mdx` table; `plugin/types.ts` structural type) — never drop one as "internal". `getPlugins()` duplicates `getAll()` but stays: HierarchyPlugin calls `getPlugins?.()` (optional call — a `\.getPlugins\(\)` grep misses it; grep the bare name).
 - INVARIANT: one PluginManager per grid; plugins are stateful singletons. Dependencies validated on attach; incompatibilities warned at runtime (dev only).
+- DECIDED (#225, alias dedup): `#collapseAliasDuplicates` keys on **constructor identity**, not plugin name (e.g. `ReorderPlugin`↔`reorder`); `BaseGridPlugin.mergeConfigsFrom` is silent on equal scalars/refs, TBW023 on dedupe (silent in PROD), TBW025 throws on conflict.
+- INVARIANT: `queryPlugins` routes only to plugins declaring the type in `manifest.queries`; with NO declarer it falls back to asking every plugin. Collects non-`undefined` answers.
 
 ## plugin-lifecycle
 

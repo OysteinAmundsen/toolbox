@@ -303,3 +303,23 @@ bun nx serve docs
 # Run e2e tests for the demo
 bun nx e2e docs-e2e
 ```
+
+Narrow the e2e run to your demo with `bun nx e2e docs-e2e --grep="MyFeatureDemo"`.
+
+**No gate type-checks a demo's `<script>`.** `bun nx build docs` does not, and `astro check` stops at an install prompt (`@astrojs/check` is not a dependency — don't add it for this). Copy the script into a temporary `.ts` file inside `apps/docs/src/`, run `bunx tsc --noEmit --pretty false -p apps/docs/tsconfig.json`, keep only the errors for that file (the project carries ~110 unrelated ones), then delete it:
+
+```powershell
+$m = [regex]::Match((Get-Content <demo>.astro -Raw), '(?s)<script>(.*)</script>'); $tmp = 'apps/docs/src/zz-demo-typecheck.ts'
+Set-Content $tmp ("export {};`n" + $m.Groups[1].Value)
+try { bunx tsc --noEmit --pretty false -p apps/docs/tsconfig.json | Select-String 'zz-demo-typecheck' } finally { Remove-Item $tmp }
+```
+
+`queryGrid()` returns `T | null`; end it with `!` (ShowSource strips `!` from the displayed snippet).
+
+**Row drag-and-drop in e2e:** a raw `mouse.down/move/up` drag usually asserts nothing. Prefer the deterministic paths:
+
+- the click-only move menu: click the row's `.dg-row-drag-handle`, then `#tbw-row-move-menu` → `getByRole('button', { name: 'Move down' })`;
+- `Alt+ArrowUp/Down` after clicking a cell;
+- `handle.dragTo(targetRow, { targetPosition: { x, y: 4 } })` for a real HTML5 drop. A small `y` lands in the target row's upper half, which means "before".
+
+Pair any "drop was rejected" assertion with a drop that succeeds, so the test can't pass because the drag never happened.

@@ -28,7 +28,7 @@ Multiple projects in one pass:
 bun .github/skills/lint-baseline/lint-warning-diff.ts grid grid-react grid-vue
 ```
 
-The script lints the current tree, stashes your changes (including untracked files), lints the clean baseline, restores the stash, then prints only the difference. Exit code is **1 if any warning was added**, 0 otherwise.
+The script lints the current tree, stashes your changes (including untracked files), lints the clean baseline, restores the stash, then prints only the difference. Exit code is **1 if any warning was added, or if the current tree has any lint error** (listed under `LINT ERRORS`), 0 otherwise.
 
 ## Interpreting output
 

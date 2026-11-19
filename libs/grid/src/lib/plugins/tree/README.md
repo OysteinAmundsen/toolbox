@@ -48,6 +48,7 @@ grid.rows = data;
 | `animation`       | `false \| 'slide' \| 'fade'`                          | `'slide'`    | Expand/collapse animation style             |
 | `loadChildren`    | `(params) => Promise<TreeRow[]> \| Subscribable<...>` | —            | Lazy-load a node's children on first expand |
 | `hasChildren`     | `(row) => boolean`                                    | —            | Predicate marking nodes that have children  |
+| `canReparent`     | `(row, newParent, oldParent) => boolean`              | —            | Allow a drag-drop move to change parent     |
 
 ## Auto-Detection
 
@@ -186,6 +187,10 @@ const row = tree.getRowByKey(key);
 ## Grouping Child Rows
 
 `TreePlugin` combines with `GroupingRowsPlugin` to group the children of each tree node. See the Row Grouping README ("Grouping Tree Children"). Both plugins depend on `HierarchyPlugin`, which the grid attaches automatically.
+
+## Drag-and-Drop Reordering
+
+With `RowDragDropPlugin`, every row — parent or child — can be dragged. It moves with its whole subtree, among its siblings; Alt+↑/↓ and the move menu step over siblings too. A move to a different parent (or to/from the top level) needs `canReparent` to return `true`, and a row can never move into its own subtree. Rows dropped in from another grid land at the top level. Moves are refused while the tree is sorted. `row-move` carries the new top-level rows (ancestors whose children changed are shallow copies) plus `fromParent`/`toParent`.
 
 ## CSS Variables
 

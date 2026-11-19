@@ -6,11 +6,20 @@
  */
 
 import type { RowDragPayload } from '../shared/drag-drop-protocol';
+import type {
+  RowMovePosition,
+  RowMoveQuery,
+  RowMoveQueryType,
+  RowMoveResolution,
+  RowMoveStep,
+} from '../shared/row-move';
 
 // Re-exported so consumers can import it from the plugin's public entry point
 // without reaching into `plugins/shared`. The wire format is owned by the
 // protocol module because the encode/decode/validate pair lives there.
 export type { RowDragPayload };
+// The `rows:resolve-move` query contract, for plugins that reshape the row model.
+export type { RowMovePosition, RowMoveQuery, RowMoveQueryType, RowMoveResolution, RowMoveStep };
 
 /**
  * Configuration for {@link RowDragDropPlugin}.
@@ -166,14 +175,38 @@ export interface RowDragDropConfig<T = unknown> {
 export interface RowMoveDetail<T = unknown> {
   /** The row that was moved. */
   row: T;
-  /** The original index of the row. */
+  /**
+   * The original index of the row in the displayed rows. When a structural
+   * plugin such as Tree resolved the move ({@link RowMoveDetail.fromParent} is
+   * set), the index within the old parent's children instead.
+   */
   fromIndex: number;
-  /** The new index of the row. */
+  /**
+   * The new index of the row in the displayed rows. When a structural plugin
+   * such as Tree resolved the move, the index within the new parent's children.
+   */
   toIndex: number;
-  /** The full rows array in new order. */
+  /**
+   * The full source rows array in new order — assign it back to persist the
+   * move. With Tree, the top-level rows; the moved row keeps its identity, and
+   * every ancestor whose children changed is a shallow copy.
+   */
   rows: T[];
   /** How the move was initiated. */
   source: 'keyboard' | 'drag';
+  /**
+   * Parent of the row before the move (`null` = top level), as it was before
+   * the move. Only set when a structural plugin such as Tree resolved the move.
+   * @since 3.12.3
+   */
+  fromParent?: T | null;
+  /**
+   * Parent of the row after the move (`null` = top level), as it was before
+   * the move. Differs from {@link RowMoveDetail.fromParent} only when the row
+   * changed parent (see `TreeConfig.canReparent`).
+   * @since 3.12.3
+   */
+  toParent?: T | null;
 }
 
 /**
@@ -253,6 +286,8 @@ export interface PendingMove {
   currentIndex: number;
   /** The row being moved. */
   row: unknown;
+  /** Source index of the moved occurrence when the move started (a row object can repeat). */
+  sourceIndex: number;
 }
 
 // Module Augmentation — register events and plugin name for type-safe lookups.

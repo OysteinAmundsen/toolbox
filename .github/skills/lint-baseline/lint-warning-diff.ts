@@ -18,8 +18,13 @@ const ANSI = /\x1b\[[0-9;]*m/g;
 const FILE_LINE = /^(?:[A-Za-z]:\\|\/).*$/;
 const STREAM_PREFIX = /^([\w@.-]+): /;
 const WARNING_LINE = /^\s+\d+:\d+\s+warning\s+(.*?)\s{2,}([\w@/-]+)\s*$/;
+/** Rule ID optional: parse errors (`12:1  error  Parsing error: '}' expected`) carry none. */
+const ERROR_LINE = /^\s+\d+:\d+\s+error\s+(.*?)(?:\s{2,}([\w@/-]+))?\s*$/;
 
 type Counts = Map<string, number>;
+
+/** Lint errors seen by the last `parse()` call — a warnings-only diff would otherwise report them as green. */
+let errors: string[] = [];
 
 function git(...args: string[]): string {
   return execFileSync('git', args, { encoding: 'utf8' }).trim();
@@ -62,6 +67,7 @@ function lint(projects: string[]): string {
 function parse(output: string): Counts {
   const counts: Counts = new Map();
   const currentFile = new Map<string, string>();
+  errors = [];
   for (const raw of output.replace(ANSI, '').split(/\r?\n/)) {
     const trimmed = raw.trimEnd();
     const prefix = STREAM_PREFIX.exec(trimmed);
@@ -71,8 +77,10 @@ function parse(output: string): Counts {
       currentFile.set(project, line.replace(/\\/g, '/'));
       continue;
     }
-    const match = WARNING_LINE.exec(line);
     const file = currentFile.get(project);
+    const error = ERROR_LINE.exec(line);
+    if (error && file) errors.push(`  ${file}\n    ${error[2] ?? '(no rule)'} — ${error[1]}`);
+    const match = WARNING_LINE.exec(line);
     if (!match || !file) continue;
     const key = `${file}\u0000${match[2]}\u0000${match[1]}`;
     counts.set(key, (counts.get(key) ?? 0) + 1);
@@ -120,6 +128,7 @@ if (git('status', '--porcelain').length === 0) {
 
 console.log(`Linting current tree (${projects.join(', ')})…`);
 const after = parse(lint(projects));
+const currentErrors = errors;
 
 const stashBefore = gitQuiet('rev-parse', '--verify', '--quiet', 'refs/stash');
 git('stash', 'push', '--include-untracked', '-m', 'lint-warning-diff');
@@ -141,4 +150,7 @@ try {
   }
 }
 
-process.exit(report(before, after) > 0 ? 1 : 0);
+const added = report(before, after);
+if (currentErrors.length)
+  console.log(`LINT ERRORS in the current tree (${currentErrors.length}):\n${currentErrors.join('\n')}\n`);
+process.exit(added > 0 || currentErrors.length > 0 ? 1 : 0);

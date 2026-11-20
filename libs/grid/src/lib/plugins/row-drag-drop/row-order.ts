@@ -110,6 +110,13 @@ export function trackRows(
   return [...after];
 }
 
+export function trackDragSelection(
+  selection: { display: readonly unknown[]; rows: readonly unknown[]; indices: number[] },
+  after: readonly unknown[],
+): void {
+  selection.display = trackRows(selection.display, after, selection.rows, selection.indices);
+}
+
 /**
  * Source order after a debounced keyboard move took the source occurrence at
  * `from` to display index `index`: placed after its new display predecessor,
@@ -151,8 +158,8 @@ function ranksAt(display: readonly unknown[], at: readonly number[]): Map<unknow
 
 /**
  * New source rows without the transferred rows (cross-grid `move`, source side),
- * shown at display `indices`; `null` = a row-model plugin vetoed it. Only those
- * occurrences go — other copies of the same row object stay.
+ * shown at display `indices`; `null` = vetoed or a selected occurrence is stale.
+ * Only those occurrences go — other copies of the same row object stay.
  */
 export function sourceWithout(
   source: readonly unknown[],
@@ -173,6 +180,12 @@ export function sourceWithout(
         rows,
         rows.map((_, k) => k),
       );
+  const sourceCounts = new Map<unknown, number>();
+  for (const row of source) sourceCounts.set(row, (sourceCounts.get(row) ?? 0) + 1);
+  for (const [row, selectedRanks] of ranks) {
+    const count = sourceCounts.get(row) ?? 0;
+    for (const rank of selectedRanks) if (rank >= count) return null;
+  }
   const seen = new Map<unknown, number>();
   return source.filter((row) => {
     const rank = seen.get(row) ?? 0;

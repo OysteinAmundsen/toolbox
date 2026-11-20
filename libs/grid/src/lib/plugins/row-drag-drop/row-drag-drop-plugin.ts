@@ -62,6 +62,13 @@ import {
   setCurrentDragSession,
 } from '../shared/drag-drop-protocol';
 import type { RowMovePosition, RowMoveResolution, RowMoveStep } from '../shared/row-move';
+import {
+  type RemoteTransferListener,
+  type RemoteTransferMessage,
+  broadcastRemoteTransfer,
+  registerRemoteTransferListener,
+  unregisterRemoteTransferListener,
+} from './cross-window-channel';
 import styles from './row-drag-drop.css?inline';
 import { setRowDragImage } from './row-drag-image';
 import type { PlannedMove, ResolveMove } from './row-order';
@@ -75,6 +82,7 @@ import {
   sourceWith,
   sourceWithout,
   towardSourceRow,
+  trackDragSelection,
   trackRows,
 } from './row-order';
 import type {
@@ -94,72 +102,12 @@ import type {
  */
 export const ROW_DRAG_HANDLE_FIELD = '__tbw_row_drag';
 
-// ---------------------------------------------------------------------------
-// Cross-window coordination via BroadcastChannel
-// ---------------------------------------------------------------------------
-//
-// Same-window cross-grid drops can locate the source grid and its plugin via
-// `document.getElementById(sourceGridId)` — the target plugin handles both
-// sides of the transfer in `onDrop` (insert into target + remove from source
-// + emit `row-transfer` on both grids).
-//
-// Cross-window drops can't reach the source DOM that way. The target window
-// broadcasts a `tbw-row-drag-drop:transfer` message; each window has a single
-// channel and fans the message out to every attached plugin instance, which
-// matches on `sourceGridId === this.gridId` and runs the source-side path
-// (row removal on `move`, `row-transfer` emit, `dragAccepted` flip).
-//
-// The channel is created lazily on the first plugin that needs it and shared
-// across all instances in the window. It's torn down when the last instance
-// detaches so we don't leak a handle in environments where the plugin is
-// repeatedly attached/detached.
-
-/** @internal */
-interface RemoteTransferMessage {
-  type: 'tbw-row-drag-drop:transfer';
+/** Rows a drag picked up, by occurrence: `display[indices[k]] === rows[k]`. */
+interface DragSelection<T> {
   sessionId: string;
-  sourceGridId: string;
-  toGridId: string;
-  dropZone: string;
-  rowIndices: number[];
-  toIndex: number;
-  operation: 'move' | 'copy';
-  /** Pre-serialized rows (the same shape `serializeRow` produced on dragstart). */
-  serializedRows: unknown[];
-}
-
-type RemoteTransferListener = (msg: RemoteTransferMessage) => void;
-
-const CROSS_WINDOW_CHANNEL_NAME = 'tbw-row-drag-drop';
-let sharedChannel: BroadcastChannel | null = null;
-const remoteListeners = new Set<RemoteTransferListener>();
-
-function ensureCrossWindowChannel(): BroadcastChannel | null {
-  if (typeof BroadcastChannel === 'undefined') return null;
-  if (sharedChannel) return sharedChannel;
-  try {
-    sharedChannel = new BroadcastChannel(CROSS_WINDOW_CHANNEL_NAME);
-    sharedChannel.addEventListener('message', (event: MessageEvent) => {
-      const data = event.data as RemoteTransferMessage | undefined;
-      if (!data || data.type !== 'tbw-row-drag-drop:transfer') return;
-      // Snapshot to tolerate listeners that detach during dispatch.
-      for (const listener of Array.from(remoteListeners)) {
-        try {
-          listener(data);
-        } catch {
-          /* listener errors must not break sibling listeners */
-        }
-      }
-    });
-  } catch {
-    sharedChannel = null;
-  }
-  return sharedChannel;
-}
-
-function registerRemoteTransferListener(listener: RemoteTransferListener): void {
-  remoteListeners.add(listener);
-  ensureCrossWindowChannel();
+  rows: T[];
+  indices: number[];
+  display: readonly unknown[];
 }
 
 /**
@@ -173,29 +121,6 @@ function registerRemoteTransferListener(listener: RemoteTransferListener): void 
  * instance in the window may have a different one; `peersInDropZone()` narrows.
  */
 const attachedPlugins = new Set<unknown>();
-
-function unregisterRemoteTransferListener(listener: RemoteTransferListener): void {
-  remoteListeners.delete(listener);
-  if (remoteListeners.size === 0 && sharedChannel) {
-    try {
-      sharedChannel.close();
-    } catch {
-      /* noop */
-    }
-    sharedChannel = null;
-  }
-}
-
-function broadcastRemoteTransfer(msg: RemoteTransferMessage): void {
-  const channel = ensureCrossWindowChannel();
-  if (!channel) return;
-  try {
-    channel.postMessage(msg);
-  } catch {
-    /* postMessage may throw on uncloneable payloads — acceptable; user can
-     * supply `serializeRow` to provide a structured-cloneable shape. */
-  }
-}
 
 /**
  * Row Drag-Drop Plugin for `<tbw-grid>`.
@@ -296,14 +221,22 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
   /** Display the drag's `draggedIndices` refer to — maps them across renders by occurrence. */
   private dragDisplay: readonly unknown[] = [];
   private draggedIndices: number[] = [];
+  private dragStartIndices: number[] = [];
   private dragSessionId: string | null = null;
   private dragAccepted = false;
+  /**
+   * The last cross-grid `move` drag, kept past `dragend` because a target in
+   * another window acknowledges it over the channel, possibly after `dragend`
+   * (#666). `indices` point into `display`; one session only, replaced by the
+   * next drag, so an unacknowledged drag cannot pile up.
+   */
+  private unackedDrag: DragSelection<T> | null = null;
   private dropRowIndex: number | null = null;
   /** Row under the pointer at the last `dragover`, and which half of it (#663). */
   private dropTarget: { index: number; before: boolean } | null = null;
   /** Memo of the last structural `dragover` check — `dragover` repeats for the same spot. */
   private dropCheck: { index: number; before: boolean; ok: boolean } | null = null;
-  /** A structural move was applied; the row model (e.g. Tree's metadata) is stale until the next render. */
+  /** A row mutation was applied; the displayed rows are stale until the next render. */
   private awaitingRender = false;
   /**
    * Displayed order after a flat move committed this tick: `grid.rows =` only
@@ -360,6 +293,7 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     if (this.dragSessionId) clearDragSession(this.dragSessionId);
     clearCurrentDragSession();
     this.resetDragState();
+    this.unackedDrag = null;
     this.awaitingRender = false;
     this.pendingDisplay = null;
     this.focusAfterRender = null;
@@ -427,7 +361,7 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
       // Re-point the dragged occurrences (also the intra payload's `rowIndices`) at this render.
       this.dragDisplay = trackRows(this.dragDisplay, this.displayRows, this.draggedRows, this.draggedIndices);
       this.dropTarget = this.dropRowIndex = this.dropCheck = null; // display indices of the old render
-    }
+    } else if (this.unackedDrag) trackDragSelection(this.unackedDrag, this.displayRows);
     const follow = this.focusAfterRender;
     if (!follow) return;
     this.focusAfterRender = null;
@@ -660,6 +594,7 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
 
   /** Emit the cancelable `row-move` for `plan` and apply it. `false` when cancelled. */
   private commitMove(plan: PlannedMove, fromIndex: number, toIndex: number, source: 'keyboard' | 'drag'): boolean {
+    const before = this.displayRows;
     const detail: RowMoveDetail<T> = {
       row: this.displayRows[fromIndex],
       fromIndex: plan.fromIndex ?? fromIndex,
@@ -683,7 +618,10 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
       this.grid.rows = plan.rows;
     }
     if (plan.structural) this.awaitingRender = true;
-    else if (plan.display) this.pendingDisplay = plan.display as T[];
+    else if (plan.display) {
+      this.pendingDisplay = plan.display as T[];
+      if (source === 'keyboard') this.trackDragMove(fromIndex, toIndex, plan.display, before);
+    }
     return true;
   }
 
@@ -809,10 +747,11 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
 
     this.isDragging = true;
     this.draggedRows = rows;
-    this.draggedIndices = indices;
+    [this.draggedIndices, this.dragStartIndices] = [indices, indices.slice()];
     this.dragDisplay = [...this.displayRows];
     this.dragSessionId = sessionId;
     this.dragAccepted = false;
+    this.unackedDrag = null;
 
     // Build the cross-grid payload (always built, even when dropZone is empty —
     // intra-grid drops still benefit from the registry round-trip)
@@ -1094,20 +1033,36 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     const dropZone = this.config.dropZone ?? '';
     if (!dropZone || msg.dropZone !== dropZone) return;
 
+    if (msg.operation === 'move' && this.isDragging && this.dragSessionId === msg.sessionId && this.dragAccepted)
+      return;
+
     // Resolve incoming rows (for the `row-transfer` event payload).
     const deserialize = this.config.deserializeRow ?? ((r: unknown) => r as T);
     const incomingRows: T[] = msg.serializedRows.map((r) => deserialize(r));
 
     if (msg.operation === 'move') {
+      // The echoed `rowIndices` are dragstart's; renders since then may have shifted
+      // the rows, so remove the occurrences this window tracked for the session (#666).
+      // An unknown session is not a drag of ours (or one already settled): ignore it.
+      if (!this.dragSelection(msg.sessionId)) return;
+      this.settlePending();
+      const drag = this.dragSelection(msg.sessionId);
+      if (!drag) return;
+      this.unackedDrag = null;
+      const indices = [...drag.indices];
+      trackRows(drag.display, this.displayRows, drag.rows, indices);
       // The target window already committed; a vetoed removal can only leave the source as-is.
-      const next = this.planRemoval(null, msg.rowIndices);
-      if (next) this.grid.rows = next;
+      const next = this.planRemoval(drag.rows, indices);
+      if (next) {
+        this.awaitingRender = true;
+        this.grid.rows = next;
+      }
     }
 
     // Flip accepted before dragend (best-effort — the message may arrive after
     // dragend has already fired with `accepted: false`; `row-transfer` is the
     // authoritative success signal).
-    this.dragAccepted = true;
+    if (this.isDragging && this.dragSessionId === msg.sessionId) this.dragAccepted = true;
 
     this.emit('row-transfer', {
       rows: incomingRows,
@@ -1126,15 +1081,25 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     this.gridElement.classList.remove('tbw-grid--drag-source');
 
     if (this.isDragging) {
-      const endDetail: RowDragEndDetail<T> = {
-        rows: this.draggedRows,
-        indices: this.draggedIndices,
-        accepted: this.dragAccepted,
-      };
+      this.flushPendingMove();
+      const indices = this.dragStartIndices.slice();
+      const endDetail: RowDragEndDetail<T> = { rows: this.draggedRows, indices, accepted: this.dragAccepted };
       this.emit('row-drag-end', endDetail);
+      // A target in another window acknowledges over the channel, possibly after this dragend.
+      const awaitsRemote = !this.dragAccepted && !!this.config.dropZone && (this.config.operation ?? 'move') === 'move';
+      this.unackedDrag = awaitsRemote ? this.dragSelection(this.dragSessionId) : null;
     }
     this.clearDragClasses();
     this.resetDragState();
+  }
+
+  /** The rows drag `sessionId` picked up, while dragging or after an unacknowledged `dragend`. */
+  private dragSelection(sessionId: string | null): DragSelection<T> | null {
+    if (sessionId === null) return null;
+    if (this.isDragging && this.dragSessionId === sessionId) {
+      return { sessionId, rows: this.draggedRows, indices: [...this.draggedIndices], display: this.dragDisplay };
+    }
+    return this.unackedDrag?.sessionId === sessionId ? this.unackedDrag : null;
   }
   // #endregion
 
@@ -1344,7 +1309,7 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
   private resetDragState(): void {
     this.isDragging = false;
     this.dragDisplay = this.draggedRows = [];
-    this.draggedIndices = [];
+    this.draggedIndices = this.dragStartIndices = [];
     this.dragSessionId = null;
     this.dragAccepted = false;
     this.dropRowIndex = this.dropTarget = this.dropCheck = null;
@@ -1416,6 +1381,7 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     const [movedRow] = rows.splice(fromIndex, 1);
     rows.splice(toIndex, 0, movedRow);
 
+    this.trackDragMove(fromIndex, toIndex, rows, this.displayRows);
     grid._rows = rows;
     this.pendingDisplay = null;
     grid._focusRow = toIndex;
@@ -1457,7 +1423,9 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     if (cancelled) {
       // Revert: `sourceRows` was never touched during the pending move, only
       // `grid._rows` was — move that one occurrence back (other copies stay).
-      grid._rows = moveAt(display, currentIndex, originalIndex, currentIndex < originalIndex ? 'after' : 'before');
+      const reverted = moveAt(display, currentIndex, originalIndex, currentIndex < originalIndex ? 'after' : 'before');
+      grid._rows = reverted;
+      this.trackDragMove(currentIndex, originalIndex, reverted, display);
       grid._focusRow = originalIndex;
       grid._focusCol = this.lastFocusCol;
       grid.refreshVirtualWindow(true);
@@ -1469,6 +1437,23 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     this.grid.rows = rows;
     this.pendingDisplay = display;
     return null;
+  }
+
+  /** Keep a drag's exact displayed occurrences aligned across keyboard splices. */
+  private trackDragMove(
+    fromIndex: number,
+    toIndex: number,
+    display: readonly unknown[],
+    before: readonly unknown[],
+  ): void {
+    const indices = this.isDragging ? this.draggedIndices : this.unackedDrag?.indices;
+    if (!indices || indices.length === 0) return;
+    if (!this.isDragging && this.unackedDrag) {
+      this.unackedDrag.display = trackRows(this.unackedDrag.display, before, this.unackedDrag.rows, indices);
+    }
+    for (let i = 0; i < indices.length; i++) indices[i] = shiftedIndex(indices[i], fromIndex, toIndex);
+    if (this.isDragging) this.dragDisplay = [...display];
+    else if (this.unackedDrag) this.unackedDrag.display = [...display];
   }
 
   private captureRowPositions(): Map<number, number> {

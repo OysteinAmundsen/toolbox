@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.12.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.12.2...grid-3.12.3) (2026-11-20)
+
+
+### Bug Fixes
+
+* **grid/row-drag-drop/tree/grouping-rows:** move tree rows with their subtrees and resolve row moves by identity ([#663](https://github.com/OysteinAmundsen/toolbox/issues/663)) ([#664](https://github.com/OysteinAmundsen/toolbox/issues/664)) ([f5580b9](https://github.com/OysteinAmundsen/toolbox/commit/f5580b92dbab605719079395a2e04928b133d54d))
+* **row-drag-drop:** resolve cross-window move removal from the source's tracked drag, not echoed dragstart indices ([#666](https://github.com/OysteinAmundsen/toolbox/issues/666)) ([#669](https://github.com/OysteinAmundsen/toolbox/issues/669)) ([60ff546](https://github.com/OysteinAmundsen/toolbox/commit/60ff5464d2753edd35fe20a69155f7c7d73917e0))
+
 ## [3.12.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.12.1...grid-3.12.2) (2026-11-17)
 
 

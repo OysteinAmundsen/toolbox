@@ -184,7 +184,9 @@ git status --porcelain
    The review arrives as a normal PR review from `copilot-pull-request-reviewer[bot]` whose `commit_id`
    is the new head SHA (≈5–15 min; the script polls for up to 25). Run it as a long-running command and
    wait for it to exit; do not poll by hand. On `TIMEOUT`, run it once more without `--request`, then
-   stop and report.
+   stop and report. To read a review's verdict by hand, use
+   `gh api --paginate repos/<owner>/<repo>/pulls/<pr>/reviews`: the endpoint pages at 30, so after a long
+   loop an unpaginated `| last` silently returns an old round's review.
 
 5. **Triage** the new unresolved threads (steps 1–3).
    - **Something was fixed** (any valid or partially valid thread changed code) → next round.

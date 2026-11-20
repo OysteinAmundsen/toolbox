@@ -42,8 +42,19 @@ if (argv.includes('--request')) gh(['pr', 'edit', pr, '--repo', repo, '--add-rev
 const head = JSON.parse(gh(['pr', 'view', pr, '--repo', repo, '--json', 'headRefOid'])).headRefOid;
 console.log(`Waiting for a Copilot review of ${head.slice(0, 8)} on ${repo}#${pr}`);
 const start = Date.now();
+let failures = 0;
 while (Date.now() - start < timeoutMs) {
-  const reviews = JSON.parse(gh(['api', `repos/${repo}/pulls/${pr}/reviews`, '--paginate', '--slurp'])).flat();
+  let reviews;
+  try {
+    reviews = JSON.parse(gh(['api', `repos/${repo}/pulls/${pr}/reviews`, '--paginate', '--slurp'])).flat();
+    failures = 0;
+  } catch (error) {
+    // One failed poll (network blip, API 5xx) must not end a 25-minute wait; three in a row is real.
+    if (++failures >= 3) throw error;
+    console.log(`poll failed (${failures}/3), retrying: ${String(error.message ?? error).split('\n')[0]}`);
+    await new Promise((resolve) => setTimeout(resolve, 30_000));
+    continue;
+  }
   const review = reviews.filter((r) => /copilot/i.test(r.user?.login ?? '') && r.commit_id === head).at(-1);
   if (review) {
     console.log(`REVIEW ${review.id} ${review.state} ${review.submitted_at}`);

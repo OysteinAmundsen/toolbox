@@ -197,6 +197,14 @@ bunx playwright test --config=e2e/playwright.config.ts performance-regression
 | `PERF_CDN_VERSION` | Override CDN version to compare against (default: `latest`) |
 | `PERF_RUN_ID`      | Unique ID for the output file (`perf-metrics-{runId}.json`) |
 
+**A self-comparison fails in CI but passes locally?** CI runs 4 workers on 4 vCPUs, so the comparison shares the CPU. Before touching the gate, prove which it is:
+
+1. **Same-code spread.** In a throwaway script, load the local UMD and the CDN UMD on two pages and record single samples interleaved, unthrottled and with CDP `Emulation.setCPUThrottlingRate` 4–6. Similar medians plus a wide per-sample spread mean noise, not a regression.
+2. **False-positive rate.** Repeat the gate's exact statistic about 12 times under 4× throttling with every core busy (spawn one `bun -e "for(;;){}"` per logical core; stop them by PID afterwards). Count how often it flags.
+3. **Sensitivity.** Inject a known slowdown on the local page only, by wrapping `requestAnimationFrame` with a 10–30 ms busy-wait. A candidate statistic must flag it in every run, unloaded and loaded.
+
+Change the statistic only if it passes both 2 and 3. The precedent is #665, where `min` failed 6/12 and the paired-ratio median 0/14, and both caught the injected slowdown.
+
 ## Grid-stability tests
 
 Structural assertions against the vanilla demo (virtualization bounds, zero JS errors, no memory/DOM leaks). Fast, deterministic, part of the regular `e2e` suite — no separate command needed.

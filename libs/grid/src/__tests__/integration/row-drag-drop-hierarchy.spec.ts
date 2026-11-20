@@ -13,8 +13,10 @@ import { FilteringPlugin } from '../../lib/plugins/filtering/filtering-plugin';
 import { GroupingRowsPlugin } from '../../lib/plugins/grouping-rows/grouping-rows-plugin';
 import { MultiSortPlugin } from '../../lib/plugins/multi-sort/multi-sort-plugin';
 import { RowDragDropPlugin } from '../../lib/plugins/row-drag-drop/row-drag-drop-plugin';
+import { decodePayload, TBW_ROW_DRAG_MIME } from '../../lib/plugins/shared/drag-drop-protocol';
 import type {
   RowDragDropConfig,
+  RowDragPayload,
   RowMoveDetail,
   RowMoveQuery,
   RowMoveResolution,
@@ -107,8 +109,67 @@ function fireDrag(target: Element, type: string) {
   target.dispatchEvent(event);
 }
 
+class TestBroadcastChannel {
+  static instances: TestBroadcastChannel[] = [];
+  private listeners: ((event: MessageEvent) => void)[] = [];
+
+  constructor(readonly name: string) {
+    TestBroadcastChannel.instances.push(this);
+  }
+
+  addEventListener(_type: string, listener: (event: MessageEvent) => void) {
+    this.listeners.push(listener);
+  }
+
+  removeEventListener(_type: string, listener: (event: MessageEvent) => void) {
+    this.listeners = this.listeners.filter((candidate) => candidate !== listener);
+  }
+
+  postMessage(data: unknown) {
+    for (const channel of TestBroadcastChannel.instances) {
+      if (channel === this || channel.name !== this.name) continue;
+      for (const listener of channel.listeners) listener({ data } as MessageEvent);
+    }
+  }
+
+  close() {
+    this.listeners = [];
+    TestBroadcastChannel.instances = TestBroadcastChannel.instances.filter((channel) => channel !== this);
+  }
+}
+
+function startCrossWindowDrag(grid: DataGridElement, rowIndex: number): RowDragPayload<Node> {
+  const data = new Map<string, string>();
+  const event = new Event('dragstart', { bubbles: true, cancelable: true });
+  Object.defineProperty(event, 'dataTransfer', {
+    value: { effectAllowed: '', setData: (type: string, value: string) => data.set(type, value) },
+  });
+  grid.querySelector<HTMLElement>(`.cell[data-row="${rowIndex}"] .dg-row-drag-handle`)!.dispatchEvent(event);
+  const payload = decodePayload<Node>(data.get(TBW_ROW_DRAG_MIME) ?? '');
+  if (!payload) throw new Error('dragstart did not set a row drag payload');
+  return payload;
+}
+
+function acknowledgeCrossWindowMove(payload: RowDragPayload<Node>) {
+  const remote = new TestBroadcastChannel('tbw-row-drag-drop');
+  remote.postMessage({
+    type: 'tbw-row-drag-drop:transfer',
+    sessionId: payload.sessionId,
+    sourceGridId: payload.sourceGridId,
+    toGridId: 'remote-grid',
+    dropZone: payload.dropZone,
+    rowIndices: payload.rowIndices,
+    toIndex: 0,
+    operation: 'move',
+    serializedRows: payload.rows,
+  });
+  remote.close();
+}
+
 afterEach(() => {
   document.body.innerHTML = '';
+  for (const channel of [...TestBroadcastChannel.instances]) channel.close();
+  vi.unstubAllGlobals();
 });
 
 describe('RowDragDrop + Tree (#663)', () => {
@@ -521,6 +582,156 @@ describe('RowDragDrop + Tree (#663)', () => {
 
     expect(display(grid)).toEqual(['Q', 'P', 'c']);
   });
+});
+
+describe('RowDragDrop cross-window acknowledgements (#669)', () => {
+  async function mountFlat(rows: Node[], extra: BaseGridPlugin[] = [], rddFirst = false) {
+    vi.stubGlobal('BroadcastChannel', TestBroadcastChannel);
+    const rdd = new RowDragDropPlugin({ animation: false, dropZone: 'z' });
+    const grid = createGrid();
+    grid.gridConfig = {
+      columns: [{ field: 'name' }],
+      plugins: rddFirst ? [rdd, ...extra] : [...extra, rdd],
+    };
+    grid.rows = rows;
+    await waitUpgrade(grid);
+    return { grid, rdd };
+  }
+
+  it('blocks another reorder until the remotely removed rows render', async () => {
+    const rows = [node('P'), node('Q'), node('R'), node('S')];
+    const { grid, rdd } = await mountFlat(rows);
+    const payload = startCrossWindowDrag(grid, 1);
+    grid._focusRow = 0;
+    rdd.onKeyDown(new KeyboardEvent('keydown', { key: 'ArrowDown', altKey: true }));
+
+    let canMoveBeforeRemovalRenders = true;
+    grid.addEventListener('row-transfer', () => {
+      canMoveBeforeRemovalRenders = rdd.canMoveRow(1, 2);
+      rdd.moveRow(1, 2);
+    });
+    acknowledgeCrossWindowMove(payload);
+
+    expect(canMoveBeforeRemovalRenders).toBe(false);
+    await waitUpgrade(grid);
+    expect(names(grid.sourceRows)).toEqual(['P', 'R', 'S']);
+    expect(display(grid)).toEqual(['P', 'R', 'S']);
+    expect(rdd.canMoveRow(1, 2)).toBe(true);
+
+    rdd.moveRow(1, 2);
+    await waitUpgrade(grid);
+    expect(names(grid.sourceRows)).toEqual(['P', 'S', 'R']);
+  });
+
+  it('reconciles an unacknowledged drag before shifting it through a keyboard move', async () => {
+    const rows = [node('P'), node('Q'), node('R')];
+    const { grid, rdd } = await mountFlat(rows);
+    const payload = startCrossWindowDrag(grid, 1);
+    fireDrag(grid, 'dragend');
+
+    const [p, q, r] = rows;
+    grid.rows = [p, node('X'), q, r];
+    await waitUpgrade(grid);
+    grid._focusRow = 3;
+    rdd.onKeyDown(new KeyboardEvent('keydown', { key: 'ArrowUp', altKey: true }));
+
+    acknowledgeCrossWindowMove(payload);
+    await waitUpgrade(grid);
+
+    expect(names(grid.sourceRows)).toEqual(['P', 'X', 'R']);
+    expect(display(grid)).toEqual(['P', 'X', 'R']);
+  });
+
+  it('does not let an unrelated copy confirmation accept the active move', async () => {
+    const rows = [node('P'), node('Q'), node('R')];
+    const { grid } = await mountFlat(rows);
+    const payload = startCrossWindowDrag(grid, 1);
+    const operations: string[] = [];
+    grid.addEventListener('row-transfer', (event) => {
+      operations.push((event as CustomEvent<{ operation: string }>).detail.operation);
+    });
+
+    const copy = new TestBroadcastChannel('tbw-row-drag-drop');
+    copy.postMessage({
+      type: 'tbw-row-drag-drop:transfer',
+      sessionId: 'unrelated-session',
+      sourceGridId: payload.sourceGridId,
+      toGridId: 'copy-target',
+      dropZone: payload.dropZone,
+      rowIndices: [0],
+      toIndex: 0,
+      operation: 'copy',
+      serializedRows: [payload.rows[0]],
+    });
+    copy.close();
+    expect(operations).toEqual(['copy']);
+
+    acknowledgeCrossWindowMove(payload);
+    await waitUpgrade(grid);
+
+    expect(names(grid.sourceRows)).toEqual(['P', 'R']);
+    expect(operations).toEqual(['copy', 'move']);
+  });
+
+  it.each([false, true])(
+    'rejects a queued source update that removes part of a multi-row drag (RowDragDrop first: %s)',
+    async (rddFirst) => {
+      const rows = [node('P'), node('Q'), node('R')];
+      const selection = new SelectionPlugin({ mode: 'row' });
+      const { grid } = await mountFlat(rows, [selection], rddFirst);
+      selection.selectRows([1, 2]);
+      const payload = startCrossWindowDrag(grid, 1);
+      fireDrag(grid, 'dragend');
+
+      grid.rows = [rows[0], rows[2]];
+      acknowledgeCrossWindowMove(payload);
+      await waitUpgrade(grid);
+
+      expect(names(grid.sourceRows)).toEqual(['P', 'R']);
+    },
+  );
+
+  it.each([false, true])(
+    'rejects a queued update that removes one selected repeated-row occurrence (RowDragDrop first: %s)',
+    async (rddFirst) => {
+      const duplicate = node('A');
+      const rows = [node('P'), duplicate, duplicate, node('R')];
+      const selection = new SelectionPlugin({ mode: 'row' });
+      const { grid } = await mountFlat(rows, [selection], rddFirst);
+      selection.selectRows([1, 2]);
+      const payload = startCrossWindowDrag(grid, 1);
+      fireDrag(grid, 'dragend');
+
+      grid.rows = [rows[0], duplicate, rows[3]];
+      acknowledgeCrossWindowMove(payload);
+      await waitUpgrade(grid);
+
+      expect(names(grid.sourceRows)).toEqual(['P', 'A', 'R']);
+    },
+  );
+
+  it.each([false, true])(
+    'does not resurrect an unacknowledged drag occurrence across successive renders (RowDragDrop first: %s)',
+    async (rddFirst) => {
+      const duplicate = node('A');
+      const [a, b, c] = [duplicate, node('B'), node('C')];
+      const rows = [a, b, a, c];
+      const selection = new SelectionPlugin({ mode: 'row' });
+      const { grid } = await mountFlat(rows, [selection], rddFirst);
+      selection.selectRows([2]);
+      const payload = startCrossWindowDrag(grid, 2);
+      fireDrag(grid, 'dragend');
+
+      grid.rows = [b, a, c];
+      await waitUpgrade(grid);
+      grid.rows = [b, a, c, a];
+      await waitUpgrade(grid);
+      acknowledgeCrossWindowMove(payload);
+      await waitUpgrade(grid);
+
+      expect(names(grid.sourceRows)).toEqual(['B', 'A', 'C', 'A']);
+    },
+  );
 });
 
 describe('RowDragDrop cross-grid vetoes (#663)', () => {

@@ -235,7 +235,10 @@ Under the hood the plugin sets a custom MIME type on `dataTransfer` and
 opens a `BroadcastChannel('tbw-row-drag-drop')`. The target window decodes
 the payload from `dataTransfer` and broadcasts a confirmation; the source
 window's plugin instance listens on the same channel and — on `move` —
-removes the transferred rows and emits `row-transfer` locally.
+removes the transferred rows and emits `row-transfer` locally. The source
+removes the rows it picked up, even when its data re-rendered mid-drag
+(a lazy tree child loading, a live data update), and ignores confirmations
+for any drag but its most recent one.
 
 **Custom row shapes.** Rows are round-tripped through `JSON.parse(JSON.stringify(row))`
 by default. If your rows contain non-JSON values (functions, `Date`, `Map`,
@@ -262,6 +265,8 @@ features: {
 - The source's `row-drag-end` may fire with `accepted: false` before the
   remote confirmation arrives. Treat the `row-transfer` event as the
   authoritative success signal for cross-window transfers.
+- If a dragged row leaves the source grid before the confirmation arrives,
+  the source keeps its rows as they are; the target still has its copy.
 
 ## Trees and Grouped Rows
 

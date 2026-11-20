@@ -3,6 +3,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ColumnConfig } from '../../core/types';
+import { decodePayload, TBW_ROW_DRAG_MIME } from '../shared/drag-drop-protocol';
 import { ROW_DRAG_HANDLE_FIELD, RowDragDropPlugin } from './row-drag-drop-plugin';
 import type { RowMoveDetail } from './types';
 
@@ -16,13 +17,14 @@ function createGridMock(rows: any[] = []) {
     _focusCol: 0,
     _columns: [] as any[],
     _bodyEl: bodyEl,
+    getPluginByName: (_name: string): { getSelectedRowIndices?: () => number[] } | undefined => undefined,
     _virtualization: { enabled: false, start: 0, end: rows.length },
     gridConfig: {},
     getPlugin: () => undefined,
     queryPlugins: () => [],
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(() => true),
+    dispatchEvent: vi.fn((_event: Event) => true),
     requestRender: vi.fn(),
     refreshVirtualWindow: vi.fn(),
     children: [document.createElement('div')],
@@ -30,6 +32,7 @@ function createGridMock(rows: any[] = []) {
     querySelector: () => null,
     clientWidth: 800,
     classList: { add: vi.fn(), remove: vi.fn() },
+    focus: vi.fn(),
   };
   return mock;
 }
@@ -1437,7 +1440,9 @@ describe('RowDragDropPlugin', () => {
     });
 
     afterEach(() => {
+      for (const plugin of mounted.splice(0)) plugin.detach();
       document.body.innerHTML = '';
+      vi.useRealTimers();
       if (originalBC === undefined) {
         delete (globalThis as { BroadcastChannel?: typeof BroadcastChannel }).BroadcastChannel;
       } else {
@@ -1445,66 +1450,95 @@ describe('RowDragDropPlugin', () => {
       }
     });
 
-    it('source plugin removes rows and emits row-transfer when a remote target broadcasts', () => {
-      const sourceRows: { id: number; name: string }[] = [
-        { id: 1, name: 'Alice' },
-        { id: 2, name: 'Bob' },
-        { id: 3, name: 'Carol' },
-      ];
-      const sourcePlugin = new RowDragDropPlugin<{ id: number; name: string }>({
-        dropZone: 'employees',
-        operation: 'move',
+    type Row = { id: string };
+    /** Sources mounted by `mountSource`, detached in `afterEach` even when a test fails (the channel is module-level). */
+    const mounted: RowDragDropPlugin<Row>[] = [];
+
+    /** A source grid in a `move` drop zone with one DOM row (handle + `data-row` cell) per row. */
+    function mountSource(id: string, rows: Row[], selectedIndices?: number[]) {
+      const grid = createGridMock(rows);
+      const host = document.createElement('div');
+      host.id = id;
+      rows.forEach((_, i) => {
+        const row = document.createElement('div');
+        row.className = 'data-grid-row';
+        row.innerHTML = `<div class="cell" data-row="${i}"></div><div class="dg-row-drag-handle"></div>`;
+        host.appendChild(row);
       });
-      const sourceGrid = createGridMock(sourceRows);
-      // Real DOM host so the plugin assigns a stable id and registers a listener.
-      const hostEl = document.createElement('div');
-      hostEl.id = 'src-grid';
-      document.body.appendChild(hostEl);
-      (sourceGrid as unknown as { _hostElement: HTMLElement })._hostElement = hostEl;
-      // Wire `rows` setter so the plugin's `this.grid.rows = newRows` actually mutates.
-      Object.defineProperty(sourceGrid, 'rows', {
-        get() {
-          return sourceRows;
-        },
-        set(v: typeof sourceRows) {
-          sourceRows.length = 0;
-          sourceRows.push(...v);
-        },
+      document.body.appendChild(host);
+      Object.defineProperty(grid, '_hostElement', { value: host });
+      grid._bodyEl = host;
+      if (selectedIndices) {
+        grid.getPluginByName = () => ({ getSelectedRowIndices: () => selectedIndices });
+      }
+      // Wire `rows` so the plugin's `this.grid.rows = next` mutates the shared array.
+      Object.defineProperty(grid, 'rows', {
+        get: () => rows,
+        set: (v: Row[]) => rows.splice(0, rows.length, ...v),
         configurable: true,
       });
-      sourcePlugin.attach(sourceGrid as never);
+      const transfers = captureTransfers(grid);
+      const plugin = new RowDragDropPlugin<Row>({ dropZone: 'employees', operation: 'move' });
+      plugin.attach(grid as never);
+      mounted.push(plugin);
+      return { host, grid, plugin, transfers };
+    }
 
+    function captureTransfers(grid: ReturnType<typeof createGridMock>): unknown[] {
       const transfers: unknown[] = [];
-      sourceGrid.dispatchEvent = vi.fn((event: Event) => {
+      grid.dispatchEvent = vi.fn((event: Event) => {
         if (event.type === 'row-transfer') transfers.push((event as CustomEvent).detail);
         return true;
       });
+      return transfers;
+    }
 
-      // Simulate a target window broadcasting a successful 'move' transfer of
-      // rows [0, 2] (Alice + Carol) into another grid at index 0.
-      const fake = channels[0];
-      fake.listeners.forEach((l) =>
+    /** Starts a drag of display row `index`; returns its session id. */
+    function startDrag(host: HTMLElement, plugin: RowDragDropPlugin<Row>, index: number): string {
+      const event = new Event('dragstart', { bubbles: true });
+      const payloads = new Map<string, string>();
+      Object.defineProperty(event, 'dataTransfer', {
+        value: { effectAllowed: '', setData: vi.fn((type: string, value: string) => payloads.set(type, value)) },
+      });
+      host.querySelectorAll('.dg-row-drag-handle')[index].dispatchEvent(event);
+      const payload = decodePayload(payloads.get(TBW_ROW_DRAG_MIME) ?? '');
+      if (!payload) throw new Error('dragstart did not set a row drag payload');
+      return payload.sessionId;
+    }
+
+    /** What a target window broadcasts after accepting a `move` of `rows` (dragstart `rowIndices`). */
+    function broadcastMove(sessionId: string, sourceGridId: string, rowIndices: number[], rows: Row[]) {
+      channels[0].listeners.forEach((l) =>
         l({
           data: {
             type: 'tbw-row-drag-drop:transfer',
-            sessionId: 'sess-1',
-            sourceGridId: 'src-grid',
+            sessionId,
+            sourceGridId,
             toGridId: 'remote-grid',
             dropZone: 'employees',
-            rowIndices: [0, 2],
+            rowIndices,
             toIndex: 0,
             operation: 'move',
-            serializedRows: [
-              { id: 1, name: 'Alice' },
-              { id: 3, name: 'Carol' },
-            ],
+            serializedRows: rows,
           },
         } as MessageEvent),
       );
+    }
 
-      // Source rows shrunk to just Bob.
-      expect(sourceRows.map((r) => r.id)).toEqual([2]);
-      // row-transfer was emitted on the source grid with the full detail.
+    function pressMoveDown(plugin: RowDragDropPlugin<Row>) {
+      plugin.onKeyDown(new KeyboardEvent('keydown', { key: 'ArrowDown', ctrlKey: true }));
+    }
+
+    it('source plugin removes rows and emits row-transfer when a remote target broadcasts', () => {
+      const [alice, bob, carol] = [{ id: 'alice' }, { id: 'bob' }, { id: 'carol' }];
+      const rows = [alice, bob, carol];
+      const { host, plugin, transfers } = mountSource('src-grid', rows, [0, 2]);
+      const sessionId = startDrag(host, plugin, 0);
+      host.dispatchEvent(new Event('dragend', { bubbles: true }));
+
+      broadcastMove(sessionId, 'src-grid', [0, 2], [alice, carol]);
+
+      expect(rows).toEqual([bob]);
       expect(transfers).toHaveLength(1);
       expect(transfers[0]).toMatchObject({
         fromGridId: 'src-grid',
@@ -1513,10 +1547,235 @@ describe('RowDragDropPlugin', () => {
         toIndex: 0,
         operation: 'move',
       });
-      // dragAccepted flipped so a subsequent dragend reports accepted=true.
-      expect((sourcePlugin as unknown as { dragAccepted: boolean }).dragAccepted).toBe(true);
+    });
 
-      sourcePlugin.detach();
+    describe('removes the dragged rows, not the rows at the echoed dragstart indices (#666)', () => {
+      const [p, q, r, x] = [{ id: 'p' }, { id: 'q' }, { id: 'r' }, { id: 'x' }];
+
+      it.each([
+        ['after dragend', true],
+        ['before dragend', false],
+      ])('when the broadcast arrives %s', (_, endFirst) => {
+        const rows = [p, q, r];
+        const { host, plugin } = mountSource('src-666', rows);
+        const sessionId = startDrag(host, plugin, 1);
+        rows.splice(1, 0, x); // mid-drag re-render: a lazy child lands above Q → [P, x, Q, R]
+        plugin.afterRender();
+        if (endFirst) host.dispatchEvent(new Event('dragend', { bubbles: true }));
+
+        broadcastMove(sessionId, 'src-666', [1], [q]);
+
+        expect(rows).toEqual([p, x, r]);
+      });
+
+      it('ignores a move whose session it cannot resolve', () => {
+        const rows = [p, q, r];
+        const { host, plugin, transfers } = mountSource('src-666b', rows);
+        startDrag(host, plugin, 1);
+        host.dispatchEvent(new Event('dragend', { bubbles: true }));
+
+        broadcastMove('stale-session', 'src-666b', [1], [q]);
+
+        expect(rows).toEqual([p, q, r]);
+        expect(transfers).toHaveLength(0);
+      });
+
+      it('acts on an acknowledgement once', () => {
+        const rows = [p, q, r];
+        const { host, plugin, transfers } = mountSource('src-666c', rows);
+        const sessionId = startDrag(host, plugin, 1);
+        host.dispatchEvent(new Event('dragend', { bubbles: true }));
+
+        broadcastMove(sessionId, 'src-666c', [1], [q]);
+        broadcastMove(sessionId, 'src-666c', [1], [q]);
+
+        expect(rows).toEqual([p, r]);
+        expect(transfers).toHaveLength(1);
+      });
+
+      it('tracks a duplicate dragged occurrence across pending keyboard moves', () => {
+        vi.useFakeTimers();
+        const [a, b, c] = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+        const rows = [a, b, a, c];
+        const { host, grid, plugin } = mountSource('src-666e', rows);
+        const sessionId = startDrag(host, plugin, 2);
+        host.dispatchEvent(new Event('dragend', { bubbles: true }));
+
+        grid._focusRow = 0;
+        pressMoveDown(plugin);
+        pressMoveDown(plugin);
+        pressMoveDown(plugin);
+        broadcastMove(sessionId, 'src-666e', [2], [a]);
+
+        expect(rows).toEqual([b, c, a]);
+      });
+
+      it('settles an active keyboard reorder before retaining the dragged occurrence at dragend', () => {
+        vi.useFakeTimers();
+        const [a, b, c] = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+        const rows = [a, b, a, c];
+        const { host, grid, plugin } = mountSource('src-666i', rows);
+        const sessionId = startDrag(host, plugin, 2);
+
+        grid._focusRow = 0;
+        pressMoveDown(plugin);
+        pressMoveDown(plugin);
+        pressMoveDown(plugin);
+        host.dispatchEvent(new Event('dragend', { bubbles: true }));
+        broadcastMove(sessionId, 'src-666i', [2], [a]);
+
+        expect(rows).toEqual([b, c, a]);
+      });
+
+      it('reverts a cancelled keyboard reorder before retaining the dragged occurrence at dragend', () => {
+        vi.useFakeTimers();
+        const [a, b, c] = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+        const rows = [a, b, a, c];
+        const { host, grid, plugin } = mountSource('src-666k', rows);
+        const dispatchEvent = grid.dispatchEvent;
+        grid.dispatchEvent = vi.fn((event: Event) => {
+          if (event.type === 'row-move') {
+            event.preventDefault();
+            return false;
+          }
+          return dispatchEvent(event);
+        });
+        const sessionId = startDrag(host, plugin, 2);
+
+        grid._focusRow = 0;
+        pressMoveDown(plugin);
+        pressMoveDown(plugin);
+        pressMoveDown(plugin);
+        host.dispatchEvent(new Event('dragend', { bubbles: true }));
+        broadcastMove(sessionId, 'src-666k', [2], [a]);
+
+        expect(rows).toEqual([a, b, c]);
+      });
+
+      it('emits dragstart indices when a keyboard move occurs before dragend', () => {
+        vi.useFakeTimers();
+        const rows = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+        const { host, grid, plugin } = mountSource('src-666l', rows);
+        const dispatchEvent = grid.dispatchEvent;
+        let endedIndices: number[] | undefined;
+        grid.dispatchEvent = vi.fn((event: Event) => {
+          if (event.type === 'row-drag-end') {
+            endedIndices = (event as CustomEvent<{ indices: number[] }>).detail.indices;
+          }
+          return dispatchEvent(event);
+        });
+        const sessionId = startDrag(host, plugin, 0);
+
+        grid._focusRow = 0;
+        pressMoveDown(plugin);
+        host.dispatchEvent(new Event('dragend', { bubbles: true }));
+
+        expect(endedIndices).toEqual([0]);
+        broadcastMove(sessionId, 'src-666l', [0], [rows[0]]);
+      });
+
+      it('keeps row-drag-end indices unchanged by later keyboard moves', () => {
+        vi.useFakeTimers();
+        const rows = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+        const { host, grid, plugin } = mountSource('src-666j', rows);
+        const dispatchEvent = grid.dispatchEvent;
+        let endedIndices: number[] | undefined;
+        grid.dispatchEvent = vi.fn((event: Event) => {
+          if (event.type === 'row-drag-end') {
+            endedIndices = (event as CustomEvent<{ indices: number[] }>).detail.indices;
+          }
+          return dispatchEvent(event);
+        });
+        const sessionId = startDrag(host, plugin, 0);
+        host.dispatchEvent(new Event('dragend', { bubbles: true }));
+
+        grid._focusRow = 0;
+        pressMoveDown(plugin);
+
+        expect(endedIndices).toEqual([0]);
+        broadcastMove(sessionId, 'src-666j', [0], [rows[0]]);
+      });
+
+      it('tracks a duplicate dragged occurrence when a pending keyboard move is cancelled', () => {
+        vi.useFakeTimers();
+        const [a, b, c] = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+        const rows = [a, b, a, c];
+        const { host, grid, plugin } = mountSource('src-666f', rows);
+        const dispatchEvent = grid.dispatchEvent;
+        grid.dispatchEvent = vi.fn((event: Event) => {
+          if (event.type === 'row-move') {
+            event.preventDefault();
+            return false;
+          }
+          return dispatchEvent(event);
+        });
+        const sessionId = startDrag(host, plugin, 2);
+        host.dispatchEvent(new Event('dragend', { bubbles: true }));
+
+        grid._focusRow = 0;
+        pressMoveDown(plugin);
+        pressMoveDown(plugin);
+        pressMoveDown(plugin);
+        broadcastMove(sessionId, 'src-666f', [2], [a]);
+
+        expect(rows).toEqual([a, b, c]);
+      });
+
+      it('uses the current active drag snapshot after a cancelled keyboard move', () => {
+        vi.useFakeTimers();
+        const [a, b, c] = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+        const rows = [a, b, a, c];
+        const { host, grid, plugin } = mountSource('src-666h', rows);
+        const dispatchEvent = grid.dispatchEvent;
+        grid.dispatchEvent = vi.fn((event: Event) => {
+          if (event.type === 'row-move') {
+            event.preventDefault();
+            return false;
+          }
+          return dispatchEvent(event);
+        });
+        const sessionId = startDrag(host, plugin, 2);
+
+        grid._focusRow = 0;
+        pressMoveDown(plugin);
+        pressMoveDown(plugin);
+        pressMoveDown(plugin);
+        broadcastMove(sessionId, 'src-666h', [2], [a]);
+
+        expect(rows).toEqual([a, b, c]);
+      });
+
+      it('ignores a repeated move acknowledgement before dragend', () => {
+        const [a, b, c] = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+        const rows = [a, b, a, c];
+        const { host, plugin, transfers } = mountSource('src-666g', rows);
+        const sessionId = startDrag(host, plugin, 2);
+
+        broadcastMove(sessionId, 'src-666g', [2], [a]);
+        broadcastMove(sessionId, 'src-666g', [2], [a]);
+
+        expect(rows).toEqual([a, b, c]);
+        expect(transfers).toHaveLength(1);
+      });
+
+      it('settles a pending keyboard move before removing the remotely acknowledged selection', () => {
+        vi.useFakeTimers();
+        const [a, b, c] = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+        const rows = [a, b, c];
+        const { host, plugin, grid } = mountSource('src-666d', rows);
+        const sessionId = startDrag(host, plugin, 0);
+        host.dispatchEvent(new Event('dragend', { bubbles: true }));
+
+        grid._focusRow = 1;
+        const keyboardMove = new KeyboardEvent('keydown', { key: 'ArrowDown', ctrlKey: true });
+        Object.defineProperty(keyboardMove, 'preventDefault', { value: vi.fn() });
+        Object.defineProperty(keyboardMove, 'stopPropagation', { value: vi.fn() });
+        plugin.onKeyDown(keyboardMove);
+
+        broadcastMove(sessionId, 'src-666d', [0], [a]);
+
+        expect(rows).toEqual([c, b]);
+      });
     });
 
     it('source plugin ignores broadcasts with mismatched gridId', () => {
@@ -1592,11 +1851,7 @@ describe('RowDragDropPlugin', () => {
       (grid as unknown as { _hostElement: HTMLElement })._hostElement = hostEl;
       plugin.attach(grid as never);
 
-      const transfers: unknown[] = [];
-      grid.dispatchEvent = vi.fn((event: Event) => {
-        if (event.type === 'row-transfer') transfers.push((event as CustomEvent).detail);
-        return true;
-      });
+      const transfers = captureTransfers(grid);
 
       const fake = channels[0];
       fake.listeners.forEach((l) =>
@@ -1642,7 +1897,7 @@ describe('RowDragDropPlugin', () => {
       const rows = [{ id: 1 }];
       const plugin = new RowDragDropPlugin<{ id: number; computed: string }>({
         dropZone: 'employees',
-        operation: 'move',
+        operation: 'copy',
         deserializeRow: (raw) => ({ ...(raw as { id: number }), computed: 'rehydrated' }),
       });
       const grid = createGridMock(rows);
@@ -1652,11 +1907,7 @@ describe('RowDragDropPlugin', () => {
       (grid as unknown as { _hostElement: HTMLElement })._hostElement = hostEl;
       plugin.attach(grid as never);
 
-      const transfers: unknown[] = [];
-      grid.dispatchEvent = vi.fn((event: Event) => {
-        if (event.type === 'row-transfer') transfers.push((event as CustomEvent).detail);
-        return true;
-      });
+      const transfers = captureTransfers(grid);
 
       channels[0].listeners.forEach((l) =>
         l({
@@ -1668,7 +1919,7 @@ describe('RowDragDropPlugin', () => {
             dropZone: 'employees',
             rowIndices: [0],
             toIndex: 0,
-            operation: 'move',
+            operation: 'copy',
             serializedRows: [{ id: 1 }],
           },
         } as MessageEvent),

@@ -321,5 +321,7 @@ try { bunx tsc --noEmit --pretty false -p apps/docs/tsconfig.json | Select-Strin
 - the click-only move menu: click the row's `.dg-row-drag-handle`, then `#tbw-row-move-menu` → `getByRole('button', { name: 'Move down' })`;
 - `Alt+ArrowUp/Down` after clicking a cell;
 - `handle.dragTo(targetRow, { targetPosition: { x, y: 4 } })` for a real HTML5 drop. A small `y` lands in the target row's upper half, which means "before".
+- To drop into an **empty** grid, target the `tbw-grid` host itself. The "No data to display" overlay hides `.rows-viewport`, so `dragTo` on it times out waiting for actionability.
+- Flat keyboard moves are debounced (`debounceMs`, default 150 ms): quick presses produce ONE `row-move`. Never let runner speed decide whether a press is still pending — set `features.rowDragDrop.debounceMs` through `gridConfig` and assert the `row-move` count before and after (`setKeyboardDebounce` in `reorder.spec.ts`). `captureGridEvent` listens on the page's first `tbw-grid` only; in a multi-grid demo, assert the other grids' rows.
 
 Pair any "drop was rejected" assertion with a drop that succeeds, so the test can't pass because the drag never happened.

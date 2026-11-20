@@ -33,7 +33,9 @@ import { flushMetrics, recordMetric } from './perf-metrics-helper';
  *
  * Flaky-test mitigation: When a regression is detected, the benchmark is
  * re-run up to 2 more times with fresh browser pages. The test only fails
- * if the regression reproduces consistently across all attempts.
+ * if the regression reproduces consistently across all attempts. The
+ * load-sensitive wide-column benchmarks also compare interleaved PAIRS by
+ * their median ratio (see `measureInterleaved`, #665).
  *
  * Run locally:  bun nx build grid && bunx playwright test performance-regression.spec.ts
  * Run on CI:    runs as part of the regular e2e suite
@@ -58,19 +60,11 @@ const LARGE_ROW_COUNT = 1000;
 const WIDE_COL_ROW_COUNT = 200;
 
 /**
- * Create/measure/destroy cycles per page for the wide-column render benchmark.
- * A 200-column first render is the most warm-up-sensitive measurement in the
- * suite, so it is sampled instead of taken from a single cold run.
+ * Measured pairs per {@link measureInterleaved} comparison (wide-column render and
+ * column churn — the two most load-sensitive benchmarks). 15 pairs held 0/14
+ * false positives under full CPU contention yet caught a +30% slowdown 8/8 (#665).
  */
-const WIDE_RENDER_SAMPLES = 4;
-
-/**
- * Column-churn sampling. Each in-page sample runs {@link CHURN_RUNS_PER_SAMPLE}
- * replacement cycles and returns their median; {@link CHURN_SAMPLES} of those are
- * interleaved between the two pages and the best of each side is compared.
- */
-const CHURN_RUNS_PER_SAMPLE = 3;
-const CHURN_SAMPLES = 3;
+const INTERLEAVED_PAIRS = 15;
 
 const runId = process.env.PERF_RUN_ID ?? Date.now().toString();
 
@@ -609,37 +603,54 @@ async function setupWideGrid(page: Page, colCount: number, rowCount: number, sam
 }
 
 /**
- * Best-of-N comparison that alternates between the two pages sample by sample.
+ * Paired comparison that alternates between the two pages sample by sample.
  *
  * Running all local samples and then all CDN samples means the two bursts sit
- * in different ~2 s windows of wall clock. CI runs the `e2e` and `docs-e2e`
- * Playwright projects concurrently, so a load spike from the other project can
- * land entirely inside one burst and inflate that side alone — which is how
- * the wide-column benchmarks produced 1.5x "regressions" in CI that do not
- * reproduce locally. The retry loop does not help: a sustained spike covers
- * every attempt. Interleaving exposes both builds to the same load window, and
- * flipping which page goes first on odd samples cancels the within-pair
- * ordering bias too.
+ * in different windows of wall clock. CI runs 4 Playwright workers on a 4-vCPU
+ * runner, so a load spike from the other workers can land entirely inside one
+ * burst and inflate that side alone. Interleaving exposes both builds to the same
+ * load window, and flipping which page goes first on odd samples cancels the
+ * within-pair ordering bias too.
+ *
+ * The decision statistic is the MEDIAN OF PER-PAIR RATIOS. A pair is measured
+ * back to back, so load drift inflates both halves and cancels in its ratio, and
+ * the median ignores the heavy right tail (GC, style recalc landing on one
+ * sample). Best-of-N (`min`) per side compared two extremes instead: on identical
+ * builds under load it swung between 0.7× and 2.3× per attempt, and failed CI on
+ * sustained load windows that covered every retry (#665). The first pair is a
+ * discarded warm-up — cold JIT paths inflate it.
+ *
+ * Returns `cdn` = the median CDN sample and `local` = `cdn` × the median pair
+ * ratio, so {@link checkRegression} judges exactly that ratio.
  */
 async function measureInterleaved(
   localPage: Page,
   cdnPage: Page,
   measure: (page: Page) => Promise<number>,
-  samples: number,
+  pairs = INTERLEAVED_PAIRS,
 ): Promise<{ local: number; cdn: number }> {
-  let local = Infinity;
-  let cdn = Infinity;
-  for (let s = 0; s < samples; s++) {
+  await measure(localPage);
+  await measure(cdnPage);
+  const ratios: number[] = [];
+  const cdnSamples: number[] = [];
+  for (let s = 0; s < pairs; s++) {
     const [first, second] = s % 2 === 0 ? [localPage, cdnPage] : [cdnPage, localPage];
     const firstSample = await measure(first);
     const secondSample = await measure(second);
     const localSample = first === localPage ? firstSample : secondSample;
     const cdnSample = first === localPage ? secondSample : firstSample;
-    if (localSample < 0 || cdnSample < 0) return { local: localSample, cdn: cdnSample };
-    local = Math.min(local, localSample);
-    cdn = Math.min(cdn, cdnSample);
+    if (localSample <= 0 || cdnSample <= 0) return { local: localSample, cdn: cdnSample };
+    ratios.push(localSample / cdnSample);
+    cdnSamples.push(cdnSample);
   }
-  return { local, cdn };
+  const cdn = median(cdnSamples);
+  return { local: cdn * median(ratios), cdn };
+}
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 /** Measure horizontal scroll avg frame time. */
@@ -848,6 +859,7 @@ async function assertNoRegression(
 ): Promise<void> {
   let failure = checkRegression(metricName, localTime, cdnTime);
   if (!failure) return;
+  const attempts = [failure];
 
   // Regression detected — retry to confirm it's not transient noise
   if (retryFn) {
@@ -855,11 +867,12 @@ async function assertNoRegression(
       const { local, cdn } = await retryFn();
       failure = checkRegression(`${metricName}.retry${attempt}`, local, cdn);
       if (!failure) return; // Retry passed — transient noise, not a real regression
+      attempts.push(failure);
     }
   }
 
-  // All retries also showed regression — this is real
-  expect(failure).toBeNull();
+  // All retries also showed regression — this is real. Report every attempt, not just the last.
+  expect(attempts.join('\n')).toBe('');
 }
 
 // ─── Flush metrics ──────────────────────────────────────────────────────────
@@ -1115,15 +1128,11 @@ test.describe('Performance: Self-Comparison', () => {
   test('wide columns render', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
+    test.slow(); // ×3 timeout: 16 interleaved pairs per attempt, up to 3 attempts
     await runComparison(browser, 'wideColsRender', async (localPage, cdnPage) => {
       await warmUpGrid(localPage);
       await warmUpGrid(cdnPage);
-      return measureInterleaved(
-        localPage,
-        cdnPage,
-        (page) => setupWideGrid(page, 200, WIDE_COL_ROW_COUNT),
-        WIDE_RENDER_SAMPLES,
-      );
+      return measureInterleaved(localPage, cdnPage, (page) => setupWideGrid(page, 200, WIDE_COL_ROW_COUNT));
     });
   });
 
@@ -1143,17 +1152,14 @@ test.describe('Performance: Self-Comparison', () => {
   test('wide column replacement churn', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
+    test.slow(); // ×3 timeout: 16 interleaved pairs per attempt, up to 3 attempts
     await runComparison(browser, 'columnChurn', async (localPage, cdnPage) => {
       await warmUpGrid(localPage);
       await warmUpGrid(cdnPage);
       await setupWideGrid(localPage, 100, WIDE_COL_ROW_COUNT);
       await setupWideGrid(cdnPage, 100, WIDE_COL_ROW_COUNT);
-      return measureInterleaved(
-        localPage,
-        cdnPage,
-        (page) => measureColumnChurn(page, 100, CHURN_RUNS_PER_SAMPLE),
-        CHURN_SAMPLES,
-      );
+      // One replacement cycle per sample: the pairing, not in-page averaging, absorbs the noise.
+      return measureInterleaved(localPage, cdnPage, (page) => measureColumnChurn(page, 100, 1));
     });
   });
 

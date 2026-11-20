@@ -1,0 +1,106 @@
+---
+// RowDragDropTreeDemo.astro — Row Drag-Drop over Tree data (#663)
+import DemoControls from '@components/DemoControls.astro';
+import type { ControlDef } from '@components/DemoControls.astro';
+
+const controls: ControlDef[] = [
+  {
+    name: 'canReparent',
+    label: 'Move files between folders',
+    type: 'boolean',
+    default: false,
+    description: 'TreeConfig.canReparent — let files move into another folder or to the top level',
+  },
+];
+---
+<div class="grid-demo not-content" id="row-drag-drop-tree-demo">
+  <DemoControls controls={controls} />
+  <div id="row-drag-drop-tree-status" data-event-log style="padding: 8px; margin-bottom: 8px; background: var(--tbw-color-bg-alt); border-radius: 4px;">
+    Drag a folder to move it with its contents, or a file to reorder it within its folder.
+  </div>
+  <tbw-grid style="height: 380px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import '@toolbox-web/grid/features/row-drag-drop';
+import '@toolbox-web/grid/features/tree';
+
+interface Item {
+  id: string;
+  name: string;
+  type: 'folder' | 'file';
+  size?: string;
+  children?: Item[];
+}
+
+const container = document.getElementById('row-drag-drop-tree-demo');
+if (container) {
+  const status = document.getElementById('row-drag-drop-tree-status')!;
+  const grid = queryGrid<Item>('tbw-grid', container)!;
+
+  let rows: Item[] = [
+    {
+      id: 'documents',
+      name: 'Documents',
+      type: 'folder',
+      children: [
+        { id: 'report', name: 'Report.docx', type: 'file', size: '48 KB' },
+        { id: 'budget', name: 'Budget.xlsx', type: 'file', size: '112 KB' },
+        { id: 'contract', name: 'Contract.pdf', type: 'file', size: '1.2 MB' },
+      ],
+    },
+    {
+      id: 'photos',
+      name: 'Photos',
+      type: 'folder',
+      children: [
+        { id: 'beach', name: 'Beach.jpg', type: 'file', size: '3.4 MB' },
+        { id: 'mountains', name: 'Mountains.jpg', type: 'file', size: '2.9 MB' },
+      ],
+    },
+    { id: 'notes', name: 'Notes.txt', type: 'file', size: '2 KB' },
+    { id: 'todo', name: 'Todo.md', type: 'file', size: '1 KB' },
+  ];
+
+  function buildGrid(values: Record<string, unknown>) {
+    grid.gridConfig = {
+      columns: [
+        { field: 'name', header: 'Name', width: 240 },
+        { field: 'type', header: 'Type', width: 100 },
+        { field: 'size', header: 'Size' },
+      ],
+      features: {
+        tree: {
+          defaultExpanded: true,
+          // Files may move into a folder or to the top level; folders keep their place in the hierarchy.
+          canReparent: values.canReparent
+            ? (row, newParent) => row.type === 'file' && (newParent === null || newParent.type === 'folder')
+            : undefined,
+        },
+        rowDragDrop: true,
+      },
+    };
+    grid.rows = rows;
+  }
+
+  buildGrid({ canReparent: false });
+
+  container.addEventListener('control-change', ((e: CustomEvent) => {
+    buildGrid(e.detail.allValues);
+  }) as EventListener);
+
+  grid.on('row-move', ({ row, fromParent, toParent, toIndex, rows: next }) => {
+    // The grid already shows the move — keep your own copy in sync (or persist it).
+    rows = next;
+    const from = fromParent?.name ?? 'top level';
+    const to = toParent?.name ?? 'top level';
+    status.textContent =
+      from === to
+        ? `Moved ${row.name} to position ${toIndex + 1} in ${to}`
+        : `Moved ${row.name} from ${from} to ${to} (position ${toIndex + 1})`;
+  });
+}
+</script>

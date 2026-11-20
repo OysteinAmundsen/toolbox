@@ -7,9 +7,14 @@
  * Architecture overview is documented in the issue body and in
  * `.github/knowledge/grid-plugins.md`. Key invariants:
  *
- * - Mutations write to `grid._rows`; the user's input `sourceRows` array is
- *   never mutated on either side. Persistence is consumer-driven via the
- *   `row-move` (intra-grid) and `row-transfer` (cross-grid) events.
+ * - Indices in events and APIs are DISPLAY indices (`grid.rows`), but moves
+ *   are applied to the source rows by row IDENTITY — display and source only
+ *   line up when no plugin reshapes the rows. Row-model plugins (Tree,
+ *   GroupingRows) translate or veto moves via the `rows:resolve-move` query
+ *   (`plugins/shared/row-move.ts`, #663). The consumer's `sourceRows` array is
+ *   never mutated on either side; a move assigns a new array to `grid.rows`.
+ *   Persistence is consumer-driven via the `row-move` (intra-grid) and
+ *   `row-transfer` (cross-grid) events.
  * - Same-window cross-grid drops use the WeakRef registry in
  *   `core/internal/drag-drop-registry` to recover live row references.
  *   Cross-window drops fall back to `JSON.parse(JSON.stringify(row))` (or the
@@ -56,7 +61,22 @@ import {
   mimeForZone,
   setCurrentDragSession,
 } from '../shared/drag-drop-protocol';
+import type { RowMovePosition, RowMoveResolution, RowMoveStep } from '../shared/row-move';
 import styles from './row-drag-drop.css?inline';
+import { setRowDragImage } from './row-drag-image';
+import type { PlannedMove, ResolveMove } from './row-order';
+import {
+  END_OF_ROWS,
+  moveAt,
+  relocate,
+  shiftedIndex,
+  sourceIndexOf,
+  sourceOrderAfterMove,
+  sourceWith,
+  sourceWithout,
+  towardSourceRow,
+  trackRows,
+} from './row-order';
 import type {
   PendingMove,
   RowDragDropConfig,
@@ -221,9 +241,12 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
   /**
    * Optional dependencies.
    * - `pivot`: answers `columns:is-replaced`, so the drag handle is left out of the pivot layout (#616).
+   * - `tree`, `groupingRows`: answer `rows:resolve-move`, translating moves into their row model (#663).
    */
   static override readonly dependencies: PluginDependency[] = [
     { name: 'pivot', required: false, reason: 'Queries columns:is-replaced to omit the drag handle while pivoting' },
+    { name: 'tree', required: false, reason: 'Queries rows:resolve-move to move tree nodes among their siblings' },
+    { name: 'groupingRows', required: false, reason: 'Queries rows:resolve-move to keep moves inside their group' },
   ];
 
   /** @internal */
@@ -269,12 +292,27 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
 
   // #region Internal State
   private isDragging = false;
-  private draggedRowIndex: number | null = null;
   private draggedRows: T[] = [];
+  /** Display the drag's `draggedIndices` refer to — maps them across renders by occurrence. */
+  private dragDisplay: readonly unknown[] = [];
   private draggedIndices: number[] = [];
   private dragSessionId: string | null = null;
   private dragAccepted = false;
   private dropRowIndex: number | null = null;
+  /** Row under the pointer at the last `dragover`, and which half of it (#663). */
+  private dropTarget: { index: number; before: boolean } | null = null;
+  /** Memo of the last structural `dragover` check — `dragover` repeats for the same spot. */
+  private dropCheck: { index: number; before: boolean; ok: boolean } | null = null;
+  /** A structural move was applied; the row model (e.g. Tree's metadata) is stale until the next render. */
+  private awaitingRender = false;
+  /**
+   * Displayed order after a flat move committed this tick: `grid.rows =` only
+   * queues the rebuild, so `_rows` is stale until the next render and a second
+   * `moveRow()` in the same tick would index the old order.
+   */
+  private pendingDisplay: T[] | null = null;
+  /** Occurrence (`display[index]`) the keyboard focus follows once an immediate keyboard move has rendered. */
+  private focusAfterRender: { display: readonly unknown[]; index: number; col: number } | null = null;
   private pendingMove: PendingMove | null = null;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private lastFocusCol = 0;
@@ -322,6 +360,9 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     if (this.dragSessionId) clearDragSession(this.dragSessionId);
     clearCurrentDragSession();
     this.resetDragState();
+    this.awaitingRender = false;
+    this.pendingDisplay = null;
+    this.focusAfterRender = null;
     super.detach();
   }
   // #endregion
@@ -380,6 +421,22 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
   /** @internal */
   override afterRender(): void {
     this.applyRowDraggable();
+    this.awaitingRender = false;
+    this.pendingDisplay = null;
+    if (this.isDragging) {
+      // Re-point the dragged occurrences (also the intra payload's `rowIndices`) at this render.
+      this.dragDisplay = trackRows(this.dragDisplay, this.displayRows, this.draggedRows, this.draggedIndices);
+      this.dropTarget = this.dropRowIndex = this.dropCheck = null; // display indices of the old render
+    }
+    const follow = this.focusAfterRender;
+    if (!follow) return;
+    this.focusAfterRender = null;
+    const index = relocate(follow.display, follow.index, this.displayRows);
+    if (index < 0) return;
+    const grid = this.internalGrid;
+    grid._focusRow = index;
+    grid._focusCol = follow.col;
+    ensureCellVisible(grid);
   }
 
   /** @internal */
@@ -412,18 +469,41 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     if (this.#isKeyboardMoveBlocked(event)) return;
 
     const grid = this.internalGrid;
-    const focusRow = grid._focusRow;
-    const rows = grid._rows ?? this.sourceRows;
-    if (focusRow < 0 || focusRow >= rows.length) return;
+    const at = grid._focusRow;
+    const row = this.displayRows[at];
+    if (row === undefined) return;
+    // Debouncing coalesces presses on ONE row (occurrence — matched by its slot, since
+    // a row object can repeat). Settle another row's pending move first.
+    const settled = this.pendingMove !== null && this.pendingMove.currentIndex !== at;
+    const revert = settled ? this.flushPendingMove() : null;
+    // A `grid.rows =` rebuild is queued (that flush, or a move committed this tick):
+    // it would overwrite a debounced `_rows` edit, so commit this move at once.
+    const immediate = settled || this.pendingDisplay !== null;
 
-    const direction = event.key === 'ArrowUp' ? 'up' : 'down';
-    const toIndex = direction === 'up' ? focusRow - 1 : focusRow + 1;
-    if (toIndex < 0 || toIndex >= rows.length) return;
+    const focusRow = revert ? shiftedIndex(at, ...revert) : at;
+    const step = event.key === 'ArrowUp' ? -1 : 1;
+    const toIndex = focusRow + step;
+    if (focusRow < 0 || toIndex < 0 || toIndex >= this.displayRows.length) return;
+    if (!this.canPickUp(focusRow, toIndex)) return;
+    // A flat debounced move only needs a yes/no here: that path reorders `_rows` itself.
+    const plan = this.planMove(focusRow, toIndex, step < 0 ? 'before' : 'after', step, !immediate);
+    if (!plan) return;
 
-    const row = rows[focusRow];
-    if (!this.canMoveRow(focusRow, toIndex)) return;
-
-    this.handleKeyboardMove(row, focusRow, toIndex, grid._focusCol);
+    if (plan.structural || immediate) {
+      // Apply now and let focus follow the row once it renders — the occurrence that
+      // moved: a flat step lands it at `toIndex` (a Tree holds each row once).
+      if (this.commitMove(plan, focusRow, toIndex, 'keyboard')) {
+        // A flat move's display is known now: the next press, before the render, acts on the moved row.
+        if (plan.display) grid._focusRow = toIndex;
+        this.focusAfterRender = {
+          display: plan.display ?? [row],
+          index: plan.display ? toIndex : 0,
+          col: grid._focusCol,
+        };
+      }
+    } else {
+      this.handleKeyboardMove(row, focusRow, toIndex, grid._focusCol);
+    }
     event.preventDefault();
     event.stopPropagation();
     return true;
@@ -446,34 +526,56 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
   // #endregion
 
   // #region Public API
-  /** Move a row to a new position programmatically (intra-grid). */
+  /**
+   * Move a row to a new position programmatically (intra-grid). Both indices
+   * are positions in the displayed rows (`grid.rows`); the row lands where the
+   * row at `toIndex` is now. With a structural plugin such as Tree, the row
+   * keeps its subtree and the move follows that plugin's rules, and further
+   * moves are refused until the grid has rendered the first one (its next
+   * `render` event).
+   */
   moveRow(fromIndex: number, toIndex: number): void {
-    const rows = [...this.sourceRows];
-    if (fromIndex < 0 || fromIndex >= rows.length) return;
-    if (toIndex < 0 || toIndex >= rows.length) return;
-    if (fromIndex === toIndex) return;
-    if (!this.canMoveRow(fromIndex, toIndex)) return;
-    this.executeIntraGridMove(rows[fromIndex], fromIndex, toIndex, 'keyboard');
+    [fromIndex, toIndex] = this.settlePending(fromIndex, toIndex);
+    if (!this.canPickUp(fromIndex, toIndex)) return;
+    const plan = this.planMove(fromIndex, toIndex, toIndex < fromIndex ? 'before' : 'after');
+    if (plan) this.commitMove(plan, fromIndex, toIndex, 'keyboard');
   }
 
   /**
    * Check if a row can be moved within this grid.
    * Consults the `canDrag` veto for the source row, the plugin query system
-   * (`canMoveRow`), and `canDrop` for the target.
+   * (`canMoveRow`, `rows:resolve-move`), and `canDrop` for the target.
    */
   canMoveRow(fromIndex: number, toIndex: number): boolean {
-    // During debounced keyboard moves, `grid._rows` diverges from
-    // `sourceRows` (the user-facing snapshot) because the plugin mutates
-    // resolves the focused row from `_rows ?? sourceRows`, so validation must
-    // read from the same array — otherwise we'd run `canDrag`/queries against
-    // the wrong row.
-    const rows = this.internalGrid._rows ?? this.sourceRows;
+    const position = toIndex < fromIndex ? 'before' : 'after';
+    return this.canPickUp(fromIndex, toIndex) && this.planMove(fromIndex, toIndex, position, undefined, true) !== null;
+  }
+  // #endregion
+
+  // #region Move resolution (`rows:resolve-move`, #663)
+
+  /**
+   * Displayed rows — every index this plugin handles refers to this array.
+   * During debounced keyboard moves it is the plugin's own reordered `_rows`;
+   * right after a flat move, the order that move will render.
+   */
+  private get displayRows(): T[] {
+    return this.pendingDisplay ?? ((this.internalGrid._rows ?? this.sourceRows) as T[]);
+  }
+
+  /**
+   * Row-level vetoes for moving the displayed row at `fromIndex` towards
+   * `toIndex`: the `canMoveRow` query, `canDrag` and `canDrop`.
+   */
+  private canPickUp(fromIndex: number, toIndex: number): boolean {
+    // A sort re-applies on the next rebuild and would undo the new order (MultiSort vetoes via the query).
+    if (this.awaitingRender || this.internalGrid._sortState) return false;
+    const rows = this.displayRows;
     if (fromIndex < 0 || fromIndex >= rows.length) return false;
     if (toIndex < 0 || toIndex >= rows.length) return false;
-    if (fromIndex === toIndex) return false;
 
-    // Plugin query veto (Tree, GroupingRows)
-    const row = rows[fromIndex] as T;
+    // Plugin query veto (e.g. GroupingRows group headers)
+    const row = rows[fromIndex];
     const queryResults = this.grid?.query?.<boolean>('canMoveRow', row);
     if (Array.isArray(queryResults) && queryResults.includes(false)) return false;
 
@@ -494,6 +596,129 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     }
 
     return true;
+  }
+
+  /**
+   * Ask row-model plugins (Tree, GroupingRows) to resolve `query`:
+   * `false` = veto, a resolution = handled, `undefined` = nobody owns the row
+   * structure, so the identity splice of `sourceRows` applies.
+   */
+  private readonly resolveStructure: ResolveMove = (query) => {
+    const answers = this.grid?.query?.<RowMoveResolution | false>('rows:resolve-move', query);
+    if (!Array.isArray(answers)) return undefined;
+    if (answers.includes(false)) return false;
+    return answers.find((a): a is RowMoveResolution => !!a && typeof a === 'object');
+  };
+
+  /**
+   * Plan moving the displayed row at `fromIndex` before/after the displayed
+   * row at `toIndex` (`END_OF_ROWS` = after everything, e.g. a drop below the
+   * last row). Rows are matched by IDENTITY against `sourceRows`: display
+   * indices only line up with source indices when no plugin reshapes the rows
+   * (filtering, grouping, tree). `null` = the move is not possible.
+   *
+   * `validateOnly` skips the O(n) identity splice and no-op check when no
+   * row-model plugin answers — for `dragover`, keyboard and the move menu, which
+   * only need a yes/no.
+   */
+  private planMove(
+    fromIndex: number,
+    toIndex: number,
+    position: RowMovePosition,
+    step?: RowMoveStep,
+    validateOnly = false,
+  ): PlannedMove | null {
+    const rows = this.displayRows;
+    const row = rows[fromIndex];
+    const atEnd = toIndex === END_OF_ROWS;
+    const target = atEnd ? null : rows[toIndex];
+    if (row === undefined || target === undefined || fromIndex === toIndex) return null;
+    const answer = this.resolveStructure({
+      op: 'move',
+      row,
+      fromIndex,
+      target,
+      toIndex: atEnd ? rows.length - 1 : toIndex,
+      position: atEnd ? 'after' : position,
+      step,
+    });
+    if (answer === false) return null;
+    if (answer) return { ...answer, structural: true };
+
+    const source = this.sourceRows as T[];
+    // Rows outside the source (group headers, pivot rows) can't be placed by identity.
+    const from = sourceIndexOf(source, rows, fromIndex);
+    const to = atEnd ? source.length - 1 : sourceIndexOf(source, rows, toIndex);
+    if (from < 0 || to < 0) return null;
+    if (validateOnly) return { rows: [], structural: false };
+    const pos = atEnd ? 'after' : position;
+    const next = moveAt(source, from, to, pos);
+    // A pending keyboard move has reordered only `_rows`, so source order can't judge a no-op then.
+    if (!this.pendingMove && next.every((r, i) => r === source[i])) return null;
+    return { rows: next, structural: false, display: moveAt(rows, fromIndex, atEnd ? rows.length - 1 : toIndex, pos) };
+  }
+
+  /** Emit the cancelable `row-move` for `plan` and apply it. `false` when cancelled. */
+  private commitMove(plan: PlannedMove, fromIndex: number, toIndex: number, source: 'keyboard' | 'drag'): boolean {
+    const detail: RowMoveDetail<T> = {
+      row: this.displayRows[fromIndex],
+      fromIndex: plan.fromIndex ?? fromIndex,
+      toIndex: plan.toIndex ?? toIndex,
+      rows: plan.rows as T[],
+      source,
+    };
+    if (plan.fromParent !== undefined) detail.fromParent = plan.fromParent as T | null;
+    if (plan.toParent !== undefined) detail.toParent = plan.toParent as T | null;
+    if (this.emitCancelable('row-move', detail)) return false;
+
+    // FLIP's index math assumes a flat splice; a structural move relocates whole subtrees.
+    if (!plan.structural && this.animationType === 'flip' && this.gridElement) {
+      const oldPositions = this.captureRowPositions();
+      this.grid.rows = plan.rows;
+      requestAnimationFrame(() => {
+        void this.gridElement.offsetHeight;
+        this.animateFLIP(oldPositions, fromIndex, toIndex);
+      });
+    } else {
+      this.grid.rows = plan.rows;
+    }
+    if (plan.structural) this.awaitingRender = true;
+    else if (plan.display) this.pendingDisplay = plan.display as T[];
+    return true;
+  }
+
+  /** Relative move from the keyboard-equivalent move menu; `toIndex` is the display neighbour. */
+  private moveBy(fromIndex: number, step: RowMoveStep, toIndex: number, dryRun: boolean): boolean {
+    if (!dryRun) [fromIndex, toIndex] = this.settlePending(fromIndex, toIndex);
+    if (typeof step === 'string') toIndex = towardSourceRow(this.sourceRows, this.displayRows, toIndex, fromIndex);
+    if (!this.canPickUp(fromIndex, toIndex)) return false;
+    const plan = this.planMove(fromIndex, toIndex, toIndex < fromIndex ? 'before' : 'after', step, dryRun);
+    if (!plan) return false;
+    return dryRun || this.commitMove(plan, fromIndex, toIndex, 'keyboard');
+  }
+
+  /**
+   * Settle a pending debounced keyboard move before anything else reads or
+   * edits the rows — its timer would later re-apply a stale index, or find its
+   * row gone and drop the move. The indices keep naming the same slots: only a
+   * cancelled `row-move` changes the display, by one known revert, so they are
+   * mapped through it (exact even when a row object repeats); an index past the
+   * last row (an insert at the end) stays past it.
+   */
+  private settlePending(...indices: number[]): number[] {
+    const length = this.displayRows.length;
+    const revert = this.flushPendingMove();
+    return revert ? indices.map((i) => (i < 0 || i >= length ? i : shiftedIndex(i, ...revert))) : indices;
+  }
+
+  /**
+   * Source rows once the rows shown at `indices` have left for another grid
+   * (`null` = vetoed). `rows` are the live rows when known (same window).
+   */
+  private planRemoval(rows: readonly T[] | null, indices: readonly number[]): unknown[] | null {
+    const display = this.displayRows;
+    const moved = rows ?? indices.map((i) => display[i]).filter((r) => r !== undefined);
+    return sourceWithout(this.sourceRows, display, moved, indices, this.resolveStructure);
   }
   // #endregion
 
@@ -555,12 +780,15 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     }
     if (!rowEl) return;
 
-    const rowIndex = this.getRowIndex(rowEl);
+    const [rowIndex] = this.settlePending(this.getRowIndex(rowEl));
     if (rowIndex < 0) return;
 
     // Resolve the rows being dragged: whole selection if dragged row is selected.
     const { rows, indices } = this.resolveDraggedRows(rowIndex);
-    if (rows.length === 0) return;
+    if (rows.length === 0) {
+      de.preventDefault(); // a row-model plugin vetoed the selection (`pick`)
+      return;
+    }
 
     // canDrag veto on the originating row
     if (this.config.canDrag && !this.config.canDrag(rows[0], rowIndex)) {
@@ -580,9 +808,9 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     }
 
     this.isDragging = true;
-    this.draggedRowIndex = rowIndex;
     this.draggedRows = rows;
     this.draggedIndices = indices;
+    this.dragDisplay = [...this.displayRows];
     this.dragSessionId = sessionId;
     this.dragAccepted = false;
 
@@ -609,22 +837,8 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
         /* JSDOM/happy-dom may throw on setData; harmless */
       }
 
-      // Drag image: full-row clone for single-row drags (more legible than
-      // the handle alone); count badge for multi-row drags.
-      if (rows.length > 1) {
-        const badge = document.createElement('div');
-        badge.className = 'tbw-row-drag-count';
-        badge.textContent = `${rows.length} rows`;
-        document.body.appendChild(badge);
-        try {
-          de.dataTransfer.setDragImage(badge, 10, 10);
-        } catch {
-          /* ignore */
-        }
-        setTimeout(() => badge.remove(), 0);
-      } else {
-        this.attachRowCloneDragImage(de, rowEl, initiatedFromHandle ? handle : null);
-      }
+      // Drag image: full-row clone for single-row drags, count badge for multi-row drags.
+      setRowDragImage(de, rowEl, initiatedFromHandle ? handle : null, this.gridElement, rows.length);
     }
 
     // Same-window registry + current-session marker
@@ -646,52 +860,6 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
   /** @internal */
   private isInteractiveDragOrigin(target: HTMLElement): boolean {
     return target.closest(RowDragDropPlugin.INTERACTIVE_DRAG_SELECTORS) !== null;
-  }
-
-  /**
-   * Build a full-row drag image by cloning `rowEl` so the user sees the
-   * actual row — not just the grip icon — while dragging.
-   *
-   * The clone is appended off-screen, snapshotted by the browser via
-   * `setDragImage`, then removed on the next tick (after the snapshot).
-   * The cursor offset is preserved relative to where the user pressed.
-   */
-  private attachRowCloneDragImage(de: DragEvent, rowEl: HTMLElement, handle: HTMLElement | null): void {
-    if (!de.dataTransfer) return;
-    const rect = rowEl.getBoundingClientRect();
-    const clone = rowEl.cloneNode(true) as HTMLElement;
-    clone.classList.add('tbw-row-drag-clone');
-    // Strip transient classes that would look wrong in the drag image.
-    clone.classList.remove('dragging', 'drop-target', 'drop-before', 'drop-after', 'flip-animating', 'row-focus');
-    clone.removeAttribute('aria-selected');
-    // Preserve the actual rendered width so cells don't reflow in the snapshot.
-    clone.style.width = `${rect.width}px`;
-    clone.style.height = `${rect.height}px`;
-    // The clone MUST stay inside the grid host: every core row/cell rule is
-    // scoped under `tbw-grid …` (see core/styles/*.css), and the
-    // `--tbw-column-template` custom property is set on the host. If the
-    // clone is moved to `document.body`, none of those rules match and the
-    // drag image collapses to an empty box. Off-screen positioning via
-    // `position: fixed` works the same regardless of the DOM parent.
-    this.gridElement.appendChild(clone);
-    // Cursor offset: where the user pressed inside the source row. Falls
-    // back to the centre of the handle when initiated from the grip.
-    let offsetX = de.clientX - rect.left;
-    let offsetY = de.clientY - rect.top;
-    if (handle) {
-      const handleRect = handle.getBoundingClientRect();
-      offsetX = handleRect.left - rect.left + handleRect.width / 2;
-      offsetY = handleRect.top - rect.top + handleRect.height / 2;
-    }
-    // Clamp into the row bounds so the cursor stays inside the drag image.
-    offsetX = Math.max(0, Math.min(rect.width, offsetX));
-    offsetY = Math.max(0, Math.min(rect.height, offsetY));
-    try {
-      de.dataTransfer.setDragImage(clone, offsetX, offsetY);
-    } catch {
-      /* JSDOM/happy-dom: harmless */
-    }
-    setTimeout(() => clone.remove(), 0);
   }
 
   private onDragOver(de: DragEvent): void {
@@ -733,25 +901,30 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     const pos = computeDropPosition(rowEl, de.clientY, (el) => this.getRowIndex(el), rows.length);
 
     // Same-row no-op for intra-grid
-    if (isIntra && pos.overIndex !== null && pos.overIndex === this.draggedRowIndex) {
+    if (isIntra && pos.overIndex !== null && pos.overIndex === this.draggedIndices[0]) {
+      this.dropRowIndex = null;
+      this.dropTarget = null;
       this.clearDropTargetClasses();
       return;
     }
 
-    // canDrop check (same-window only — payload visible)
-    if (session && this.config.canDrop) {
-      const accepted = this.config.canDrop(session.payload, pos.insertIndex);
-      this.gridElement.classList.toggle('tbw-grid--drop-target-active', accepted);
-      this.gridElement.classList.toggle('tbw-grid--drop-target-rejected', !accepted);
-      if (!accepted) {
-        this.clearDropTargetClasses();
-        return;
-      }
-    } else {
-      this.gridElement.classList.add('tbw-grid--drop-target-active');
+    // canDrop check (same-window only — payload visible), plus the row model's
+    // rules for an intra-grid move (e.g. Tree's sibling / reparent rules). Both
+    // classes toggle on every hover, so an allowed spot clears an earlier rejection.
+    const structuralOk = !isIntra || this.dropAllowed(pos.overIndex ?? END_OF_ROWS, pos.isBefore);
+    const accepted =
+      structuralOk && (!session || !this.config.canDrop || this.config.canDrop(session.payload, pos.insertIndex));
+    this.gridElement.classList.toggle('tbw-grid--drop-target-active', accepted);
+    this.gridElement.classList.toggle('tbw-grid--drop-target-rejected', !accepted);
+    if (!accepted) {
+      this.dropRowIndex = null;
+      this.dropTarget = null;
+      this.clearDropTargetClasses();
+      return;
     }
 
     this.dropRowIndex = pos.insertIndex;
+    this.dropTarget = pos.overIndex === null ? null : { index: pos.overIndex, before: pos.isBefore };
     this.applyDropPositionClasses(rowEl, pos.isBefore);
 
     // Auto-scroll the target viewport
@@ -801,7 +974,8 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
         if (lookup) liveRows = lookup;
       }
     }
-    if (!payload) return;
+    // A dragged row left the display mid-drag (`trackRows` emptied the indices): nothing to drop.
+    if (!payload || (payload.rows.length > 0 && payload.rowIndices.length === 0)) return;
 
     // Drop position (recompute in case dragover wasn't called for a few frames)
     const rowEl = (de.target as HTMLElement).closest('.data-grid-row') as HTMLElement | null;
@@ -813,19 +987,27 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     const dropZone = this.config.dropZone ?? '';
 
     if (isIntra) {
-      // Intra-grid path — emit `row-move`.
+      // Intra-grid path — emit `row-move`. The row under the pointer and its
+      // half decide the move: "after the last child of A" and "before B" share
+      // an insert index but mean different parents in a tree.
       const fromIndex = payload.rowIndices[0];
-      // Adjust toIndex when dropping after the dragged row (single-row only)
+      const over = this.dropTarget ??
+        (pos.overIndex !== null ? { index: pos.overIndex, before: pos.isBefore } : null) ?? {
+          // Below the last row: the end of the list (a tree's top level), not after its last descendant.
+          index: END_OF_ROWS,
+          before: false,
+        };
+      // Final index of a flat splice (single-row only), reported as `toIndex`.
       if (payload.rowIndices.length === 1 && targetIndex > fromIndex) targetIndex--;
-      if (fromIndex === targetIndex) return;
-      const row = (liveRows ?? payload.rows)[0];
-      if (!this.canMoveRow(fromIndex, targetIndex)) return;
-      this.executeIntraGridMove(row, fromIndex, targetIndex, 'drag');
+      if (!this.canPickUp(fromIndex, targetIndex)) return;
+      const plan = this.planMove(fromIndex, over.index, over.before ? 'before' : 'after');
+      if (plan) this.commitMove(plan, fromIndex, targetIndex, 'drag');
       return;
     }
 
     // Cross-grid path
     if (!dropZone || dropZone !== payload.dropZone) return;
+    [targetIndex] = this.settlePending(targetIndex);
 
     // canDrop final check
     if (this.config.canDrop && !this.config.canDrop(payload, targetIndex)) {
@@ -838,6 +1020,18 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     const deserialize = this.config.deserializeRow ?? ((r: unknown) => r as T);
     const incomingRows: T[] = liveRows ?? payload.rows.map((r) => deserialize(r as unknown));
 
+    // Locate the source plugin in THIS window. If it's here we handle the
+    // source-side mutation directly; if it isn't, we broadcast a message and
+    // let the source-window plugin (if any) handle removal + transfer emit.
+    const sourcePlugin = this.findPeerOnGrid(payload.sourceGridId);
+
+    // Plan both halves (by identity — see `row-order.ts`) before committing
+    // either, so a row-model veto on one side leaves both grids untouched.
+    const nextTarget = sourceWith(this.sourceRows, this.displayRows, incomingRows, targetIndex, this.resolveStructure);
+    const nextSource =
+      payload.operation === 'move' && sourcePlugin ? sourcePlugin.planRemoval(liveRows, payload.rowIndices) : undefined;
+    if (!nextTarget || nextSource === null) return;
+
     const dropDetail: RowDropDetail<T> = {
       payload,
       sourceGridId: payload.sourceGridId,
@@ -846,30 +1040,8 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     };
     if (this.emitCancelable('row-drop', dropDetail)) return;
 
-    // Insert into target grid's _rows
-    const targetRows = [...rows];
-    targetRows.splice(targetIndex, 0, ...(incomingRows as unknown[]));
-    this.grid.rows = targetRows;
-
-    // Locate the source plugin in THIS window. If it's here we handle the
-    // source-side mutation directly; if it isn't, we broadcast a message and
-    // let the source-window plugin (if any) handle removal + transfer emit.
-    const sourcePlugin = this.findPeerOnGrid(payload.sourceGridId);
-
-    // Remove from source grid's _rows when operation === 'move' (same-window)
-    if (payload.operation === 'move' && sourcePlugin) {
-      const sourceGrid = document.getElementById(payload.sourceGridId) as
-        (HTMLElement & { rows?: unknown[]; _rows?: unknown[] }) | null;
-      if (sourceGrid) {
-        const srcRows = (sourceGrid._rows ?? sourceGrid.rows ?? []).slice();
-        // Remove from highest index down so earlier indices stay stable
-        const sortedIndices = [...payload.rowIndices].sort((a, b) => b - a);
-        for (const idx of sortedIndices) {
-          if (idx >= 0 && idx < srcRows.length) srcRows.splice(idx, 1);
-        }
-        sourceGrid.rows = srcRows;
-      }
-    }
+    this.grid.rows = nextTarget;
+    if (sourcePlugin && nextSource) sourcePlugin.grid.rows = nextSource;
 
     // Mark accepted on the source plugin so dragend knows (same-window only —
     // cross-window source flips its own flag in `onRemoteTransfer`).
@@ -927,12 +1099,9 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     const incomingRows: T[] = msg.serializedRows.map((r) => deserialize(r));
 
     if (msg.operation === 'move') {
-      const srcRows = (this.internalGrid._rows ?? this.sourceRows).slice();
-      const sortedIndices = [...msg.rowIndices].sort((a, b) => b - a);
-      for (const idx of sortedIndices) {
-        if (idx >= 0 && idx < srcRows.length) srcRows.splice(idx, 1);
-      }
-      this.grid.rows = srcRows as unknown[];
+      // The target window already committed; a vetoed removal can only leave the source as-is.
+      const next = this.planRemoval(null, msg.rowIndices);
+      if (next) this.grid.rows = next;
     }
 
     // Flip accepted before dragend (best-effort — the message may arrive after
@@ -1013,31 +1182,21 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
   private openMoveMenu(handle: HTMLElement): void {
     const rowEl = handle.closest('.data-grid-row') as HTMLElement | null;
     if (!rowEl) return;
-    const rowIndex = this.getRowIndex(rowEl);
+    const [rowIndex] = this.settlePending(this.getRowIndex(rowEl));
     if (rowIndex < 0) return;
 
-    const rows = this.internalGrid._rows ?? this.sourceRows;
+    const rows = this.displayRows;
+    const last = rows.length - 1;
+    const option = (label: string, step: RowMoveStep, toIndex: number): DragAlternativeAction => ({
+      label,
+      disabled: !this.moveBy(rowIndex, step, toIndex, true),
+      run: () => this.moveBy(rowIndex, step, toIndex, false),
+    });
     const actions: DragAlternativeAction[] = [
-      {
-        label: 'Move up',
-        disabled: rowIndex === 0 || !this.canMoveRow(rowIndex, rowIndex - 1),
-        run: () => this.moveRow(rowIndex, rowIndex - 1),
-      },
-      {
-        label: 'Move down',
-        disabled: rowIndex >= rows.length - 1 || !this.canMoveRow(rowIndex, rowIndex + 1),
-        run: () => this.moveRow(rowIndex, rowIndex + 1),
-      },
-      {
-        label: 'Move to top',
-        disabled: rowIndex === 0 || !this.canMoveRow(rowIndex, 0),
-        run: () => this.moveRow(rowIndex, 0),
-      },
-      {
-        label: 'Move to bottom',
-        disabled: rowIndex >= rows.length - 1 || !this.canMoveRow(rowIndex, rows.length - 1),
-        run: () => this.moveRow(rowIndex, rows.length - 1),
-      },
+      option('Move up', -1, rowIndex - 1),
+      option('Move down', 1, rowIndex + 1),
+      option('Move to top', 'first', 0),
+      option('Move to bottom', 'last', last),
     ];
 
     const verb = (this.config.operation ?? 'move') === 'copy' ? 'Copy to' : 'Send to';
@@ -1078,16 +1237,14 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
       operation,
     };
 
+    // Plan the source half first: a row-model veto must cancel before the peer commits.
+    const nextSource = operation === 'move' ? this.planRemoval(rows, indices) : undefined;
+    if (nextSource === null) return;
+
     const toIndex = peer.acceptTransfer(payload, rows);
     if (toIndex < 0) return;
 
-    if (operation === 'move') {
-      const srcRows = [...(this.internalGrid._rows ?? this.sourceRows)];
-      for (const idx of [...indices].sort((a, b) => b - a)) {
-        if (idx >= 0 && idx < srcRows.length) srcRows.splice(idx, 1);
-      }
-      this.grid.rows = srcRows as unknown[];
-    }
+    if (nextSource) this.grid.rows = nextSource;
 
     const detail: RowTransferDetail<T> = {
       rows,
@@ -1104,17 +1261,19 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
   /**
    * Target half of {@link RowDragDropPlugin.transferToPeer}. Returns the insert
    * index, or `-1` when the transfer was rejected (zone mismatch, `canDrop`
-   * veto, or a cancelled `row-drop`).
+   * veto, a row-model veto, or a cancelled `row-drop`).
    *
    * @internal
    */
   acceptTransfer(payload: RowDragPayload<T>, liveRows: readonly T[]): number {
     const dropZone = this.config.dropZone ?? '';
     if (!dropZone || dropZone !== payload.dropZone) return -1;
+    this.settlePending();
 
-    const rows = this.internalGrid._rows ?? this.sourceRows;
-    const targetIndex = rows.length;
+    const targetIndex = this.displayRows.length;
     if (this.config.canDrop && !this.config.canDrop(payload, targetIndex)) return -1;
+    const next = sourceWith(this.sourceRows, this.displayRows, liveRows, targetIndex, this.resolveStructure);
+    if (!next) return -1;
 
     const dropDetail: RowDropDetail<T> = {
       payload,
@@ -1124,7 +1283,7 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     };
     if (this.emitCancelable('row-drop', dropDetail)) return -1;
 
-    this.grid.rows = [...(rows as unknown[]), ...(liveRows as unknown[])];
+    this.grid.rows = next;
     return targetIndex;
   }
   // #endregion
@@ -1140,10 +1299,13 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
       const selectedIndices = selection.getSelectedRowIndices();
       if (selectedIndices.includes(originIndex) && selectedIndices.length > 1) {
         const sorted = [...selectedIndices].sort((a, b) => a - b);
-        return {
-          rows: sorted.map((i) => rows[i] as T),
-          indices: sorted,
-        };
+        // Row-model plugins (Tree) drop rows that travel inside another selected row's subtree —
+        // decided here, before the payload is serialised and identity is lost.
+        const picked = this.resolveStructure({ op: 'pick', rows: sorted.map((i) => rows[i]) });
+        if (picked === false) return { rows: [], indices: [] }; // vetoed: callers stop on an empty selection
+        const keep = picked && new Set(picked.rows);
+        const kept = keep ? sorted.filter((i) => keep.has(rows[i])) : sorted;
+        return { rows: kept.map((i) => rows[i] as T), indices: kept };
       }
     }
     return { rows: [originRow], indices: [originIndex] };
@@ -1181,13 +1343,23 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
 
   private resetDragState(): void {
     this.isDragging = false;
-    this.draggedRowIndex = null;
-    this.draggedRows = [];
+    this.dragDisplay = this.draggedRows = [];
     this.draggedIndices = [];
     this.dragSessionId = null;
     this.dragAccepted = false;
-    this.dropRowIndex = null;
+    this.dropRowIndex = this.dropTarget = this.dropCheck = null;
     this.pendingMove = null;
+  }
+
+  /** Whether the row model accepts dropping the dragged row before/after display row `index` (memoised per spot). */
+  private dropAllowed(index: number, before: boolean): boolean {
+    const memo = this.dropCheck;
+    if (memo && memo.index === index && memo.before === before) return memo.ok;
+    // The first row actually dragged (`pick` may have narrowed the selection to the pressed row's parent) — as `onDrop` moves.
+    const from = this.draggedIndices[0] ?? null;
+    const ok = from !== null && this.planMove(from, index, before ? 'before' : 'after', undefined, true) !== null;
+    this.dropCheck = { index, before, ok };
+    return ok;
   }
 
   /**
@@ -1232,18 +1404,20 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
 
   private handleKeyboardMove(row: T, fromIndex: number, toIndex: number, focusCol: number): void {
     if (!this.pendingMove) {
-      this.pendingMove = { originalIndex: fromIndex, currentIndex: toIndex, row };
+      const sourceIndex = sourceIndexOf(this.sourceRows, this.displayRows, fromIndex);
+      this.pendingMove = { originalIndex: fromIndex, currentIndex: toIndex, row, sourceIndex };
     } else {
       this.pendingMove.currentIndex = toIndex;
     }
     this.lastFocusCol = focusCol;
 
     const grid = this.internalGrid;
-    const rows = [...(grid._rows ?? this.sourceRows)];
+    const rows = [...this.displayRows];
     const [movedRow] = rows.splice(fromIndex, 1);
     rows.splice(toIndex, 0, movedRow);
 
     grid._rows = rows;
+    this.pendingDisplay = null;
     grid._focusRow = toIndex;
     grid._focusCol = focusCol;
     grid.refreshVirtualWindow(true);
@@ -1253,62 +1427,48 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     this.debounceTimer = setTimeout(() => this.flushPendingMove(), this.config.debounceMs ?? 300);
   }
 
-  private flushPendingMove(): void {
+  /** Commit (or drop) the pending debounced move. Returns the display move a cancelled `row-move` reverted (`[from, to]`), else `null`. */
+  private flushPendingMove(): [number, number] | null {
     this.clearDebounceTimer();
-    if (!this.pendingMove) return;
-    const { originalIndex, currentIndex, row: movedRow } = this.pendingMove;
+    if (!this.pendingMove) return null;
+    const { originalIndex, currentIndex, row: movedRow, sourceIndex } = this.pendingMove;
     this.pendingMove = null;
-    if (originalIndex === currentIndex) return;
+    if (originalIndex === currentIndex) return null;
 
     const grid = this.internalGrid;
     // `grid._rows` already reflects the post-move order (mutated incrementally
-    // by `handleKeyboardMove`); report it as `detail.rows` so consumers see
-    // the actual reordered array, not the original `sourceRows` snapshot.
-    const postMoveRows = (grid._rows ?? this.sourceRows) as T[];
+    // by `handleKeyboardMove`). Translate it to SOURCE order by identity —
+    // `_rows` can hold group headers or omit filtered-out rows (#663).
+    const display = this.displayRows;
+    // The display was rebuilt under the pending move (new data, a filter hiding it): nothing to place.
+    const rows =
+      this.sourceRows[sourceIndex] === movedRow
+        ? sourceOrderAfterMove(this.sourceRows as T[], display, sourceIndex, currentIndex)
+        : null;
+    if (!rows) return null;
     const detail: RowMoveDetail<T> = {
       row: movedRow as T,
       fromIndex: originalIndex,
       toIndex: currentIndex,
-      rows: [...postMoveRows],
+      rows,
       source: 'keyboard',
     };
     const cancelled = this.emitCancelable('row-move', detail);
     if (cancelled) {
-      // Revert: restore the original snapshot. `sourceRows` was never mutated
-      // during the pending move (only `grid._rows` was), so resetting from it
-      // is the correct rollback regardless of how many incremental keyboard
-      // moves accumulated.
-      grid._rows = [...this.sourceRows];
+      // Revert: `sourceRows` was never touched during the pending move, only
+      // `grid._rows` was — move that one occurrence back (other copies stay).
+      grid._rows = moveAt(display, currentIndex, originalIndex, currentIndex < originalIndex ? 'after' : 'before');
       grid._focusRow = originalIndex;
       grid._focusCol = this.lastFocusCol;
       grid.refreshVirtualWindow(true);
       ensureCellVisible(grid);
+      return [currentIndex, originalIndex];
     }
-  }
-
-  private executeIntraGridMove(row: unknown, fromIndex: number, toIndex: number, source: 'keyboard' | 'drag'): void {
-    const rows = [...this.sourceRows];
-    const [movedRow] = rows.splice(fromIndex, 1);
-    rows.splice(toIndex, 0, movedRow);
-    const detail: RowMoveDetail<T> = {
-      row: row as T,
-      fromIndex,
-      toIndex,
-      rows: rows as T[],
-      source,
-    };
-    const cancelled = this.emitCancelable('row-move', detail);
-    if (cancelled) return;
-    if (this.animationType === 'flip' && this.gridElement) {
-      const oldPositions = this.captureRowPositions();
-      this.grid.rows = rows;
-      requestAnimationFrame(() => {
-        void this.gridElement.offsetHeight;
-        this.animateFLIP(oldPositions, fromIndex, toIndex);
-      });
-    } else {
-      this.grid.rows = rows;
-    }
+    // Persist, so the next row-model rebuild (sort, filter, group toggle) keeps the order. Until it
+    // renders, `_rows` is about to be overwritten: later moves must commit at once (as `commitMove`).
+    this.grid.rows = rows;
+    this.pendingDisplay = display;
+    return null;
   }
 
   private captureRowPositions(): Map<number, number> {
@@ -1331,11 +1491,7 @@ export class RowDragDropPlugin<T = unknown> extends BaseGridPlugin<RowDragDropCo
     for (const rowEl of this.#ownRows()) {
       const newRowIndex = this.getRowIndex(rowEl);
       if (newRowIndex < 0 || newRowIndex < minIndex || newRowIndex > maxIndex) continue;
-      let oldIndex: number;
-      if (newRowIndex === toIndex) oldIndex = fromIndex;
-      else if (fromIndex < toIndex) oldIndex = newRowIndex + 1;
-      else oldIndex = newRowIndex - 1;
-      const oldTop = oldPositions.get(oldIndex);
+      const oldTop = oldPositions.get(shiftedIndex(newRowIndex, toIndex, fromIndex)); // where it was before the move
       if (oldTop === undefined) continue;
       const newTop = rowEl.getBoundingClientRect().top;
       const deltaY = oldTop - newTop;

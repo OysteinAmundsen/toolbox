@@ -127,6 +127,26 @@ export interface TreeConfig {
    * @since 3.4.0
    */
   hasChildren?: (row: TreeRow) => boolean;
+  /**
+   * Allow a drag-and-drop move to change a row's parent
+   * ({@link https://toolboxjs.com/grid/plugins/row-drag-drop/ | Row Drag-Drop}).
+   *
+   * Without it, rows only move among their siblings — a row always keeps its
+   * parent, and its subtree always moves with it. Return `true` to let `row`
+   * move under `newParent` (`null` = the top level). Never called for a move
+   * that would put a row inside its own subtree, and not consulted for rows
+   * dropped in from another grid (those always land at the top level).
+   *
+   * @example
+   * ```ts
+   * new TreePlugin({
+   *   // Files may move between folders; folders stay where they are.
+   *   canReparent: (row, newParent) => row.type === 'file' && newParent?.type === 'folder',
+   * })
+   * ```
+   * @since 3.12.3
+   */
+  canReparent?: (row: TreeRow, newParent: TreeRow | null, oldParent: TreeRow | null) => boolean;
 }
 
 /** Internal state managed by the tree plugin */

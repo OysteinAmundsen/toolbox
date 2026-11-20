@@ -49,6 +49,7 @@ import {
   resolveDefaultExpanded,
   resolveGroupFields,
   toggleGroupExpansion,
+  vetoRowMove,
 } from './grouping-rows';
 import styles from './grouping-rows.css?inline';
 import type {
@@ -185,6 +186,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
         type: 'canMoveRow',
         description: 'Returns false for group header rows (cannot be reordered)',
       },
+      { type: 'rows:resolve-move', description: 'Vetoes row drag-drop moves across a group boundary' },
       {
         type: 'grouping:get-grouped-fields',
         description: 'Returns the column field names that match group depth levels (string[])',
@@ -412,13 +414,8 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> imple
    * @internal
    */
   override handleQuery(query: PluginQuery): unknown {
-    if (query.type === 'canMoveRow') {
-      // Group header rows cannot be reordered
-      const row = query.context as { __isGroupRow?: boolean } | null | undefined;
-      if (row?.__isGroupRow === true) {
-        return false;
-      }
-    }
+    const levelOf = (r: unknown) => this.grid?.getPluginByName?.('hierarchy')?.getRowMeta(r)?.level;
+    if (query.type === 'canMoveRow' || query.type === 'rows:resolve-move') return vetoRowMove(query, this.rows, levelOf);
     if (query.type === 'grouping:get-grouped-fields') {
       return [...this.groupedFields];
     }

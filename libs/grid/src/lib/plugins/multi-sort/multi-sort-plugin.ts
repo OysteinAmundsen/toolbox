@@ -8,6 +8,7 @@
 import { announce, getA11yMessage } from '../../core/internal/aria';
 import { BaseGridPlugin, HeaderClickEvent, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import type { ColumnState, GridHost } from '../../core/types';
+import type { RowMoveQuery } from '../shared/row-move';
 import { getSortDirection, getSortIndex, sortRowsInPlace, toggleSort } from './multi-sort';
 import styles from './multi-sort.css?inline';
 import type { MultiSortConfig, SortModel } from './types';
@@ -84,6 +85,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
     queries: [
       { type: 'sort:get-model', description: 'Returns the current multi-sort model as SortModel[]' },
       { type: 'sort:set-model', description: 'Sets the multi-sort model from context (SortModel[])' },
+      { type: 'rows:resolve-move', description: 'Vetoes row reorders while a sort model controls the order' },
     ],
   };
 
@@ -171,6 +173,9 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
         this.requestRender();
         return true;
       }
+      case 'rows:resolve-move':
+        // The next rebuild re-sorts, undoing a manual reorder (#663).
+        return (query.context as RowMoveQuery).op === 'move' && this.sortModel.length > 0 ? false : undefined;
       default:
         return undefined;
     }

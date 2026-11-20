@@ -568,6 +568,19 @@ features: {
 
 In that combination a tree row's depth (indentation, `getRowMeta(row).depth`, event `depth`) counts the group levels above it.
 
+### Reordering with drag and drop
+
+Add [Row Drag-Drop](/grid/plugins/row-drag-drop/) to let users reorder tree rows. Each row moves with its whole subtree, among its siblings; set `canReparent` to also allow moves to another parent:
+
+```ts
+features: {
+  tree: { canReparent: (row, newParent) => newParent?.type === 'folder' },
+  rowDragDrop: true,
+},
+```
+
+See [Trees and Grouped Rows](/grid/plugins/row-drag-drop/#trees-and-grouped-rows) for the drop rules and the `row-move` payload.
+
 ## See Also
 
 - [Master-Detail](/grid/plugins/master-detail/) — Expand rows to show nested detail grids

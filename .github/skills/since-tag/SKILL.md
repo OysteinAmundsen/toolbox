@@ -64,6 +64,8 @@ A PR can only **raise** release-please's staged tier, never lower it, so the max
 | none              | `feat`     | `2.16.0` — lastReleased + minor     |
 
 > Tier mapping mirrors `release-please-config.json`: `feat:` → minor; `fix:`/`perf:`/`refactor:` → patch; `feat!:`/`BREAKING CHANGE` → major. When genuinely unsure whether your change is a feat or a fix, ask the user before stamping.
+>
+> `<bump>` MUST be the type of the commit you will suggest, not the kind of API you are adding: a `fix(...)` issue that needs new public API (a config option, an event field) still ships in a patch release, so its `@since` is the patch version (#663: `fix` → `3.12.3`, not `3.13.0`).
 
 ## Bulk refresh from git history
 

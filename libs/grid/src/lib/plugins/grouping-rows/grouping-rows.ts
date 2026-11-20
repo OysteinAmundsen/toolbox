@@ -7,6 +7,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type { HierarchyNode } from '../hierarchy';
+import type { RowMoveQuery, RowMoveStep } from '../shared/row-move';
 import type {
   DefaultExpandedValue,
   GroupDefinition,
@@ -499,6 +500,72 @@ export function interleaveRootNodes(
     roots.push(node);
   }
   return roots;
+}
+
+const isGroupHeader = (row: unknown) => (row as { __isGroupRow?: boolean } | null)?.__isGroupRow === true;
+
+/**
+ * GroupingRows' answer to the row-move queries: group header rows never move
+ * (`canMoveRow`), and since grouping re-buckets rows by value, a move can't
+ * carry a row into another group (`rows:resolve-move`, #663). `false` = veto.
+ * Only a header ABOVE the moved row's level (`levelOf`, the hierarchy level)
+ * separates its group: headers grouping a sibling's tree children are deeper.
+ */
+export function vetoRowMove(
+  query: { type: string; context: unknown },
+  rows: readonly unknown[],
+  levelOf: (row: unknown) => number | undefined,
+): false | undefined {
+  if (query.type === 'canMoveRow') return isGroupHeader(query.context) ? false : undefined;
+  const move = query.context as RowMoveQuery;
+  if (move.op !== 'move') return undefined;
+  const own = levelOf(rows[move.fromIndex]);
+  if (move.step !== undefined && own !== undefined) return vetoStep(rows, move.fromIndex, move.step, own, levelOf);
+  for (let i = Math.min(move.fromIndex, move.toIndex); i <= Math.max(move.fromIndex, move.toIndex); i++) {
+    if (isGroupHeader(rows[i]) && (levelOf(rows[i]) ?? 0) < (own ?? Infinity)) return false;
+  }
+  return undefined;
+}
+
+/**
+ * A keyboard/menu `step` lands next to a SIBLING (Tree), past the row's own
+ * descendants. Group headers can split a sibling list (roots, or one parent's
+ * children), and group depths can differ, so levels alone don't identify
+ * siblings. Find the parent — the nearest data row above that is shallower
+ * than every header passed (none for a root: level 0) — then walk: leaving the
+ * parent's subtree ends the list (no veto); another group's header or member
+ * inside it vetoes the move.
+ */
+function vetoStep(
+  rows: readonly unknown[],
+  from: number,
+  step: RowMoveStep,
+  own: number,
+  levelOf: (row: unknown) => number | undefined,
+): false | undefined {
+  let parent = 0;
+  for (let i = from - 1, top = own; i >= 0; i--) {
+    const level = levelOf(rows[i]) ?? Infinity;
+    if (isGroupHeader(rows[i])) top = Math.min(top, level);
+    else if (level < top) {
+      parent = level;
+      break;
+    }
+  }
+  const dir = step === -1 || step === 'first' ? -1 : 1;
+  let crossed = Infinity; // walking up: shallowest header of the row's own group chain
+  for (let i = from + dir; i >= 0 && i < rows.length; i += dir) {
+    const level = levelOf(rows[i]) ?? Infinity;
+    if (level <= parent) return undefined;
+    if (!isGroupHeader(rows[i])) {
+      if (crossed < Infinity) return false;
+      if (level <= own && typeof step === 'number') return undefined;
+    } else if (level < own) {
+      if (dir > 0 || level >= crossed) return false;
+      crossed = level;
+    }
+  }
+  return undefined;
 }
 
 /** Index-aligned with `rows`: node index of the root each rendered row belongs to, plus the root count. */

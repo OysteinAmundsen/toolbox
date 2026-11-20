@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import { grid, headerCells, openDemo } from './utils';
+import { expect, test, type Page } from '@playwright/test';
+import { columnCells, grid, headerCells, openDemo, toggleControl } from './utils';
 
 test.describe('Column Reorder Demos', () => {
   test('ReorderDefaultDemo — drag column header to reorder', async ({ page }) => {
@@ -105,5 +105,74 @@ test.describe('Row Reorder Demos', () => {
         expect(statusText).toContain('Bob');
       }
     }
+  });
+});
+
+test.describe('Row Drag-Drop Tree Demo', () => {
+  const names = async (page: Page) => (await columnCells(page, 'Name').allTextContents()).map((t) => t.trim());
+  const row = (page: Page, name: string) => grid(page).locator('.data-grid-row', { hasText: name });
+  const handle = (page: Page, name: string) => row(page, name).locator('.dg-row-drag-handle');
+  const status = (page: Page) => page.locator('#row-drag-drop-tree-status');
+
+  test('RowDragDropTreeDemo — a folder moves with its files (keyboard)', async ({ page }) => {
+    await openDemo(page, 'row-drag-drop/RowDragDropTreeDemo');
+    expect(await names(page)).toEqual([
+      'Documents',
+      'Report.docx',
+      'Budget.xlsx',
+      'Contract.pdf',
+      'Photos',
+      'Beach.jpg',
+      'Mountains.jpg',
+      'Notes.txt',
+      'Todo.md',
+    ]);
+
+    await row(page, 'Photos').locator('.cell[data-field="name"]').click();
+    await page.keyboard.press('Alt+ArrowUp');
+
+    await expect
+      .poll(() => names(page))
+      .toEqual([
+        'Photos',
+        'Beach.jpg',
+        'Mountains.jpg',
+        'Documents',
+        'Report.docx',
+        'Budget.xlsx',
+        'Contract.pdf',
+        'Notes.txt',
+        'Todo.md',
+      ]);
+    await expect(status(page)).toHaveText('Moved Photos to position 1 in top level');
+  });
+
+  test('RowDragDropTreeDemo — the move menu reorders a file within its folder', async ({ page }) => {
+    await openDemo(page, 'row-drag-drop/RowDragDropTreeDemo');
+
+    await handle(page, 'Beach.jpg').click();
+    await page.locator('#tbw-row-move-menu').getByRole('button', { name: 'Move down' }).click();
+
+    await expect.poll(async () => (await names(page)).slice(4, 7)).toEqual(['Photos', 'Mountains.jpg', 'Beach.jpg']);
+    await expect(status(page)).toHaveText('Moved Beach.jpg to position 2 in Photos');
+  });
+
+  test('RowDragDropTreeDemo — moving a file to another folder needs canReparent', async ({ page }) => {
+    await openDemo(page, 'row-drag-drop/RowDragDropTreeDemo');
+    const before = await names(page);
+
+    // Upper half of Report.docx = "before Report", i.e. into Documents.
+    const dropOnReport = () =>
+      handle(page, 'Notes.txt').dragTo(row(page, 'Report.docx'), { targetPosition: { x: 60, y: 4 } });
+
+    await dropOnReport();
+    await page.waitForTimeout(300);
+    expect(await names(page)).toEqual(before);
+
+    await toggleControl(page, 'canReparent');
+    await dropOnReport();
+
+    await expect.poll(async () => (await names(page)).slice(0, 3)).toEqual(['Documents', 'Notes.txt', 'Report.docx']);
+    await expect(status(page)).toHaveText('Moved Notes.txt from top level to Documents (position 1)');
   });
 });

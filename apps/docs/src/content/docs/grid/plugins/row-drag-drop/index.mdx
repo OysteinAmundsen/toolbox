@@ -9,6 +9,7 @@ import RowDragDropCancelableEventDemo from '@components/demos/row-drag-drop/RowD
 import RowDragDropCrossGridDemo from '@components/demos/row-drag-drop/RowDragDropCrossGridDemo.astro';
 import RowDragDropCrossWindowDemo from '@components/demos/row-drag-drop/RowDragDropCrossWindowDemo.astro';
 import RowDragDropDefaultDemo from '@components/demos/row-drag-drop/RowDragDropDefaultDemo.astro';
+import RowDragDropTreeDemo from '@components/demos/row-drag-drop/RowDragDropTreeDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
 
 The Row Drag-Drop plugin lets users rearrange rows by dragging a grip handle
@@ -262,6 +263,70 @@ features: {
   remote confirmation arrives. Treat the `row-transfer` event as the
   authoritative success signal for cross-window transfers.
 
+## Trees and Grouped Rows
+
+Row Drag-Drop works with plugins that reshape the rows. It never needs to know
+about them: they translate each move into their own row structure through the
+`rows:resolve-move` plugin query. Moves always act on the row **objects**, so
+display positions and your data's positions don't need to line up.
+
+**[Tree](../tree/)** — a row moves **with its whole subtree**, among its
+siblings. Parent rows and child rows can both be dragged:
+
+- Dropping a row before or after one of its siblings reorders it.
+- Dropping it **just below an expanded parent** makes it that parent's first child.
+- Dropping it **below the last row** moves it to the end of the top level
+  (a parent change, so a child row also needs `canReparent`).
+- <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> and the move menu step over whole
+  siblings — the ones you can see, so a sibling hidden by a filter is skipped.
+  **Move to top**/**Move to bottom** go to the start/end of the
+  sibling list, so a row never leaves its parent this way.
+- A drop that would give the row a **different parent** is rejected unless
+  [`TreeConfig.canReparent`](../tree/interfaces/treeconfig/) allows it. A row
+  can never be dropped into its own subtree.
+- Rows dropped in from another grid land at the top level, next to the
+  top-level row they were dropped on. A parent sent to another grid takes its
+  subtree with it; if a selected child of it is sent too, it arrives once,
+  inside its parent.
+- While the tree is sorted, rows can't be reordered — the sort would undo it.
+
+In the demo below, drag **Photos** below **Notes.txt** to move the folder with
+its contents, or drag **Beach.jpg** to reorder it within Photos. Dropping a file
+in another folder is rejected until you turn on **Move files between folders**.
+
+<ShowSource file="demos/row-drag-drop/RowDragDropTreeDemo.astro">
+  <RowDragDropTreeDemo />
+</ShowSource>
+
+```ts
+features: {
+  tree: {
+    // Let files move into a folder or to the top level; folders keep their parent.
+    canReparent: (row, newParent) => row.type === 'file' && (newParent === null || newParent.type === 'folder'),
+  },
+  rowDragDrop: true,
+},
+```
+
+For a tree move, `row-move` reports the new **top-level** rows in
+`detail.rows`. The moved row keeps its identity; each parent whose children
+changed is a shallow copy carrying the new `children` array. `fromParent` and
+`toParent` name the old and new parent (`null` = top level), and
+`fromIndex`/`toIndex` are positions among that parent's children:
+
+```ts
+grid.on('row-move', ({ row, fromParent, toParent, fromIndex, toIndex, rows }) => {
+  api.moveNode(row.id, { parentId: toParent?.id ?? null, index: toIndex });
+  grid.rows = rows; // already applied — keep your own copy in sync
+});
+```
+
+**[Row Grouping](../grouping-rows/)** — group header rows can't be dragged,
+and a row can only move within its own group. Grouping places rows by their
+values, so a drop in another group would be undone by the next render. When
+Row Grouping only groups a tree's child rows, those headers don't stop the
+parent rows from being reordered.
+
 ## Configuration Options
 
 See [`RowDragDropConfig`](./interfaces/rowdragdropconfig/) for the full list
@@ -295,6 +360,9 @@ so keep them cheap.
 | --------- | --------------------- |
 | `Alt + ↑` | Move focused row up   |
 | `Alt + ↓` | Move focused row down |
+
+With [Tree](../tree/), these step over the row's siblings (whole subtrees) — see
+[Trees and Grouped Rows](#trees-and-grouped-rows).
 
 `Ctrl + ↑/↓` still works but is **deprecated** — macOS reserves it for Mission Control, so it
 never reaches the page there. It will be removed in the next major version.
@@ -335,17 +403,25 @@ Override the default grip icon via CSS:
 
 ## Notes
 
-- **Row identification** — currently uses processed/visual row indices
-  (`data-row` attribute and `payload.rowIndices`), not `getRowId()`.
-  Same-window cross-grid drops also recover live object references via the
-  internal `WeakRef` registry; primitive row values fall through to the
-  JSON payload.
-- **Data mutation** — the plugin reorders `grid.rows` in place. The
-  `row-move` event provides the updated array.
+- **Row identification** — events and APIs (`moveRow`, `canMoveRow`,
+  `payload.rowIndices`) use the displayed row positions (`data-row`), not
+  `getRowId()`. The move itself is applied to the row objects, so it lands
+  correctly even when filtering, grouping or a tree makes the displayed rows
+  differ from your data. Same-window cross-grid drops also recover live
+  object references via the internal `WeakRef` registry; primitive row values
+  fall through to the JSON payload.
+- **Sorting and server-side filtering** — while the rows are sorted (a sorted
+  column or a `MultiSortPlugin` sort model), or a `FilteringPlugin`
+  `filterHandler` filter is active, rows can't be reordered within the grid:
+  the sort or your handler decides the displayed order and would undo the move.
+  Rows can still be sent to and received from other grids.
+- **Data mutation** — your rows array is never mutated. A move assigns a new
+  array to `grid.rows`, and the `row-move` event provides it.
 - **Virtualization** — works with virtualized grids; only visible rows are
   rendered but logical indices are preserved.
-- **Keyboard debounce** — rapid keyboard moves are debounced (150 ms) to
-  prevent excessive rerenders.
+- **Keyboard debounce** — rapid keyboard moves of one row are debounced
+  (150 ms) into a single `row-move`. Moving a different row first settles the
+  pending move, so each row gets its own event.
 - **Drag image** — when a drag starts the plugin clones the source row and
   uses it as the HTML5 drag image so the user sees the full row content
   follow the cursor (instead of just the handle cell). The browser applies

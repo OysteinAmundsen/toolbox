@@ -38,6 +38,12 @@ grid.gridConfig = {
   row.
 - **TSV / plain-text** — every drag also exposes a tab-separated text payload
   on the clipboard MIME so rows can be pasted into spreadsheets.
+- **Trees and grouped rows** — moves are applied to the row objects, never by
+  display position. TreePlugin moves a row with its subtree among its
+  siblings (`TreeConfig.canReparent` allows parent changes); GroupingRowsPlugin
+  keeps a row inside its group. Both answer the `rows:resolve-move` plugin
+  query, so this plugin never depends on them. With Tree, `row-move` adds
+  `fromParent`/`toParent`, and `rows` holds the new top-level rows.
 
 ## Accessibility
 

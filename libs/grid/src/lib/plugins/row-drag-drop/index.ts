@@ -13,5 +13,10 @@ export type {
   RowDragStartDetail,
   RowDropDetail,
   RowMoveDetail,
+  RowMovePosition,
+  RowMoveQuery,
+  RowMoveQueryType,
+  RowMoveResolution,
+  RowMoveStep,
   RowTransferDetail,
 } from './types';

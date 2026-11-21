@@ -231,6 +231,13 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
    */
   #loadedRows = new WeakSet<object>();
   /**
+   * Tree detection's parent signal besides embedded/lazy children: the
+   * `hasChildren` predicate, or a row object whose children Tree already had
+   * (#671) — a folder emptied by row moves keeps the data a tree, while fresh
+   * data with only `children: []` stays flat.
+   */
+  #isParent = (row: TreeRow): boolean => this.#loadedRows.has(row as object) || !!this.config.hasChildren?.(row);
+  /**
    * Row objects with a child fetch that was started and NOT cancelled (in
    * flight, loaded, or failed). Limits the automatic re-request of
    * still-expanded lazy nodes (see {@link endHierarchy}) to one attempt per row
@@ -490,7 +497,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
     const treeRows = rows as readonly TreeRow[];
     if (
       treeRows.length === 0 ||
-      !detectTreeStructure(treeRows, this.config.childrenField ?? 'children', this.config.hasChildren)
+      !detectTreeStructure(treeRows, this.config.childrenField ?? 'children', this.#isParent)
     ) {
       this.flattenedRows = [];
       // Flat data: no row is a tree node any more (stale metadata misplaced cross-grid inserts).

@@ -244,6 +244,9 @@ or cached state.
    Exemptions are classifiers too. If disabling one with `mutation-check.ts` SURVIVES every suite, probe whether its
    intended input can reach it at all before "scoping" it. In PR #639 round 12, a field-keyed pending-pin exemption
    could only match a newer fresh replacement, which was the bug itself, so it was deleted.
+   A pending-frame dedupe (`if (this.#frame) return`) is a classifier too: it assumes the kept frame runs after every
+   later producer's update. A producer that updates synchronously queues the frame first, and a same-tick async
+   producer then queues its update after it. Cancel and re-request instead (#676 QA: `resetColumn` + `setColumnWidth`).
 4. **Staleness of stored state.** For each new or changed field that caches derived state, list every event that
    must refresh it and confirm each path does. Events to check: config replaced (larger _and_ smaller), runtime
    setters, hide/show, row data change, plugin detach, and a re-run in each render phase.
@@ -274,7 +277,9 @@ or cached state.
      binding → `Transform failed`, no tests run). happy-dom has no layout (`offsetWidth` = 0), so a probe can
      prove sticky classes/side but not offset arithmetic (every pin reads `0px`); say so in **Evidence**. To
      exercise real offsets, stub `offsetWidth` on the measured element
-     (`Object.defineProperty(el, 'offsetWidth', { value: 80, configurable: true })`). happy-dom also rejects `\"` and
+     (`Object.defineProperty(el, 'offsetWidth', { value: 80, configurable: true })`). When the fix is about WHEN a
+     measure runs, derive the stub from the applied DOM state (e.g. the `--tbw-column-template` track), not the config
+     value the API writes synchronously; otherwise a measure taken too early still passes (#676 QA: SURVIVED). happy-dom also rejects `\"` and
      `CSS.escape` output inside a quoted attribute selector; use hex escapes (`\22 `) — `dataFieldSelector`.
    - Only measured defects become findings; put the numbers in **Evidence**.
    - Always measure a **control** too: the same probe without the changed plugin or flag. A defect that reproduces

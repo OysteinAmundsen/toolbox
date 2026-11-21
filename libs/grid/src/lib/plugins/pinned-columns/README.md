@@ -71,7 +71,8 @@ const leftPinned = pinned.getLeftPinnedColumns();
 // Get right pinned columns (after resolving logical positions)
 const rightPinned = pinned.getRightPinnedColumns();
 
-// Refresh sticky offsets (e.g., after column resize)
+// Re-measure sticky offsets after a width change made outside the grid (e.g. CSS).
+// Resizes through the grid (handle drag, width control, double-click reset) re-measure automatically.
 pinned.refreshStickyOffsets();
 
 // Clear all sticky positioning

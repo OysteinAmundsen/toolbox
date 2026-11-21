@@ -348,6 +348,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> implements HierarchyC
         metaOf: (row) => this.#rowMeta.get(row as object),
         metaByKey: (key) => this.rowKeyMap.get(key),
         canReparent: this.config.canReparent,
+        wasParent: (row) => this.#loadedRows.has(row),
         orderOf: (row) => this.#rowOrder.get(row as object),
         // A copied ancestor keeps its node key (so it stays expanded) and its "children
         // loaded" state — fetched, or embedded (so a list emptied by the move isn't fetched).

@@ -257,6 +257,57 @@ describe('RowDragDrop + Tree (#663)', () => {
     expect(names((grid.sourceRows[0] as Node).children!)).toEqual(['X']);
   });
 
+  it('a row dropped just below an expanded parent emptied by earlier moves becomes its first child (#670)', async () => {
+    const { grid, rdd, moves } = await mountTree([node('X'), node('A', [node('a1')]), node('B', [node('b1')])], {
+      defaultExpanded: true,
+      canReparent: () => true,
+    });
+    rdd.moveRow(2, 3); // a1 just below B (its first child): A is left with `children: []`
+    await waitUpgrade(grid);
+    expect(display(grid)).toEqual(['X', 'A', 'B', 'a1', 'b1']);
+    const emptied = grid.sourceRows[1];
+
+    rdd.moveRow(0, 1); // X just below the empty A
+    await waitUpgrade(grid);
+
+    expect(names(grid.sourceRows)).toEqual(['A', 'B']);
+    expect(names((grid.sourceRows[0] as Node).children!)).toEqual(['X']);
+    expect(moves[1]).toMatchObject({ fromParent: null, toIndex: 0 });
+    expect(moves[1].toParent).toBe(emptied);
+  });
+
+  it('a row the emptied parent may not take lands beside it instead of being refused', async () => {
+    const { grid, rdd } = await mountTree([node('X'), node('A', [node('a1')]), node('B', [node('b1')])], {
+      defaultExpanded: true,
+      canReparent: (row) => row.name === 'a1',
+    });
+    rdd.moveRow(2, 3); // a1 just below B: A is left with `children: []`
+    await waitUpgrade(grid);
+
+    rdd.moveRow(0, 1); // X just below the empty A, which X may not enter
+    await waitUpgrade(grid);
+
+    expect(names(grid.sourceRows)).toEqual(['A', 'X', 'B']);
+    expect((grid.sourceRows[0] as Node).children).toEqual([]);
+  });
+
+  it('a leaf `children: []` stays a leaf even at a previously expanded path key', async () => {
+    // No ids: keys are paths, so new rows inherit expanded state by position.
+    const row = (name: string, children?: Node[]) => (children ? { name, children } : { name }) as Node;
+    const { grid, rdd } = await mountTree([row('F', [row('c')]), row('Z', [row('z')])], {
+      defaultExpanded: true,
+      canReparent: () => true,
+    });
+    grid.rows = [row('X'), row('L', []), row('Z2', [row('z2')])]; // L inherits Z's expanded key "1"
+    await waitUpgrade(grid);
+
+    rdd.moveRow(0, 1); // X just below L
+    await waitUpgrade(grid);
+
+    expect(names(grid.sourceRows)).toEqual(['L', 'X', 'Z2']);
+    expect((grid.sourceRows[0] as Node).children).toEqual([]);
+  });
+
   it('Alt+↑ moves a root above the previous root instead of into its subtree, and focus follows', async () => {
     const { grid, rdd } = await mountTree([node('A', [node('A1'), node('A2')]), node('X')], { defaultExpanded: true });
     grid._focusRow = 3;

@@ -34,6 +34,7 @@ function context(roots: TreeRow[], tree: TreeRow[]): TreeMoveContext {
     metaOf: (row) => meta.get(row),
     metaByKey: (key) => byKey.get(key),
     orderOf: (row) => orders.get(row),
+    wasParent: () => false,
     onCopy: () => undefined,
   };
 }

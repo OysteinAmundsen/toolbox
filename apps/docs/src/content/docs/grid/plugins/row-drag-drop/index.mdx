@@ -280,6 +280,10 @@ siblings. Parent rows and child rows can both be dragged:
 
 - Dropping a row before or after one of its siblings reorders it.
 - Dropping it **just below an expanded parent** makes it that parent's first child.
+  That includes a parent whose children were all moved out, if `canReparent` lets
+  the row in — otherwise the row lands next to it. To keep empty folders
+  recognisable as folders (for example after expanding all rows), set
+  [`TreeConfig.hasChildren`](../tree/interfaces/treeconfig/).
 - Dropping it **below the last row** moves it to the end of the top level
   (a parent change, so a child row also needs `canReparent`).
 - <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> and the move menu step over whole

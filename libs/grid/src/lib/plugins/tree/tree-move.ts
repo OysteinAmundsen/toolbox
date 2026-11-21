@@ -19,6 +19,8 @@ export interface TreeMoveContext {
   /** Metadata by node key — resolves `parentKey` chains. */
   metaByKey: (key: string) => FlattenedTreeRow | undefined;
   canReparent?: TreeConfig['canReparent'];
+  /** Whether a row's children were ever loaded or embedded — an emptied list is still a folder. */
+  wasParent: (row: TreeRow) => boolean;
   /** Position of a rendered row in the displayed rows — orders keyboard steps as the user sees them. */
   orderOf: (row: unknown) => number | undefined;
   /** Called for each ancestor copy, so the plugin can carry its per-row state over. */
@@ -148,6 +150,30 @@ function insert(ctx: TreeMoveContext, rows: unknown[], target: unknown, after: b
   return { rows: next };
 }
 
+/**
+ * The children a row dropped just below `meta`'s node lands on top of — an expanded parent's.
+ * `null` = beside the node instead; `false` = refused (children still loading: no list to land in).
+ */
+function openChildren(
+  ctx: TreeMoveContext,
+  row: TreeRow,
+  fromParent: TreeRow | null,
+  meta: FlattenedTreeRow,
+): TreeRow[] | null | false {
+  if (!meta.isExpanded) return null;
+  const node = meta.data;
+  const children = node[ctx.childrenField];
+  if (!Array.isArray(children)) return meta.hasChildren ? false : null;
+  if (children.length > 0) return children as TreeRow[];
+  // Empty: a folder if it ever had children (lazy load came back empty, or all moved out — #670).
+  // Identity, not the expanded key: a leaf's `children: []` can inherit a reused path key.
+  if (!meta.hasChildren && !ctx.wasParent(node)) return null;
+  // Nothing below it to drop between, so a row that may not enter lands beside it, as on a leaf.
+  const path = new Set<unknown>();
+  addPath(ctx, node, path);
+  return !path.has(row) && ctx.canReparent?.(row, node, fromParent) ? (children as TreeRow[]) : null;
+}
+
 function move(ctx: TreeMoveContext, q: Extract<RowMoveQuery, { op: 'move' }>): RowMoveResolution | false {
   const row = q.row as TreeRow;
   const from = locate(ctx, row);
@@ -173,15 +199,12 @@ function move(ctx: TreeMoveContext, q: Extract<RowMoveQuery, { op: 'move' }>): R
   } else {
     const target = locate(ctx, q.target);
     if (!target) return false;
-    const children = (q.target as TreeRow)[ctx.childrenField];
-    // An expanded parent may have loaded no children yet (`hasChildren` still marks it).
-    const openParent = target.meta.isExpanded && target.meta.hasChildren;
-    // Still loading (`children: true` or none yet): "first child" has no list to land in.
-    if (q.position === 'after' && openParent && !Array.isArray(children)) return false;
-    if (q.position === 'after' && openParent) {
+    const open = q.position === 'after' ? openChildren(ctx, row, from.parent, target.meta) : null;
+    if (open === false) return false;
+    if (open) {
       // Just below an open parent is the slot above its first child.
       toParent = q.target as TreeRow;
-      toList = children as TreeRow[];
+      toList = open;
       insertAt = 0;
     } else {
       toParent = target.parent;

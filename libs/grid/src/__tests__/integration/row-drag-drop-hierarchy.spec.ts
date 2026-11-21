@@ -276,6 +276,34 @@ describe('RowDragDrop + Tree (#663)', () => {
     expect(moves[1].toParent).toBe(emptied);
   });
 
+  it('the tree stays engaged when the last non-empty folder is emptied by a move (#671)', async () => {
+    const { grid, rdd } = await mountTree([node('X'), node('A', [node('a1')]), node('B')], {
+      defaultExpanded: true,
+      canReparent: () => true,
+    });
+    const tree = grid.getPluginByName('tree')!;
+    rdd.moveRow(2, 3); // a1 below B: every folder is now `children: []`
+    await waitUpgrade(grid);
+    expect(names(grid.sourceRows)).toEqual(['X', 'A', 'B', 'a1']);
+    const emptied = grid.sourceRows[1];
+    expect(tree.getRowMeta(emptied)).toBeDefined();
+
+    rdd.moveRow(0, 1); // X just below the empty A
+    await waitUpgrade(grid);
+
+    expect(names(grid.sourceRows)).toEqual(['A', 'B', 'a1']);
+    expect(names((grid.sourceRows[0] as Node).children!)).toEqual(['X']);
+  });
+
+  it('fresh data whose only children lists are empty is still flat (#671)', async () => {
+    const { grid } = await mountTree([node('A', [node('a1')])], { defaultExpanded: true });
+    const tree = grid.getPluginByName('tree')!;
+    grid.rows = [node('A', []), node('B')];
+    await waitUpgrade(grid);
+
+    expect(tree.getRowMeta(grid.rows[0])).toBeUndefined();
+  });
+
   it('a row the emptied parent may not take lands beside it instead of being refused', async () => {
     const { grid, rdd } = await mountTree([node('X'), node('A', [node('a1')]), node('B', [node('b1')])], {
       defaultExpanded: true,
@@ -456,15 +484,12 @@ describe('RowDragDrop + Tree (#663)', () => {
     await vi.waitFor(() => expect(display(grid)).toEqual(['X', 'L', 'c']));
   });
 
-  it('once its last child moved to the top level, the flat data places inserts by root position', async () => {
-    const { grid, rdd } = await mountTree([node('P', [node('c')]), node('Q')], {
-      defaultExpanded: true,
-      canReparent: () => true,
-    });
-    rdd.moveRow(1, 2); // c after Q, at the top level: P, Q, c — no tree left
+  it('once the data turns flat, inserts are placed by root position, not stale child metadata', async () => {
+    const c = node('c');
+    const { grid } = await mountTree([node('P', [c]), node('Q')], { defaultExpanded: true });
+    grid.rows = [node('P', []), node('Q'), c]; // fresh P with no children: no tree left
     await waitUpgrade(grid);
     expect(display(grid)).toEqual(['P', 'Q', 'c']);
-    const c = grid.rows[2];
     const query: RowMoveQuery = { op: 'insert', rows: [node('X')], target: c, position: 'before' };
 
     const answer = grid.query<RowMoveResolution | false | undefined>('rows:resolve-move', query).find(Boolean);

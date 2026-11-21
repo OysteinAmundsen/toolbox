@@ -176,7 +176,8 @@ const rightPinned = plugin.getRightPinnedColumns();
 // Clear all sticky positions
 plugin.clearStickyPositions();
 
-// Recalculate offsets (e.g., after column resize)
+// Re-measure offsets after a width change made outside the grid (e.g. CSS).
+// Resizes through the grid (handle drag, width control, double-click reset) re-measure automatically.
 plugin.refreshStickyOffsets();
 ```
 

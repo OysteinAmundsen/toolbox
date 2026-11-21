@@ -7,7 +7,13 @@
 import { GridClasses } from '../../core/constants';
 import { applyInitialOrder } from '../../core/internal/columns';
 import { getDirection, resolveInlinePosition, type TextDirection } from '../../core/internal/utils';
-import type { AfterCellRenderContext, PluginManifest, PluginQuery, ScrollEvent } from '../../core/plugin/base-plugin';
+import type {
+  AfterCellRenderContext,
+  GridElement,
+  PluginManifest,
+  PluginQuery,
+  ScrollEvent,
+} from '../../core/plugin/base-plugin';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, ColumnInternal } from '../../core/types';
 import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/types';
@@ -193,12 +199,26 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   #seededFromAttr = new WeakSet<HTMLElement>();
   /** `getStickyOffsets` response, built once per offset change instead of per query. */
   #offsetsSnapshot: StickyOffsets | null = null;
+  /** Pending frame that re-measures offsets after an in-place column resize (#676). */
+  #resizeFrame = 0;
   // #endregion
 
   // #region Lifecycle
 
   /** @internal */
+  override attach(grid: GridElement): void {
+    super.attach(grid);
+    // An in-place resize only rewrites the grid template: nothing renders, so `afterRender` never re-measures (#676).
+    const onWidthChange = () => this.#scheduleResizeRemeasure();
+    const host = this.gridElement;
+    host?.addEventListener('column-resize', onWidthChange, { signal: this.disconnectSignal });
+    host?.addEventListener('column-resize-reset', onWidthChange, { signal: this.disconnectSignal });
+  }
+
+  /** @internal */
   override detach(): void {
+    cancelAnimationFrame(this.#resizeFrame);
+    this.#resizeFrame = 0;
     this.leftOffsets.clear();
     this.rightOffsets.clear();
     this.#offsetsSnapshot = null;
@@ -463,6 +483,22 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
       this.#storeOffsets(applyStickyOffsets(host, [...this.visibleColumns]));
       // Re-apply scroll-driven state (transfer + translateX) to the fresh DOM elements
       this.#updateSplitGroupScroll();
+    });
+  }
+
+  /**
+   * Re-measure once per frame after `column-resize` / `column-resize-reset`. Offsets are read from
+   * `offsetWidth`, so the frame must follow the resize controller's template update. Re-queued on
+   * every event: a frame kept from an earlier synchronous reset would run before a later resize's
+   * template frame.
+   */
+  #scheduleResizeRemeasure(): void {
+    if (!this.isApplied) return;
+    cancelAnimationFrame(this.#resizeFrame);
+    this.#resizeFrame = requestAnimationFrame(() => {
+      this.#resizeFrame = 0;
+      if (!this.isApplied) return;
+      this.refreshStickyOffsets();
     });
   }
 
@@ -860,10 +896,20 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   }
 
   /**
-   * Re-apply sticky offsets (e.g., after column resize).
+   * Re-measure and re-apply sticky offsets. Column resizes through the grid (handle drag, width
+   * control, reset) re-measure automatically; call this after widths change outside the grid.
    */
   refreshStickyOffsets(): void {
-    this.#storeOffsets(applyStickyOffsets(this.gridElement, [...this.visibleColumns]));
+    const result = applyStickyOffsets(this.gridElement, [...this.visibleColumns]);
+    // Group cells split by an earlier measure are not split again: on an unchanged header the re-measure finds no
+    // split groups or group-end adjustments, so keep the live ones (scroll-driven label transfer, PR #677).
+    const { addGroupEnd, removeGroupEnd } = result.groupEndAdjustments;
+    if (!result.splitGroups.length && !addGroupEnd.size && !removeGroupEnd.size) {
+      result.splitGroups = this.#splitGroups;
+      result.groupEndAdjustments = this.#groupEndAdjustments;
+    }
+    this.#storeOffsets(result);
+    this.#updateSplitGroupScroll();
   }
 
   /**

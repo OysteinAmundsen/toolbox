@@ -49,6 +49,7 @@ function makeGrid(columns: unknown[]) {
   const el = document.createElement('div') as any;
   el._columns = columns;
   Object.defineProperty(el, '_visibleColumns', {
+    configurable: true,
     get: () => el._columns.filter((c: any) => !c.hidden),
   });
   el.updateTemplate = vi.fn();
@@ -417,6 +418,78 @@ describe('resize controller', () => {
       input.dispatchEvent(new Event('change', { bubbles: true }));
       expect(grid._columns[0].width).toBe(240);
       expect(input.value).toBe('240');
+
+      controller.dispose();
+    });
+
+    it('keeps resizing its column after the rendered columns are re-indexed (#641)', () => {
+      const grid = makeGrid([
+        { field: 'a', width: 100 },
+        { field: 'b', width: 100 },
+      ]);
+      const controller = createResizeController(grid);
+      const cell = makeCell(100);
+      const handle = makeHandle();
+
+      tap(controller, cell, handle);
+      // A column window move shifts the popover's column to another rendered index.
+      grid._columns.unshift({ field: 'z', width: 100 });
+      buttonLabelled('Wider')!.click();
+
+      expect(grid._columns.map((c: { width: number }) => c.width)).toEqual([100, 116, 100]);
+
+      controller.dispose();
+    });
+
+    it('keeps resizing its column after it leaves the rendered columns (#641)', () => {
+      const grid = makeGrid([
+        { field: 'a', width: 100 },
+        { field: 'b', width: 100 },
+      ]);
+      const controller = createResizeController(grid);
+      const cell = makeCell(100);
+      const handle = makeHandle();
+
+      tap(controller, cell, handle);
+      // A narrower host windows the popover's column out (ColumnVirtualization).
+      Object.defineProperty(grid, '_visibleColumns', { get: () => [grid._columns[1]] });
+      buttonLabelled('Wider')!.click();
+
+      expect(grid._columns.map((c: { width: number }) => c.width)).toEqual([116, 100]);
+      expect(widthInput()!.value).toBe('116');
+
+      controller.dispose();
+    });
+
+    it('steps an off-window column from its configured pixel-string width (#641)', () => {
+      const grid = makeGrid([
+        { field: 'a', width: '150px' },
+        { field: 'b', width: 100 },
+      ]);
+      const controller = createResizeController(grid);
+      const cell = makeCell(150);
+      const handle = makeHandle();
+
+      tap(controller, cell, handle);
+      Object.defineProperty(grid, '_visibleColumns', { get: () => [grid._columns[1]] });
+      buttonLabelled('Wider')!.click();
+
+      expect(grid._columns[0].width).toBe(166);
+
+      controller.dispose();
+    });
+
+    it('does not open once a re-render has replaced the tapped handle (#641)', () => {
+      const grid = makeGrid([{ field: 'a', width: 100 }]);
+      const controller = createResizeController(grid);
+      const cell = makeCell(100);
+      const handle = makeHandle();
+
+      press(controller, cell, handle);
+      handle.remove();
+      vi.advanceTimersByTime(TAP_DELAY_MS);
+
+      expect(popover()).toBeNull();
 
       controller.dispose();
     });

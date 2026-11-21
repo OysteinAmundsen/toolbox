@@ -115,6 +115,10 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
   #windowed = false;
   /** The focused column while it is scrolled out of the window; valid only while `_focusCol` is -1. */
   #parked?: ColumnConfig;
+  /** Host size observer: a wider host fits more columns without a scroll (#641). */
+  #resizeObserver?: ResizeObserver;
+  /** Pending frame that waits for a column resize drag to end before re-checking the window (#641). */
+  #geometryFrame = 0;
   // #endregion
 
   get #internalGrid(): GridHost {
@@ -131,10 +135,24 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     const columns = this.columns;
     this.#measure(columns);
     this.endCol = columns.length - 1;
+
+    // The window depends on the host width and the column widths, and neither change scrolls (#641).
+    const host = this.gridElement;
+    if (!host) return;
+    this.#resizeObserver = new ResizeObserver(this.#onGeometryChange);
+    this.#resizeObserver.observe(host);
+    const onWidthChange = () => this.#onGeometryChange();
+    host.addEventListener('column-resize', onWidthChange, { signal: this.disconnectSignal });
+    host.addEventListener('column-resize-reset', onWidthChange, { signal: this.disconnectSignal });
   }
 
   /** @internal */
   override detach(): void {
+    this.#resizeObserver?.disconnect();
+    this.#resizeObserver = undefined;
+    cancelAnimationFrame(this.#geometryFrame);
+    this.#geometryFrame = 0;
+
     // Clean up inline styles set by this plugin
     this.#cleanupStyles();
 
@@ -291,14 +309,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
       return columns;
     }
 
-    const viewportWidth = this.grid?.clientWidth || 800;
-    const viewport = getVisibleColumnRange(
-      this.scrollLeft,
-      viewportWidth,
-      this.columnOffsets,
-      this.columnWidths,
-      this.config.overscan ?? 3,
-    );
+    const viewport = this.#range(this.columnOffsets, this.columnWidths);
 
     this.startCol = viewport.startCol;
     this.endCol = viewport.endCol;
@@ -419,15 +430,51 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
    */
   #windowMoves(): boolean {
     if (computeTotalWidth(this.#windowSource) !== this.totalWidth) return true;
-    const { startCol, endCol } = getVisibleColumnRange(
-      this.scrollLeft,
-      this.grid?.clientWidth || 800,
-      this.columnOffsets,
-      this.columnWidths,
-      this.config.overscan ?? 3,
-    );
+    return this.#rangeMoves(this.columnOffsets, this.columnWidths);
+  }
+
+  /** Whether the window range computed from these offsets/widths differs from the rendered one. */
+  #rangeMoves(offsets: number[], widths: number[]): boolean {
+    const { startCol, endCol } = this.#range(offsets, widths);
     return startCol !== this.startCol || endCol !== this.endCol;
   }
+
+  #range(offsets: number[], widths: number[]): { startCol: number; endCol: number } {
+    return getVisibleColumnRange(
+      this.scrollLeft,
+      this.grid?.clientWidth || 800,
+      offsets,
+      widths,
+      this.config.overscan ?? 3,
+    );
+  }
+
+  /**
+   * Host resize or in-place column width change (#641): re-window when the range changes. Measured
+   * fresh, since in-place widths changed without a re-window. Only a range change re-windows: it
+   * rebuilds the header, under the width popover's anchor; the same columns at new widths only
+   * re-measure and request a STYLE pass (offsets, padding, scroll widths, pinned offsets). Mid-drag a
+   * re-window would detach the captured resize handle, so it waits for the drag to end.
+   */
+  #onGeometryChange = (): void => {
+    if (!this.isVirtualized || this.#geometryFrame) return;
+    if (this.#internalGrid._resizeController?.isResizing) {
+      this.#geometryFrame = requestAnimationFrame(() => {
+        this.#geometryFrame = 0;
+        this.#onGeometryChange();
+      });
+      return;
+    }
+    const source = this.#windowSource;
+    const widths = getColumnWidths(source);
+    if (this.#rangeMoves(computeColumnOffsets(source), widths)) this.requestColumnWindowRender();
+    // Per column, not the total: changes coalesced while a drag was in flight can cancel out.
+    else if (widths.some((w, i) => w !== this.columnWidths[i])) {
+      this.#window(source);
+      // Every plugin's afterRender, not only ours: PinnedColumns re-measures its sticky offsets.
+      this.requestAfterRender();
+    }
+  };
 
   /** Scroll the grid's horizontal scroll container (`.tbw-scroll-area`; the host itself never scrolls). */
   #scrollAreaTo(scrollLeft: number): void {

@@ -89,12 +89,12 @@ function createSortIndicator(grid: InternalGrid, col: ColumnInternal): HTMLEleme
  * hidden with `aria-hidden`. `tabindex="-1"` keeps it out of the tab order —
  * one extra tab stop per column would swamp keyboard header navigation.
  */
-function createResizeHandle(grid: InternalGrid, colIndex: number, cell: HTMLElement): HTMLElement {
+function createResizeHandle(grid: InternalGrid, col: ColumnInternal, colIndex: number, cell: HTMLElement): HTMLElement {
   const handle = document.createElement('div');
   handle.className = 'resize-handle';
   handle.setAttribute('role', 'button');
   handle.setAttribute('tabindex', '-1');
-  handle.setAttribute('aria-label', columnWidthLabel(grid, colIndex));
+  handle.setAttribute('aria-label', columnWidthLabel(col));
   handle.addEventListener('pointerdown', (e: PointerEvent) => {
     // Only the primary mouse button starts a resize. Without this, a right-click
     // on the handle would preventDefault() and swallow the context menu.
@@ -258,7 +258,7 @@ export function renderHeader(grid: GridHost): void {
     }
     if (isColumnResizable(grid, col)) {
       cell.classList.add('resizable');
-      cell.appendChild(createResizeHandle(grid, i, cell));
+      cell.appendChild(createResizeHandle(grid, col, i, cell));
     }
 
     headerRow.appendChild(cell);

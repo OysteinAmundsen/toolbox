@@ -61,7 +61,6 @@ Rows with open editors follow horizontal scrolling like other rows: an editor wh
 
 > **Known limitations:**
 >
-> - Widening the grid or narrowing a column only re-windows on the next horizontal scroll ([#641](https://github.com/OysteinAmundsen/toolbox/issues/641)).
 > - Responsive card layout shows only the windowed columns ([#635](https://github.com/OysteinAmundsen/toolbox/issues/635)).
 
 Screen readers still get the full grid: `aria-colcount` is the number of visible columns, and each header and cell's `aria-colindex` is its position among all of them — not within the rendered window.

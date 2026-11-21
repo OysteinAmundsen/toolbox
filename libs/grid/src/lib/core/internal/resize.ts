@@ -1,6 +1,7 @@
-import type { ColumnInternal, GridHost, InternalGrid, ResizeController } from '../types';
+import type { ColumnInternal, GridHost, ResizeController } from '../types';
 import { startPointerDrag } from './pointer-drag';
 import { createSizePopover, type SizePopover } from './size-popover';
+import { indexOfColumn } from './utils';
 
 /** Floor applied to every width commit when the column declares no `minWidth`. */
 const FALLBACK_MIN_WIDTH = 40;
@@ -23,9 +24,8 @@ function minWidthFor(col: ColumnInternal | undefined): number {
  * Accessible name shared by a column's resize handle and its width popover, so
  * assistive tech hears the same label for the drag and the click affordance.
  */
-export function columnWidthLabel(grid: InternalGrid, colIndex: number): string {
-  const col = grid._visibleColumns[colIndex];
-  return `Width of column ${String(col?.header ?? col?.field ?? colIndex + 1)}`;
+export function columnWidthLabel(col: ColumnInternal): string {
+  return `Width of column ${String(col.header ?? col.field)}`;
 }
 
 /**
@@ -75,7 +75,7 @@ export function createResizeController(grid: GridHost): ResizeController {
   let prevCursor: string | null = null;
   let prevUserSelect: string | null = null;
   /** Lazily created on the first handle tap — most sessions never build it. */
-  let widthPopover: SizePopover<number> | null = null;
+  let widthPopover: SizePopover<ColumnInternal> | null = null;
   /**
    * Pending {@link openWidthPopover} from a tap. The handle also answers
    * `dblclick` with a reset, and the first half of that double-click is
@@ -96,19 +96,22 @@ export function createResizeController(grid: GridHost): ResizeController {
     return headerRow?.querySelectorAll<HTMLElement>('.cell')[colIndex];
   };
 
-  const widthOf = (colIndex: number): number => {
-    const col = grid._visibleColumns[colIndex];
-    if (col?.__renderedWidth != null) return col.__renderedWidth;
-    if (typeof col?.width === 'number') return col.width;
-    return headerCellAt(colIndex)?.getBoundingClientRect().width ?? 0;
+  /** A column's width: rendered, else configured, else measured from its header cell (parsed when off-window). */
+  const widthOf = (col: ColumnInternal | undefined): number => {
+    if (!col) return 0;
+    if (col.__renderedWidth != null) return col.__renderedWidth;
+    if (typeof col.width === 'number') return col.width;
+    return (
+      headerCellAt(grid._visibleColumns.indexOf(col))?.getBoundingClientRect().width ??
+      (parseFloat(col.width as string) || 0)
+    );
   };
 
   /**
    * Single commit path shared by the drag, the step buttons and the numeric
    * input, so all three clamp identically and emit the same `column-resize`.
    */
-  const commitWidth = (colIndex: number, requested: number): number | null => {
-    const col = grid._visibleColumns[colIndex];
+  const commitWidth = (col: ColumnInternal | undefined, requested: number): number | null => {
     if (!col) return null;
     const width = Math.max(minWidthFor(col), requested);
     col.width = width;
@@ -128,7 +131,7 @@ export function createResizeController(grid: GridHost): ResizeController {
     if (!resizeState) return;
     const delta = e.clientX - resizeState.startX;
     if (delta !== 0) moved = true;
-    commitWidth(resizeState.colIndex, resizeState.startWidth + delta);
+    commitWidth(grid._visibleColumns[resizeState.colIndex], resizeState.startWidth + delta);
   };
   let justFinishedResize = false;
   /**
@@ -209,8 +212,7 @@ export function createResizeController(grid: GridHost): ResizeController {
     }
   }
 
-  function resetColumn(colIndex: number): void {
-    const col = grid._visibleColumns[colIndex];
+  function resetColumn(col: ColumnInternal | undefined): void {
     if (!col) return;
 
     // A `dblclick` reset lands while the second tap's popover is still pending.
@@ -231,19 +233,24 @@ export function createResizeController(grid: GridHost): ResizeController {
    * the resize handle instead of dragging it, so a single-pointer user gets the
    * same capability without a press-hold-move-release gesture.
    */
-  function openWidthPopover(colIndex: number, anchor: HTMLElement): void {
-    widthPopover ??= createSizePopover<number>({
+  function openWidthPopover(col: ColumnInternal | undefined, anchor: HTMLElement): void {
+    // A re-render during the tap delay (e.g. a column window move) replaced the header and its handle.
+    if (!col || !anchor.isConnected) return;
+    // Resolved per use against all columns: a column window move (ColumnVirtualization) re-indexes or
+    // drops the rendered ones, and a config re-merge clones them (#641).
+    const live = (c: ColumnInternal) => grid._columns[indexOfColumn(grid._columns, c)];
+    widthPopover ??= createSizePopover<ColumnInternal>({
       id: 'tbw-column-size-popover',
-      getSize: widthOf,
-      setSize: (index, width) => {
-        commitWidth(index, width);
+      getSize: (c) => widthOf(live(c)),
+      setSize: (c, width) => {
+        commitWidth(live(c), width);
         grid.requestStateChange?.();
       },
-      reset: resetColumn,
-      getLabel: (index) => columnWidthLabel(grid, index),
+      reset: (c) => resetColumn(live(c)),
+      getLabel: columnWidthLabel,
       getHost: () => grid,
     });
-    widthPopover.open(colIndex, anchor);
+    widthPopover.open(col, anchor);
   }
 
   return {
@@ -301,7 +308,7 @@ export function createResizeController(grid: GridHost): ResizeController {
           onUp(false);
           pendingTapTimer = setTimeout(() => {
             pendingTapTimer = null;
-            openWidthPopover(colIndex, target as HTMLElement);
+            openWidthPopover(col, target as HTMLElement);
           }, DOUBLE_CLICK_WINDOW_MS);
         },
         onCancel: () => {
@@ -310,12 +317,12 @@ export function createResizeController(grid: GridHost): ResizeController {
         },
       });
     },
-    resetColumn,
+    resetColumn: (colIndex) => resetColumn(grid._visibleColumns[colIndex]),
     setColumnWidth(colIndex, width) {
-      if (commitWidth(colIndex, width) == null) return;
+      if (commitWidth(grid._visibleColumns[colIndex], width) == null) return;
       grid.requestStateChange?.();
     },
-    getColumnWidth: widthOf,
+    getColumnWidth: (colIndex) => widthOf(grid._visibleColumns[colIndex]),
     dispose() {
       // Tear down an in-flight drag first, or its pointer capture and listeners
       // outlive the grid. The returned canceller is idempotent.

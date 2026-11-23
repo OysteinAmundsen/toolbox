@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.12.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.12.3...grid-3.12.4) (2026-11-21)
+
+
+### Bug Fixes
+
+* **column-virtualization:** re-window on host resize and in-place column width changes ([#641](https://github.com/OysteinAmundsen/toolbox/issues/641)) ([#675](https://github.com/OysteinAmundsen/toolbox/issues/675)) ([95fbabc](https://github.com/OysteinAmundsen/toolbox/commit/95fbabc8858b07a2309d5dfe54d1f200c2026721))
+* **pinned-columns:** re-measure sticky offsets after an in-place column resize ([#676](https://github.com/OysteinAmundsen/toolbox/issues/676)) ([#677](https://github.com/OysteinAmundsen/toolbox/issues/677)) ([8511c43](https://github.com/OysteinAmundsen/toolbox/commit/8511c4386429a6697493d5fa0279208456417f24))
+* **tree:** allow row drag-drop into an emptied folder ([#670](https://github.com/OysteinAmundsen/toolbox/issues/670)) ([#672](https://github.com/OysteinAmundsen/toolbox/issues/672)) ([3d152b8](https://github.com/OysteinAmundsen/toolbox/commit/3d152b8b7ca2b411babea36ad09b01e719d0b500))
+* **tree:** keep the tree engaged once every folder is emptied by row moves ([#671](https://github.com/OysteinAmundsen/toolbox/issues/671)) ([#674](https://github.com/OysteinAmundsen/toolbox/issues/674)) ([5d29eb9](https://github.com/OysteinAmundsen/toolbox/commit/5d29eb933c292652dfc62b249dbbdc77456cc108))
+
 ## [3.12.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.12.2...grid-3.12.3) (2026-11-20)
 
 

@@ -387,10 +387,11 @@ async function measureBulkTransaction(page: Page): Promise<number> {
 
       for (let run = 0; run < 5; run++) {
         const update = Array.from({length:1000}, (_,i) => ({
-          id: 1000 + i,
+          id: String(1000 + i),
           changes: { salary: 60000 + run * 1000 + i },
         }));
-        const remove = replacementsActive ? replacementRows : originalRows;
+        const remove = (replacementsActive ? replacementRows : originalRows)
+          .map(({ id }) => ({ id: String(id) }));
         const add = replacementsActive
           ? originalRows.map(({ id }) => ({
               id,
@@ -404,9 +405,27 @@ async function measureBulkTransaction(page: Page): Promise<number> {
 
         await raf();
         const start = performance.now();
-        await grid.applyTransaction({ add, update, remove }, false);
+        const result = await grid.applyTransaction({ add, update, remove }, false);
         await raf();
-        samples.push(performance.now() - start);
+        const duration = performance.now() - start;
+        if (
+          result.added.length !== 500 ||
+          result.updated.length !== 1000 ||
+          result.removed.length !== 500 ||
+          grid.sourceRows.length !== 10_000
+        ) {
+          throw new Error(
+            'Invalid bulk transaction result: added=' +
+              result.added.length +
+              ', updated=' +
+              result.updated.length +
+              ', removed=' +
+              result.removed.length +
+              ', sourceRows=' +
+              grid.sourceRows.length,
+          );
+        }
+        samples.push(duration);
         replacementsActive = !replacementsActive;
         await new Promise(r => setTimeout(r, 30));
       }

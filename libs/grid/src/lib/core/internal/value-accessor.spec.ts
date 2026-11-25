@@ -123,11 +123,27 @@ describe('value-accessor', () => {
       expect(accessor2).toHaveBeenCalledTimes(2);
     });
 
-    it('no-arg call is a no-op (WeakMap cannot be cleared)', () => {
+    it('no-arg call clears the entire cache (#687)', () => {
+      const otherRow: Row = { id: 2, first: 'Grace', last: 'Hopper' };
       resolveCellValue(row, c);
+      resolveCellValue(otherRow, c);
       invalidateAccessorCache();
       resolveCellValue(row, c);
-      expect(accessor).toHaveBeenCalledTimes(1);
+      resolveCellValue(otherRow, c);
+      expect(accessor).toHaveBeenCalledTimes(4);
+    });
+
+    it('no-arg call refreshes values derived from external state (#687)', () => {
+      let rate = 1;
+      const derived = col({
+        field: 'derived',
+        valueAccessor: ({ row: r }) => r.id * rate,
+      });
+      expect(resolveCellValue(row, derived)).toBe(1);
+      rate = 2;
+      expect(resolveCellValue(row, derived)).toBe(1); // still cached
+      invalidateAccessorCache();
+      expect(resolveCellValue(row, derived)).toBe(2);
     });
   });
 

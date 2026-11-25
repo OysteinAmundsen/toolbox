@@ -24,7 +24,10 @@ import type { ColumnConfig } from '../types';
 interface CacheBox {
   v: unknown;
 }
-const accessorCache = new WeakMap<object, Map<string, CacheBox>>();
+// `let` so a no-arg `invalidateAccessorCache()` can swap in a fresh WeakMap —
+// the O(1) full reset (a WeakMap is not iterable, so it cannot be cleared
+// entry-by-entry). Never capture this reference in another binding.
+let accessorCache = new WeakMap<object, Map<string, CacheBox>>();
 
 // #region Nested dotted-path field access (issue #438)
 
@@ -265,8 +268,11 @@ export function resolveCellValue<TRow>(row: TRow, column: ColumnConfig<TRow>, ro
  */
 export function invalidateAccessorCache(row?: object, field?: string): void {
   if (!row) {
-    // WeakMap can't be cleared in O(1); the GC handles unreferenced rows.
-    // For an explicit full reset, callers should mutate row identities instead.
+    // Full reset: replace the WeakMap in O(1) (it is not iterable, so it
+    // cannot be cleared entry-by-entry); the GC reclaims the old one. This
+    // is what the reactive-accessor recipes rely on when external state
+    // feeding a `valueAccessor` changes (#687).
+    accessorCache = new WeakMap();
     return;
   }
   if (!field) {

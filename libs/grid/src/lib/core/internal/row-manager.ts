@@ -313,7 +313,7 @@ export class RowManager<T = any> {
     const grid = this.#grid;
 
     for (const { id } of transaction.remove) {
-      const entry = grid._getRowEntry(id);
+      const entry = grid._getSourceRowEntry(id);
       if (!entry) continue;
 
       const { row } = entry;
@@ -325,14 +325,11 @@ export class RowManager<T = any> {
 
       // Find current position (may have shifted during animation)
       const currentIdx = grid._rows.indexOf(row);
-      if (currentIdx < 0) {
-        result.removed.push(row);
-        continue;
+      if (currentIdx >= 0) {
+        const newRows = [...grid._rows];
+        newRows.splice(currentIdx, 1);
+        grid._rows = newRows;
       }
-
-      const newRows = [...grid._rows];
-      newRows.splice(currentIdx, 1);
-      grid._rows = newRows;
 
       const srcIdx = grid.sourceRows.indexOf(row);
       if (srcIdx >= 0) {
@@ -362,7 +359,7 @@ export class RowManager<T = any> {
 
     for (const { id, changes } of transaction.update) {
       if (removedIds.has(id)) continue;
-      const entry = grid._getRowEntry(id);
+      const entry = grid._getSourceRowEntry(id);
       if (!entry) continue;
 
       const { row, index } = entry;

@@ -1,10 +1,12 @@
 /**
  * Tests for the Transaction API (applyTransaction, applyTransactionAsync)
  */
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import '../../index';
+import { BaseGridPlugin } from '../../lib/core/plugin/base-plugin';
 import type { GridConfig } from '../../lib/core/types';
+import { FilteringPlugin } from '../../lib/plugins/filtering';
 
 interface TestRow {
   id: string;
@@ -31,6 +33,21 @@ function makeRows(count = 3): TestRow[] {
     status: 'active',
     count: (i + 1) * 10,
   }));
+}
+
+async function createFilteredGrid() {
+  const rows = makeRows();
+  rows[1].status = 'inactive';
+  rows[2].status = 'inactive';
+  const filtering = new FilteringPlugin({});
+  const grid = await createGrid(rows, {
+    columns: [{ field: 'status', filterable: true }, { field: 'count' }],
+    getRowId: (row) => row.id,
+    plugins: [filtering],
+  });
+  filtering.setFilter('status', { type: 'text', operator: 'equals', value: 'active' });
+  await vi.waitFor(() => expect(grid.rows.map((row: TestRow) => row.id)).toEqual(['r1']));
+  return { grid, rows, filtering };
 }
 
 describe('Transaction API', () => {
@@ -78,6 +95,54 @@ describe('Transaction API', () => {
       expect(result.removed[0].id).toBe('r2');
       expect(grid.rows).toHaveLength(2);
       expect(grid.rows.map((r: TestRow) => r.id)).toEqual(['r1', 'r3']);
+    });
+
+    it('updates and removes filtered-out source rows', async () => {
+      const { grid, rows, filtering } = await createFilteredGrid();
+
+      const changes: Array<{ rowId: string; rowIndex: number }> = [];
+      grid.on('cell-change', (detail: { rowId: string; rowIndex: number }) => changes.push(detail));
+      const result = await grid.applyTransaction(
+        {
+          update: [
+            { id: 'r2', changes: { count: 99 } },
+            { id: 'r3', changes: { count: 100 } },
+          ],
+          remove: [{ id: 'r3' }, { id: 'r3' }],
+        },
+        false,
+      );
+
+      expect(result.updated).toEqual([rows[1]]);
+      expect(result.removed).toEqual([rows[2]]);
+      expect(rows[1].count).toBe(99);
+      expect(rows[2].count).toBe(30);
+      expect(changes).toMatchObject([{ rowId: 'r2', rowIndex: -1 }]);
+      expect(grid.sourceRows.map((row: TestRow) => row.id)).toEqual(['r1', 'r2']);
+
+      filtering.clearAllFilters();
+      await vi.waitFor(() => expect(grid.rows.map((row: TestRow) => row.id)).toEqual(['r1', 'r2']));
+    });
+
+    it('updates and removes rows outside a paged view', async () => {
+      class FirstPagePlugin extends BaseGridPlugin {
+        readonly name = 'test-first-page';
+        override processRows(rows: readonly TestRow[]): TestRow[] {
+          return rows.slice(0, 1);
+        }
+      }
+
+      const rows = makeRows();
+      const grid = await createGrid(rows, { plugins: [new FirstPagePlugin()] });
+      expect(grid.rows.map((row: TestRow) => row.id)).toEqual(['r1']);
+
+      const result = await grid.applyTransaction(
+        { update: [{ id: 'r2', changes: { count: 42 } }], remove: [{ id: 'r3' }] },
+        false,
+      );
+      expect(result).toMatchObject({ updated: [rows[1]], removed: [rows[2]] });
+      expect(grid.sourceRows.map((row: TestRow) => row.id)).toEqual(['r1', 'r2']);
+      expect(rows[1].count).toBe(42);
     });
 
     it('handles a mixed transaction (add + update + remove)', async () => {
@@ -244,6 +309,21 @@ describe('Transaction API', () => {
   // #region applyTransactionAsync — batching
 
   describe('applyTransactionAsync', () => {
+    it('applies merged transactions to filtered-out rows', async () => {
+      const { grid, rows } = await createFilteredGrid();
+
+      const [update, remove] = await Promise.all([
+        grid.applyTransactionAsync({ update: [{ id: 'r2', changes: { count: 42 } }] }),
+        grid.applyTransactionAsync({ remove: [{ id: 'r3' }] }),
+      ]);
+
+      expect(update).toBe(remove);
+      expect(update.updated).toEqual([rows[1]]);
+      expect(update.removed).toEqual([rows[2]]);
+      expect(rows[1].count).toBe(42);
+      expect(grid.sourceRows.map((row: TestRow) => row.id)).toEqual(['r1', 'r2']);
+    });
+
     it('batches multiple calls within one frame', async () => {
       const grid = await createGrid(makeRows());
 

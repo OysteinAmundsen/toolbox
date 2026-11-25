@@ -835,6 +835,8 @@ interface RowTransaction<T> {
 
 Operations apply in the order **removes → updates → adds**, so updates never target a row that is about to be removed and new rows never collide with existing IDs. Matching by ID requires a `getRowId` function on the grid config.
 
+Updates and removals also apply to source rows hidden by a filter or a paged view. An update does not automatically reapply sorting or filtering.
+
 | Scenario | Method | Animations |
 | --- | --- | --- |
 | User action, moderate stream (&lt; 10 msg/s) | `applyTransaction()` | Yes (configurable) |

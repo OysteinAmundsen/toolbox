@@ -63,12 +63,28 @@ export function resolveRowIdOrThrow<T>(row: T, gridId: string, getRowId?: (row: 
   return id;
 }
 
+function removeRowsByIdentity<T>(rows: T[], removals: readonly T[]): T[] {
+  const pendingRemovals = new Set(removals);
+  const initialSize = pendingRemovals.size;
+  const remainingRows: T[] = [];
+  for (const row of rows) {
+    if (!pendingRemovals.delete(row)) remainingRows.push(row);
+  }
+
+  return pendingRemovals.size === initialSize ? rows : remainingRows;
+}
+
+type TransactionRowEntry<T> = { row: T; index: number };
+
+type TransactionRowResolver<T> = (id: string) => TransactionRowEntry<T> | undefined;
+
 // #endregion
 
 // #region RowManager
 
 export class RowManager<T = any> {
   readonly #grid: GridHost<T>;
+  #rowIdVersion = 0;
 
   constructor(grid: GridHost<T>) {
     this.#grid = grid;
@@ -104,6 +120,7 @@ export class RowManager<T = any> {
   ): Array<{ field: string; oldValue: unknown; newValue: unknown }> {
     const grid = this.#grid;
     const changedFields: Array<{ field: string; oldValue: unknown; newValue: unknown }> = [];
+    let rowId: string | undefined = id;
 
     for (const [field, newValue] of Object.entries(changes)) {
       // Guard against prototype-pollution keys before any read/query/write.
@@ -136,6 +153,13 @@ export class RowManager<T = any> {
         invalidateAccessorCache(row as object);
       }
       // else: a data plugin already applied (and tracked) the value.
+
+      const nextRowId = tryResolveRowId(row, grid.effectiveConfig?.getRowId);
+      if (nextRowId !== rowId) {
+        rowId = nextRowId;
+        this.#rowIdVersion++;
+        grid._rebuildRowIdMap();
+      }
 
       changedFields.push({ field, oldValue, newValue });
 
@@ -291,78 +315,98 @@ export class RowManager<T = any> {
 
   async applyTransaction(transaction: RowTransaction<T>, animate = true): Promise<TransactionResult<T>> {
     const result: TransactionResult<T> = { added: [], updated: [], removed: [] };
+    const rowResolver = this.#createTransactionRowResolver();
 
     // 1. Process removes first (before indices shift from inserts)
-    await this.#txRemove(transaction, result, animate);
+    const hasAnimatedRemoval = await this.#txRemove(transaction, result, animate, rowResolver);
     // 2. Process updates (in-place mutation, no structural change).
     //    Removed IDs are skipped so updates don't target removed rows.
-    this.#txUpdate(transaction, result);
+    this.#txUpdate(transaction, result, rowResolver);
     // 3. Process adds (append to end)
     this.#txAdd(transaction, result);
     // 4. Single render pass for all mutations
     this.#txRender(result);
     // 5-7. Animations + stale-attribute cleanup
-    if (animate) await this.#txAnimate(result);
+    if (animate) await this.#txAnimate(result, hasAnimatedRemoval);
 
     return result;
   }
 
   /** Transaction phase 1 — remove rows from `_rows`, `sourceRows` and `__originalOrder`. */
-  async #txRemove(transaction: RowTransaction<T>, result: TransactionResult<T>, animate: boolean): Promise<void> {
-    if (!transaction.remove?.length) return;
+  async #txRemove(
+    transaction: RowTransaction<T>,
+    result: TransactionResult<T>,
+    animate: boolean,
+    rowResolver: TransactionRowResolver<T>,
+  ): Promise<boolean> {
+    if (!transaction.remove?.length) return false;
     const grid = this.#grid;
+    const removedEntries: Array<{ id: string; row: T }> = [];
+    const removedSet = new Set<T>();
 
     for (const { id } of transaction.remove) {
-      const entry = grid._getSourceRowEntry(id);
-      if (!entry) continue;
+      const entry = rowResolver(id);
+      if (!entry || removedSet.has(entry.row)) continue;
 
-      const { row } = entry;
+      removedEntries.push({ id, row: entry.row });
+      removedSet.add(entry.row);
+    }
 
-      if (animate) {
-        const idx = grid._rows.indexOf(row);
-        if (idx >= 0) await animateRow(grid, idx, 'remove');
+    if (removedEntries.length === 0) return false;
+
+    let hasAnimatedRemoval = false;
+    if (animate) {
+      for (const { id, row } of removedEntries) {
+        const current = rowResolver(id);
+        if (!current || current.row !== row || current.index < 0) continue;
+        hasAnimatedRemoval = (await animateRow(grid, current.index, 'remove')) || hasAnimatedRemoval;
       }
+    }
 
-      // Find current position (may have shifted during animation)
-      const currentIdx = grid._rows.indexOf(row);
-      if (currentIdx >= 0) {
-        const newRows = [...grid._rows];
-        newRows.splice(currentIdx, 1);
-        grid._rows = newRows;
-      }
+    const sourceRows = grid.sourceRows;
+    const presentRows = new Set(grid._rows);
+    for (const row of sourceRows) presentRows.add(row);
+    const removedRows = removedEntries
+      .filter(({ row }) => presentRows.has(row))
+      .map(({ row }) => row);
+    if (removedRows.length === 0) return hasAnimatedRemoval;
 
-      const srcIdx = grid.sourceRows.indexOf(row);
-      if (srcIdx >= 0) {
-        const newSource = [...grid.sourceRows];
-        newSource.splice(srcIdx, 1);
-        grid.sourceRows = newSource;
-      }
+    const nextRows = removeRowsByIdentity(grid._rows, removedRows);
+    if (nextRows !== grid._rows) grid._rows = nextRows;
 
-      if (grid._sortState) {
-        const origIdx = grid.__originalOrder.indexOf(row);
-        if (origIdx >= 0) {
-          const newOrig = [...grid.__originalOrder];
-          newOrig.splice(origIdx, 1);
-          grid.__originalOrder = newOrig;
-        }
-      }
+    const nextSourceRows = removeRowsByIdentity(sourceRows, removedRows);
+    if (nextSourceRows !== sourceRows) grid.sourceRows = nextSourceRows;
 
+    if (grid._sortState) {
+      const originalOrder = grid.__originalOrder;
+      const nextOriginalOrder = removeRowsByIdentity(originalOrder, removedRows);
+      if (nextOriginalOrder !== originalOrder) grid.__originalOrder = nextOriginalOrder;
+    }
+
+    for (const row of removedRows) {
       result.removed.push(row);
     }
+
+    return hasAnimatedRemoval;
   }
 
   /** Transaction phase 2 — in-place field writes, one `cell-change` per changed field. */
-  #txUpdate(transaction: RowTransaction<T>, result: TransactionResult<T>): void {
+  #txUpdate(
+    transaction: RowTransaction<T>,
+    result: TransactionResult<T>,
+    rowResolver: TransactionRowResolver<T>,
+  ): void {
     if (!transaction.update?.length) return;
     const grid = this.#grid;
     const removedIds = new Set(transaction.remove?.map((r) => r.id));
 
     for (const { id, changes } of transaction.update) {
       if (removedIds.has(id)) continue;
-      const entry = grid._getSourceRowEntry(id);
+      const entry = rowResolver(id);
       if (!entry) continue;
 
       const { row, index } = entry;
+      let rowId: string | undefined = id;
       let changed = false;
 
       for (const [field, newValue] of Object.entries(changes)) {
@@ -375,6 +419,13 @@ export class RowManager<T = any> {
         // other than `column.field`, so per-field invalidation can miss
         // the stale cache entry keyed by `column.field`.
         invalidateAccessorCache(row as object);
+
+        const nextRowId = tryResolveRowId(row, grid.effectiveConfig?.getRowId);
+        if (nextRowId !== rowId) {
+          rowId = nextRowId;
+          this.#rowIdVersion++;
+          grid._rebuildRowIdMap();
+        }
 
         grid.dispatchEvent(
           new CustomEvent('cell-change', {
@@ -394,7 +445,9 @@ export class RowManager<T = any> {
         );
       }
 
-      if (changed) result.updated.push(row);
+      if (changed) {
+        result.updated.push(row);
+      }
     }
   }
 
@@ -403,12 +456,52 @@ export class RowManager<T = any> {
     if (!transaction.add?.length) return;
     const grid = this.#grid;
 
+    grid.sourceRows = grid.sourceRows.concat(transaction.add);
+    grid._rows = grid._rows.concat(transaction.add);
+    if (grid._sortState) grid.__originalOrder = grid.__originalOrder.concat(transaction.add);
     for (const row of transaction.add) {
-      grid.sourceRows = [...grid.sourceRows, row];
-      grid._rows = [...grid._rows, row];
-      if (grid._sortState) grid.__originalOrder = [...grid.__originalOrder, row];
       result.added.push(row);
     }
+  }
+
+  #createTransactionRowResolver(): TransactionRowResolver<T> {
+    const grid = this.#grid;
+    let sourceLookup: Map<string, TransactionRowEntry<T>> | undefined;
+    let sourceLookupRows: T[] | undefined;
+    let sourceLookupGetRowId = grid.effectiveConfig?.getRowId;
+    let lookupVersion = this.#rowIdVersion;
+
+    const getSourceLookup = (): Map<string, TransactionRowEntry<T>> => {
+      const sourceRows = grid.sourceRows;
+      const getRowId = grid.effectiveConfig?.getRowId;
+      if (!sourceLookup || sourceLookupRows !== sourceRows || sourceLookupGetRowId !== getRowId) {
+        sourceLookup = new Map();
+        sourceLookupRows = sourceRows;
+        sourceLookupGetRowId = getRowId;
+
+        for (let index = 0; index < sourceRows.length; index++) {
+          const row = sourceRows[index];
+          const sourceId = tryResolveRowId(row, getRowId);
+          if (sourceId !== undefined && !sourceLookup.has(sourceId)) {
+            sourceLookup.set(sourceId, { row, index: -1 });
+          }
+        }
+      }
+
+      return sourceLookup;
+    };
+
+    return (id) => {
+      if (lookupVersion !== this.#rowIdVersion) {
+        sourceLookupRows = undefined;
+        lookupVersion = this.#rowIdVersion;
+      }
+
+      const visible = grid._getRowEntry(id);
+      if (visible) return visible;
+
+      return getSourceLookup().get(id);
+    };
   }
 
   /** Transaction phase 4 — one render pass covering every mutation in the batch. */
@@ -428,7 +521,7 @@ export class RowManager<T = any> {
   }
 
   /** Transaction phases 5-7 — insert/change animations and stale remove-attribute cleanup. */
-  async #txAnimate(result: TransactionResult<T>): Promise<void> {
+  async #txAnimate(result: TransactionResult<T>, hasAnimatedRemoval: boolean): Promise<void> {
     const grid = this.#grid;
 
     if (result.added.length > 0) {
@@ -444,7 +537,7 @@ export class RowManager<T = any> {
       if (idx >= 0) await animateRow(grid, idx, 'change');
     }
 
-    if (result.removed.length > 0) this.#clearRemoveAnimations();
+    if (result.removed.length > 0 || hasAnimatedRemoval) this.#clearRemoveAnimations();
   }
 
   /**

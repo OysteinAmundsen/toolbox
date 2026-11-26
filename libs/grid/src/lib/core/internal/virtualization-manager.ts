@@ -522,10 +522,7 @@ export class VirtualizationManager<T = any> {
     const viewportHeight = force
       ? (s.cachedViewportHeight = viewportEl.clientHeight)
       : s.cachedViewportHeight || (s.cachedViewportHeight = viewportEl.clientHeight);
-    const rawScrollTop = fauxScrollbar.scrollTop;
-    // Translate native scrollTop (clamped spacer space) into virtual row-content
-    // space. Identity for datasets within MAX_ELEMENT_HEIGHT_PX. See computeScrollMapping.
-    const scrollTop = toVirtualScrollTop(rawScrollTop, s.scrollMapping);
+    let rawScrollTop = fauxScrollbar.scrollTop;
 
     // On force refresh with variable heights, rebuild the position cache
     // to pick up any height changes from plugins (e.g., ResponsivePlugin
@@ -534,6 +531,23 @@ export class VirtualizationManager<T = any> {
       this.initializePositionCache();
     }
 
+    let spacerHeight: number | undefined;
+    if (force) {
+      s.cachedFauxHeight = fauxScrollbar.clientHeight;
+      if (s.scrollAreaEl) s.cachedScrollAreaHeight = s.scrollAreaEl.clientHeight;
+      if (s.cachedFauxHeight === 0 && viewportHeight > 0) {
+        grid._requestSchedulerPhase(RenderPhase.VIRTUALIZATION, 'stale-refs-retry');
+        return false;
+      }
+      if (s.totalHeightEl) {
+        spacerHeight = this.calculateTotalSpacerHeight(totalRows);
+        // The browser clamps scrollTop after the spacer write; mirror it without a layout read.
+        rawScrollTop = Math.min(rawScrollTop, Math.max(0, spacerHeight - s.cachedFauxHeight));
+      }
+    }
+
+    // Use the mapping for the rebuilt position cache before choosing the window.
+    const scrollTop = toVirtualScrollTop(rawScrollTop, s.scrollMapping);
     const start = this.#computeWindowStart(scrollTop, totalRows);
     const end = this.#computeWindowEnd(start, viewportHeight, totalRows);
 
@@ -544,13 +558,7 @@ export class VirtualizationManager<T = any> {
     s.end = end;
 
     // Read faux scrollbar height (cached on scroll path, fresh on force)
-    const fauxScrollHeight = force
-      ? (s.cachedFauxHeight = fauxScrollbar.clientHeight)
-      : s.cachedFauxHeight || (s.cachedFauxHeight = fauxScrollbar.clientHeight);
-
-    if (force && s.scrollAreaEl) {
-      s.cachedScrollAreaHeight = s.scrollAreaEl.clientHeight;
-    }
+    const fauxScrollHeight = s.cachedFauxHeight || (s.cachedFauxHeight = fauxScrollbar.clientHeight);
 
     // Guard: stale DOM references
     if (fauxScrollHeight === 0 && viewportHeight > 0) {
@@ -559,7 +567,7 @@ export class VirtualizationManager<T = any> {
     }
 
     // Recalculate spacer height on force refresh
-    if (force) this.writeSpacerHeight(totalRows);
+    if (spacerHeight !== undefined && s.totalHeightEl) s.totalHeightEl.style.height = `${spacerHeight}px`;
 
     // Calculate sub-pixel transform offset
     const positionCache = s.positionCache;
@@ -571,7 +579,22 @@ export class VirtualizationManager<T = any> {
 
     // Measure rendered row heights on force refresh
     if (force && s.variableHeights) {
+      const previousMapping = s.scrollMapping;
       this.measureRenderedRowHeights(start, end);
+      if (s.scrollMapping !== previousMapping) {
+        const measuredSpacerHeight = this.calculateTotalSpacerHeight(totalRows);
+        const measuredRawScrollTop = Math.min(rawScrollTop, Math.max(0, measuredSpacerHeight - s.cachedFauxHeight));
+        const measuredScrollTop = toVirtualScrollTop(measuredRawScrollTop, s.scrollMapping);
+        const measuredStart = this.#computeWindowStart(measuredScrollTop, totalRows);
+        const measuredEnd = this.#computeWindowEnd(measuredStart, viewportHeight, totalRows);
+        const measuredOffset = s.positionCache?.[measuredStart]?.offset ?? measuredStart * s.rowHeight;
+        bodyEl.style.transform = `translateY(${-(measuredScrollTop - measuredOffset)}px)`;
+        if (measuredStart !== start || measuredEnd !== end) {
+          s.start = measuredStart;
+          s.end = measuredEnd;
+          grid._renderVisibleRows(measuredStart, measuredEnd, grid.__rowRenderEpoch);
+        }
+      }
     }
 
     grid._updateAriaCounts(totalRows);

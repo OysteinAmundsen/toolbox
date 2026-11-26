@@ -114,7 +114,7 @@ If you are unsure whether a changeset is docs-only, run `git status --short` and
 
 #### Rule 1 — Todo list is a hard precondition
 
-**Before calling any file-editing or code-running tool** (including `create_file`, `replace_string_in_file`, `multi_replace_string_in_file`, `edit_notebook_file`, `run_in_terminal` for code execution), you **MUST** first call `manage_todo_list` with the seven delivery steps:
+**Before calling any file-editing or code-running tool** (including `create_file`, `replace_string_in_file`, `multi_replace_string_in_file`, `edit_notebook_file`, `run_in_terminal` for code execution), you **MUST** first call `manage_todo_list` (or any other `todo` equivalent) with the seven delivery steps:
 
 1. **Read knowledge files** — load the `.github/knowledge/*.md` files covering the affected domain (grid-core, grid-plugins, grid-features, adapters, build-and-deploy, data-flow-traces). Skip only for pure typo/comment/formatting edits.
 2. Implement

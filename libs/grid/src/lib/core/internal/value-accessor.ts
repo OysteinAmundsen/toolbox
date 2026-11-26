@@ -11,8 +11,8 @@
  * precedence over the accessor — the accessor is the *default* value source,
  * never an override. See {@link BaseColumnConfig.valueAccessor}.
  *
- * Performance: results are memoized per (row identity, column field) using a
- * `WeakMap`. Row identity changes (immutable updates) invalidate naturally;
+ * Performance: results are memoized per row and column definition using
+ * `WeakMap`s. Row identity changes (immutable updates) invalidate naturally;
  * in-place mutations must call {@link invalidateAccessorCache} on the row.
  */
 
@@ -23,11 +23,14 @@ import type { ColumnConfig } from '../types';
 // itself is `undefined` / `null` / `0` / `''`).
 interface CacheBox {
   v: unknown;
+  accessor: unknown;
 }
+export const accessorCacheIdentity = Symbol('accessorCacheIdentity');
+type CacheColumn<TRow> = ColumnConfig<TRow> & { [accessorCacheIdentity]?: object };
 // `let` so a no-arg `invalidateAccessorCache()` can swap in a fresh WeakMap —
 // the O(1) full reset (a WeakMap is not iterable, so it cannot be cleared
 // entry-by-entry). Never capture this reference in another binding.
-let accessorCache = new WeakMap<object, Map<string, CacheBox>>();
+let accessorCache = new WeakMap<object, Map<string, WeakMap<object, CacheBox>>>();
 
 // #region Nested dotted-path field access (issue #438)
 
@@ -227,34 +230,40 @@ export function writeCellField(row: unknown, field: string, value: unknown): boo
  * @since 2.2.0
  */
 export function resolveCellValue<TRow>(row: TRow, column: ColumnConfig<TRow>, rowIndex = -1): unknown {
-  if (!column.valueAccessor) {
+  const accessor = column.valueAccessor;
+  if (!accessor) {
     return readCellField(row, column.field);
   }
   // Non-object rows (primitives, null) bypass the cache.
   if (typeof row !== 'object' || row === null) {
-    return column.valueAccessor({ row, column, rowIndex });
+    return accessor.call(column, { row, column, rowIndex });
   }
   // After the guard above, `row` is provably a non-null object. Single
   // assertion (no `as unknown as`) bridges the generic `TRow` to the WeakMap
   // key type; see `.github/instructions/typescript-conventions.instructions.md`.
   const rowKey = row as object;
   const key = column.field;
+  const identity = (column as CacheColumn<TRow>)[accessorCacheIdentity] ?? column;
   let cellMap = accessorCache.get(rowKey);
+  let columnMap: WeakMap<object, CacheBox> | undefined;
   if (cellMap) {
-    const box = cellMap.get(key);
-    if (box !== undefined) return box.v;
-  } else {
-    // Plugin loading placeholders (ServerSide blocks / grouped rows in flight) hold no
-    // data. This is the single chokepoint for every accessor call — render, sort,
-    // filter, export, clipboard — so a consumer accessor never receives one (#508).
-    // Checked only on a row's first lookup: a placeholder never gets a cache entry,
-    // so cache hits pay nothing.
-    if ((row as { __loading?: unknown }).__loading === true) return undefined;
+    columnMap = cellMap.get(key);
+    const cached = columnMap?.get(identity);
+    if (cached !== undefined && cached.accessor === accessor) return cached.v;
+  }
+  // Loading placeholders must not reach consumer accessors, including on a
+  // miss for another column of a row that was previously cached.
+  if ((row as { __loading?: unknown }).__loading === true) return undefined;
+  if (!cellMap) {
     cellMap = new Map();
     accessorCache.set(rowKey, cellMap);
   }
-  const value = column.valueAccessor({ row, column, rowIndex });
-  cellMap.set(key, { v: value });
+  const value = accessor.call(column, { row, column, rowIndex });
+  if (!columnMap) {
+    columnMap = new WeakMap();
+    cellMap.set(key, columnMap);
+  }
+  columnMap.set(identity, { v: value, accessor });
   return value;
 }
 

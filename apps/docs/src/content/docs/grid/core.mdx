@@ -379,7 +379,7 @@ This means you write the lookup logic once and every consumer stays consistent.
 
 #### Caching & invalidation
 
-Accessor results are cached per `(row, column.field)` in a `WeakMap` keyed on the row object — so an expensive accessor (e.g. `array.find`) runs once per row regardless of how many features read it. Primitive rows bypass the cache.
+Accessor results are cached per row and column definition, so an expensive accessor (e.g. `array.find`) runs once per row regardless of how many features read it. Grids sharing row objects have independent column caches. Primitive rows bypass the cache.
 
 The cache is invalidated automatically when:
 

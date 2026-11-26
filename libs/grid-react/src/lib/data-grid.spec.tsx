@@ -17,6 +17,8 @@ import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import { act, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import '../features/filtering';
+import '../features/selection';
 import { DataGrid } from './data-grid';
 import type { GridConfig as ReactGridConfig } from './react-column-config';
 
@@ -25,6 +27,56 @@ beforeAll(() => {
 });
 
 type Row = { id: number; name: string };
+
+describe('DataGrid feature props', () => {
+  it.each([false, undefined])('removes the last feature when filtering becomes %s', async (disabled) => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const rows = [{ name: 'Alice' }];
+
+    await act(async () => {
+      root.render(<DataGrid rows={rows} filtering />);
+    });
+    const grid = container.querySelector('tbw-grid') as DataGridElement;
+    await vi.waitFor(() => expect(grid.getPluginByName('filtering')).toBeDefined());
+
+    await act(async () => {
+      root.render(<DataGrid rows={rows} filtering={disabled} />);
+    });
+    await vi.waitFor(() => expect(grid.getPluginByName('filtering')).toBeUndefined());
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  it('preserves the base config and another feature when filtering is disabled and re-enabled', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const rows = [{ name: 'Alice' }];
+    const gridConfig = { rowHeight: 40 };
+    const render = async (filtering: boolean) => {
+      await act(async () => {
+        root.render(<DataGrid rows={rows} gridConfig={gridConfig} selection="row" filtering={filtering} />);
+      });
+    };
+
+    await render(true);
+    const grid = container.querySelector('tbw-grid') as DataGridElement;
+    await vi.waitFor(() => expect(grid.getPluginByName('filtering')).toBeDefined());
+    await render(false);
+    await vi.waitFor(() => expect(grid.getPluginByName('filtering')).toBeUndefined());
+    expect(grid.getPluginByName('selection')).toBeDefined();
+    expect(grid.gridConfig?.rowHeight).toBe(40);
+    await render(true);
+    await vi.waitFor(() => expect(grid.getPluginByName('filtering')).toBeDefined());
+    expect(grid.getPluginByName('selection')).toBeDefined();
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+});
 
 describe('DataGrid ref callback', () => {
   afterEach(() => {

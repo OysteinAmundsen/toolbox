@@ -423,6 +423,7 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   // (visibility, width, sort) on the next merge. Ongoing prop changes are
   // synced by the dedicated useEffects below.
   const initialSyncDoneRef = useRef(false);
+  const configAppliedRef = useRef(false);
   /** Rows from the previous render — used for in-place diffing in the rows sync effect. */
   const prevRowsRef = useRef<TRow[]>([]);
   /**
@@ -645,9 +646,9 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
 
   // Sync gridConfig (using processed version with React wrappers)
   useEffect(() => {
-    if (gridRef.current && processedGridConfig) {
-      // Cast through any because React renderers are not assignable to base DOM types
-      gridRef.current.gridConfig = processedGridConfig as any;
+    if (gridRef.current && (processedGridConfig || configAppliedRef.current)) {
+      gridRef.current.gridConfig = processedGridConfig ?? {};
+      configAppliedRef.current = !!processedGridConfig;
     }
   }, [processedGridConfig]);
 
@@ -895,9 +896,9 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
               initialSyncDoneRef.current = true;
               const grid = el as ExtendedGridElement;
               // Use processedGridConfig which has React renderers/editors wrapped as DOM functions
-              // Cast through any because React renderers are not assignable to base DOM types
               if (processedGridConfig) {
-                grid.gridConfig = processedGridConfig as any;
+                grid.gridConfig = processedGridConfig;
+                configAppliedRef.current = true;
               }
               if (rows) {
                 grid.rows = rows;

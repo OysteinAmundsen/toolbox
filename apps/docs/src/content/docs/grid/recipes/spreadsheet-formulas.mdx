@@ -86,7 +86,7 @@ grid.addEventListener('cell-change', (e) => {
 
 - **Developer-authored, not end-user-typed.** You decide which columns are computed and what they compute. Nothing in the grid parses a formula a user types into a cell. If you want that, make the formula string itself an editable column and pass the user's input to `hf.setCellContents` — you own the validation and the security review of whatever expressions you accept.
 - **Never key on `rowIndex`.** The accessor's `rowIndex` is the position in the current sorted/filtered/grouped view. Map row *identity* to the sheet row, as above.
-- **Accessor results are cached** per `(row, field)` in a `WeakMap`. The cache doesn't know the engine recalculated, so call [`invalidateAccessorCache()`](/grid/core/#caching--invalidation) after every `setCellContents`.
+- **Accessor results are cached** per row and column definition. The cache doesn't know the engine recalculated, so call [`invalidateAccessorCache()`](/grid/core/#caching--invalidation) after every `setCellContents`.
 - **Computed columns are read-only.** `valueAccessor` has no write counterpart yet, so leave `editable` off on the formula column.
 - **Adding or removing rows means adding or removing sheet rows.** `buildFromArray` is a one-shot snapshot — keep the `WeakMap` and the sheet in step with `addRow` / `removeRow`, or rebuild both.
 - **Check the licence.** The `gpl-v3` key above is fine for GPL projects; commercial use needs a paid key.

@@ -1025,7 +1025,7 @@ export interface BaseColumnConfig<TRow = any, TValue = any, TField extends strin
    * The accessor is the *default* value source — per-column escape hatches
    * (`sortComparator`, `filterValue`) still take precedence when set.
    *
-   * Results are memoized per `(row identity, column field)` so accessors are
+   * Results are memoized per row and column definition so accessors are
    * free to be "slow but correct" (e.g. `array.find(...)`). Immutable row
    * updates auto-invalidate; in-place mutations are invalidated by the grid's
    * edit / transaction paths.

@@ -56,11 +56,71 @@ describe('value-accessor', () => {
       const row: Row = { id: 1, first: 'Ada', last: 'Lovelace' };
       const a = vi.fn(({ row: r }) => r.first.toUpperCase());
       const b = vi.fn(({ row: r }) => r.last.toUpperCase());
-      resolveCellValue(row, col({ field: 'firstUpper', valueAccessor: a }));
-      resolveCellValue(row, col({ field: 'lastUpper', valueAccessor: b }));
-      resolveCellValue(row, col({ field: 'firstUpper', valueAccessor: a }));
+      const first = col({ field: 'firstUpper', valueAccessor: a });
+      const last = col({ field: 'lastUpper', valueAccessor: b });
+      resolveCellValue(row, first);
+      resolveCellValue(row, last);
+      resolveCellValue(row, first);
       expect(a).toHaveBeenCalledTimes(1);
       expect(b).toHaveBeenCalledTimes(1);
+    });
+
+    it('isolates cached values for different accessors on the same field', () => {
+      const row: Row = { id: 1, first: 'Ada', last: 'Lovelace' };
+      const first = vi.fn(({ row: r }: { row: Row }) => r.first);
+      const last = vi.fn(({ row: r }: { row: Row }) => r.last);
+      const a = col({ field: 'name', valueAccessor: first });
+      const b = col({ field: 'name', valueAccessor: last });
+      expect(resolveCellValue(row, a)).toBe('Ada');
+      expect(resolveCellValue(row, b)).toBe('Lovelace');
+      expect(resolveCellValue(row, a)).toBe('Ada');
+      expect(first).toHaveBeenCalledTimes(1);
+      expect(last).toHaveBeenCalledTimes(1);
+    });
+
+    it('isolates column-dependent accessors even when the function is shared', () => {
+      const row: Row = { id: 1, first: 'Ada', last: 'Lovelace' };
+      const accessor = vi.fn(({ column }: { column: ColumnConfig<Row> }) => column.header);
+      const a = col({ field: 'name', header: 'A', valueAccessor: accessor });
+      const b = col({ field: 'name', header: 'B', valueAccessor: accessor });
+      expect(resolveCellValue(row, a)).toBe('A');
+      expect(resolveCellValue(row, b)).toBe('B');
+      expect(resolveCellValue(row, a)).toBe('A');
+      expect(accessor).toHaveBeenCalledTimes(2);
+    });
+
+    it('recomputes when the accessor on the same column object changes', () => {
+      const row: Row = { id: 1, first: 'Ada', last: 'Lovelace' };
+      const column = col({ field: 'name', valueAccessor: ({ row: r }) => r.first });
+      expect(resolveCellValue(row, column)).toBe('Ada');
+      column.valueAccessor = ({ row: r }) => r.last;
+      expect(resolveCellValue(row, column)).toBe('Lovelace');
+    });
+
+    it('does not associate a result with an accessor installed during the call', () => {
+      const row: Row = { id: 1, first: 'Ada', last: 'Lovelace' };
+      const column = col({ field: 'name' });
+      column.valueAccessor = () => {
+        column.valueAccessor = ({ row: r }) => r.last;
+        return row.first;
+      };
+      expect(resolveCellValue(row, column)).toBe('Ada');
+      expect(resolveCellValue(row, column)).toBe('Lovelace');
+    });
+
+    it('caches undefined independently and invalidates every definition for a field', () => {
+      const row: Row = { id: 1, first: 'Ada', last: 'Lovelace' };
+      const accessor = vi.fn(() => undefined);
+      const a = col({ field: 'name', valueAccessor: accessor });
+      const b = col({ field: 'name', valueAccessor: accessor });
+      resolveCellValue(row, a);
+      resolveCellValue(row, b);
+      resolveCellValue(row, a);
+      expect(accessor).toHaveBeenCalledTimes(2);
+      invalidateAccessorCache(row, 'name');
+      resolveCellValue(row, a);
+      resolveCellValue(row, b);
+      expect(accessor).toHaveBeenCalledTimes(4);
     });
 
     it('different row identities do not share cache (immutable update auto-invalidates)', () => {
@@ -88,6 +148,15 @@ describe('value-accessor', () => {
       const grouped = { __loading: true, __groupKey: 'dept=Sales' } as unknown as Row;
       expect(resolveCellValue(serverSide, c)).toBeUndefined();
       expect(resolveCellValue(grouped, c)).toBeUndefined();
+      expect(accessor).not.toHaveBeenCalled();
+    });
+
+    it('does not call an accessor on a loading row after another column cached it', () => {
+      const row: Row & { __loading?: boolean } = { id: 1, first: 'Ada', last: 'Lovelace' };
+      resolveCellValue(row, col({ field: 'name', valueAccessor: ({ row: r }) => r.first }));
+      row.__loading = true;
+      const accessor = vi.fn(({ row: r }: { row: Row }) => r.last);
+      expect(resolveCellValue(row, col({ field: 'name', valueAccessor: accessor }))).toBeUndefined();
       expect(accessor).not.toHaveBeenCalled();
     });
   });

@@ -36,6 +36,7 @@ import { renderHeader } from './header';
 import { inferColumns, overlayInferred } from './inference';
 import { RenderPhase } from './render-scheduler';
 import { compileTemplate } from './sanitize';
+import { accessorCacheIdentity } from './value-accessor';
 
 /** Debounce timeout for state change events */
 const STATE_CHANGE_DEBOUNCE_MS = 100;
@@ -308,7 +309,7 @@ export class ConfigManager<T = unknown> {
     // Deep clone columns (they may have runtime-mutable state)
     if (config.columns) {
       clone.columns = config.columns.map((col) => {
-        const c: ColumnInternal<T> = { ...col };
+        const c: ColumnInternal<T> & { [accessorCacheIdentity]: object } = { ...col, [accessorCacheIdentity]: {} };
         const freshOrder = c.order != null && c.__placedOrder !== c.order ? c.order : undefined;
         // Record the `order` the clone is already placed by, so feeding runtime columns back as a
         // source doesn't re-apply it to a pinned/reordered list (#629). Source objects stay unmarked.

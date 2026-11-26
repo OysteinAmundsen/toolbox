@@ -28,16 +28,25 @@ const accessorCol: ColumnConfig<Row> = {
   field: 'nested',
   valueAccessor: ({ row }) => row.nested.value,
 };
+const otherAccessorCol: ColumnConfig<Row> = {
+  field: 'nested',
+  valueAccessor: ({ row }) => row.nested.value + 1,
+};
 
 const ROWS: Row[] = Array.from({ length: 1_000 }, (_, i) => ({
   id: i,
   name: `Row ${i}`,
   nested: { value: i * 2 },
 }));
+const SHARED_ROWS = ROWS.map((row) => ({ ...row }));
 
 // Pre-warm cached row references for the cache-hit bench so the first call's
 // WeakMap insert isn't measured.
 for (const row of ROWS) resolveCellValue(row, accessorCol);
+for (const row of SHARED_ROWS) {
+  resolveCellValue(row, accessorCol);
+  resolveCellValue(row, otherAccessorCol);
+}
 
 // #endregion
 
@@ -47,8 +56,15 @@ describe('resolveCellValue', () => {
   });
 
   bench('valueAccessor — cache hit', () => {
-    // Same rows the warmup populated; expect WeakMap lookup only.
+    // Same rows the warmup populated.
     for (const row of ROWS) resolveCellValue(row, accessorCol);
+  });
+
+  bench('valueAccessor — shared rows with alternating columns', () => {
+    for (const row of SHARED_ROWS) {
+      resolveCellValue(row, accessorCol);
+      resolveCellValue(row, otherAccessorCol);
+    }
   });
 
   bench('valueAccessor — invalidate + cache miss', () => {

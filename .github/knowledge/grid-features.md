@@ -48,7 +48,7 @@ export type _Augmentation = true; // type anchor
 
 1. IMPORT-TIME — feature registered only if the module is imported (`import '@toolbox-web/grid/features/selection'`).
 2. CONFIG-TIME — enabled via `gridConfig.features`.
-3. RUNTIME — plugins cannot be disabled after grid creation (limitation).
+3. RUNTIME — changing `gridConfig.features` or `plugins` reinitializes the plugin set; removed plugins detach.
 
 - TENSION: users must remember the side-effect import; there are no IDE hints for which imports are needed.
 

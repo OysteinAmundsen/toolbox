@@ -11,8 +11,10 @@
  *
  * @vitest-environment happy-dom
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { DataGridElement } from '@toolbox-web/grid';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp, defineComponent, h, inject, nextTick, ref, type App } from 'vue';
+import '../features/filtering';
 import TbwGrid from './TbwGrid.vue';
 import { getTeleportManager, renderToContainer } from './teleport-bridge';
 
@@ -52,6 +54,20 @@ describe('TbwGrid integration', () => {
     const tm = getTeleportManager(gridEl!);
     expect(tm).not.toBeNull();
     expect(typeof tm!.renderTeleport).toBe('function');
+  });
+
+  it.each([false, undefined])('removes the last feature when filtering becomes %s', async (disabled) => {
+    const filtering = ref<boolean | undefined>(true);
+    app = createApp({
+      setup: () => () => h(TbwGrid, { rows: [{ name: 'Alice' }], filtering: filtering.value }),
+    });
+    app.mount(mountEl);
+    const grid = mountEl.querySelector('tbw-grid') as DataGridElement;
+    await vi.waitFor(() => expect(grid.getPluginByName('filtering')).toBeDefined());
+
+    filtering.value = disabled;
+    await nextTick();
+    await vi.waitFor(() => expect(grid.getPluginByName('filtering')).toBeUndefined());
   });
 
   it('should let teleport-bridge.renderToContainer preserve provide()d values', async () => {

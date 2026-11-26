@@ -144,6 +144,7 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   private iconRegistry = inject(GridIconRegistry, { optional: true });
 
   private adapter: GridAdapter | null = null;
+  private configApplied = false;
 
   /**
    * Previous rows snapshot for in-place diffing — kept in sync by the rows
@@ -166,30 +167,8 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
       const manualPlugins = this.plugins();
       const featurePlugins = manualPlugins ? [] : this.createFeaturePlugins();
 
-      // Build core config overrides from individual inputs
-      const sortableValue = this.sortable();
-      const filterableValue = this.filterable();
-      const selectableValue = this.selectable();
-      const coreConfigOverrides: Record<string, unknown> = {};
-      if (sortableValue !== undefined) {
-        coreConfigOverrides['sortable'] = sortableValue;
-      }
-      if (filterableValue !== undefined) {
-        coreConfigOverrides['filterable'] = filterableValue;
-      }
-      if (selectableValue !== undefined) {
-        coreConfigOverrides['selectable'] = selectableValue;
-      }
-
+      const coreConfigOverrides = this.buildCoreConfigOverrides(angularCfg);
       const grid = this.elementRef.nativeElement;
-
-      // Merge icon overrides from registry with any existing icons
-      // Registry icons are base, config.icons override them
-      const registryIcons = this.iconRegistry?.getAll();
-      if (registryIcons && Object.keys(registryIcons).length > 0) {
-        const existingIcons = angularCfg?.icons || {};
-        coreConfigOverrides['icons'] = { ...registryIcons, ...existingIcons };
-      }
 
       // Nothing to do if there's no config input and no feature inputs
       const hasFeaturePlugins = featurePlugins.length > 0;
@@ -199,9 +178,11 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
       const hasManualPlugins = manualPlugins !== undefined;
       const hasConfigOverrides = Object.keys(coreConfigOverrides).length > 0;
 
-      if (!angularCfg && !hasFeaturePlugins && !hasManualPlugins && !hasConfigOverrides) {
+      const hasConfig = !!angularCfg || hasFeaturePlugins || hasManualPlugins || hasConfigOverrides;
+      if (!hasConfig && !this.configApplied) {
         return;
       }
+      this.configApplied = hasConfig;
 
       const userConfig = angularCfg || {};
 
@@ -316,6 +297,22 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
       const grid = this.elementRef.nativeElement;
       grid.columnInference = columnInferenceValue;
     });
+  }
+
+  private buildCoreConfigOverrides(config: GridConfig | undefined): Record<string, unknown> {
+    const sortableValue = this.sortable();
+    const filterableValue = this.filterable();
+    const selectableValue = this.selectable();
+    const overrides: Record<string, unknown> = {};
+    if (sortableValue !== undefined) overrides['sortable'] = sortableValue;
+    if (filterableValue !== undefined) overrides['filterable'] = filterableValue;
+    if (selectableValue !== undefined) overrides['selectable'] = selectableValue;
+
+    const registryIcons = this.iconRegistry?.getAll();
+    if (registryIcons && Object.keys(registryIcons).length > 0) {
+      overrides['icons'] = { ...registryIcons, ...config?.icons };
+    }
+    return overrides;
   }
 
   /**

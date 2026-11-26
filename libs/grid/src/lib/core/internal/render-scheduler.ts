@@ -89,6 +89,10 @@ export class RenderScheduler {
   #readyPromise: Promise<void> | null = null;
   #readyResolve: (() => void) | null = null;
 
+  #pendingReadyPromise: Promise<void> | null = null;
+  #pendingReadyResolve: (() => void) | null = null;
+  #pendingReadyReject: ((reason: unknown) => void) | null = null;
+
   /** Initial ready resolver (for component's initial ready() promise) */
   #initialReadyResolver: (() => void) | null = null;
   #initialReadyFired = false;
@@ -177,6 +181,18 @@ export class RenderScheduler {
     return Promise.resolve();
   }
 
+  /** Resolve after the currently pending render, including one requested during a flush. */
+  whenPendingReady(): Promise<void> {
+    if (!this.#pendingPhase) return Promise.resolve();
+    if (!this.#pendingReadyPromise) {
+      this.#pendingReadyPromise = new Promise<void>((resolve, reject) => {
+        this.#pendingReadyResolve = resolve;
+        this.#pendingReadyReject = reject;
+      });
+    }
+    return this.#pendingReadyPromise;
+  }
+
   /**
    * Set the initial ready resolver (called once on first render).
    * This connects to the grid's `ready()` promise.
@@ -196,6 +212,10 @@ export class RenderScheduler {
     }
     this.#pendingPhase = 0;
     this.#windowDirty = false;
+    this.#pendingReadyResolve?.();
+    this.#pendingReadyResolve = null;
+    this.#pendingReadyReject = null;
+    this.#pendingReadyPromise = null;
 
     // Resolve any pending ready promise (don't leave it hanging)
     if (this.#readyResolve) {
@@ -241,91 +261,103 @@ export class RenderScheduler {
     this.#rafHandle = 0;
     const windowDirty = this.#windowDirty;
     this.#windowDirty = false;
+    const pendingReadyResolve = this.#pendingReadyResolve;
+    const pendingReadyReject = this.#pendingReadyReject;
+    this.#pendingReadyResolve = null;
+    this.#pendingReadyReject = null;
+    this.#pendingReadyPromise = null;
 
-    // Bail if component disconnected
-    if (!this.#grid._schedulerIsConnected) {
+    try {
+      // Bail if component disconnected
+      if (!this.#grid._schedulerIsConnected) {
+        this.#pendingPhase = 0;
+        pendingReadyResolve?.();
+        if (this.#readyResolve) {
+          this.#readyResolve();
+          this.#readyResolve = null;
+          this.#readyPromise = null;
+        }
+        return;
+      }
+
+      let phase = this.#pendingPhase;
       this.#pendingPhase = 0;
+
+      // Execute phases in order (higher phases include lower phase work)
+      // The execution order respects data dependencies:
+      // mergeConfig → processRows → processColumns → renderHeader → virtualWindow → afterRender
+
+      // mergeConfig runs for FULL phase OR COLUMNS phase (to pick up framework adapter renderers)
+      // IMPORTANT: mergeConfig must run BEFORE processRows because the row model depends on
+      // column configuration, and framework adapters (React/Angular) may register renderers
+      // asynchronously after the initial gridConfig is set.
+      if (phase >= RenderPhase.COLUMNS) {
+        this.#grid._schedulerMergeConfig();
+      }
+
+      // Phase 4 (ROWS): Rebuild row model
+      // NOTE: processRows MUST run before processColumns because tree plugin's
+      // processColumns depends on flattenedRows populated by processRows
+      if (phase >= RenderPhase.ROWS) {
+        this.#flushingRows = true;
+        try {
+          this.#grid._schedulerProcessRows();
+        } finally {
+          this.#flushingRows = false;
+        }
+        phase = this.#serveRowHookRequest(phase);
+      }
+
+      // Phase 5 (COLUMNS): Process columns + update template
+      if (phase >= RenderPhase.COLUMNS) {
+        this.#grid._schedulerProcessColumns();
+        this.#grid._schedulerUpdateTemplate();
+      } else if (windowDirty) {
+        // A COLUMNS flush re-windows anyway (new `_columns`, epoch bump, template).
+        this.#grid._schedulerRewindow();
+      }
+
+      // Phase 3 (HEADER): Render header
+      if (phase >= RenderPhase.HEADER) {
+        this.#grid._schedulerRenderHeader();
+      }
+
+      // Phase 2 (VIRTUALIZATION): Recalculate virtual window
+      if (phase >= RenderPhase.VIRTUALIZATION) {
+        this.#grid.refreshVirtualWindow(true, true);
+      }
+
+      // Phase 1 (STYLE): Run afterRender hooks (always runs)
+      if (phase >= RenderPhase.STYLE) {
+        this.#grid._schedulerAfterRender();
+      }
+
+      const initial = !this.#initialReadyFired;
+
+      // Fire initial ready resolver once
+      if (initial) {
+        this.#initialReadyFired = true;
+        this.#initialReadyResolver?.();
+      }
+
+      // Resolve the ready promise
       if (this.#readyResolve) {
         this.#readyResolve();
         this.#readyResolve = null;
         this.#readyPromise = null;
       }
-      return;
-    }
+      pendingReadyResolve?.();
 
-    let phase = this.#pendingPhase;
-    this.#pendingPhase = 0;
-
-    // Execute phases in order (higher phases include lower phase work)
-    // The execution order respects data dependencies:
-    // mergeConfig → processRows → processColumns → renderHeader → virtualWindow → afterRender
-
-    // mergeConfig runs for FULL phase OR COLUMNS phase (to pick up framework adapter renderers)
-    // IMPORTANT: mergeConfig must run BEFORE processRows because the row model depends on
-    // column configuration, and framework adapters (React/Angular) may register renderers
-    // asynchronously after the initial gridConfig is set.
-    if (phase >= RenderPhase.COLUMNS) {
-      this.#grid._schedulerMergeConfig();
-    }
-
-    // Phase 4 (ROWS): Rebuild row model
-    // NOTE: processRows MUST run before processColumns because tree plugin's
-    // processColumns depends on flattenedRows populated by processRows
-    if (phase >= RenderPhase.ROWS) {
-      this.#flushingRows = true;
-      try {
-        this.#grid._schedulerProcessRows();
-      } finally {
-        this.#flushingRows = false;
+      // Public 'render' event — fires once per completed flush, after plugin
+      // afterRender hooks and after ready()/whenReady() have resolved.
+      // Consumers use this to act on the rendered DOM (e.g. focus the first
+      // input of a freshly added row) without setTimeout / double-RAF hacks.
+      if (phase !== 0) {
+        this.#dispatchRenderEvent(phase, initial);
       }
-      phase = this.#serveRowHookRequest(phase);
-    }
-
-    // Phase 5 (COLUMNS): Process columns + update template
-    if (phase >= RenderPhase.COLUMNS) {
-      this.#grid._schedulerProcessColumns();
-      this.#grid._schedulerUpdateTemplate();
-    } else if (windowDirty) {
-      // A COLUMNS flush re-windows anyway (new `_columns`, epoch bump, template).
-      this.#grid._schedulerRewindow();
-    }
-
-    // Phase 3 (HEADER): Render header
-    if (phase >= RenderPhase.HEADER) {
-      this.#grid._schedulerRenderHeader();
-    }
-
-    // Phase 2 (VIRTUALIZATION): Recalculate virtual window
-    if (phase >= RenderPhase.VIRTUALIZATION) {
-      this.#grid.refreshVirtualWindow(true, true);
-    }
-
-    // Phase 1 (STYLE): Run afterRender hooks (always runs)
-    if (phase >= RenderPhase.STYLE) {
-      this.#grid._schedulerAfterRender();
-    }
-
-    const initial = !this.#initialReadyFired;
-
-    // Fire initial ready resolver once
-    if (initial) {
-      this.#initialReadyFired = true;
-      this.#initialReadyResolver?.();
-    }
-
-    // Resolve the ready promise
-    if (this.#readyResolve) {
-      this.#readyResolve();
-      this.#readyResolve = null;
-      this.#readyPromise = null;
-    }
-
-    // Public 'render' event — fires once per completed flush, after plugin
-    // afterRender hooks and after ready()/whenReady() have resolved.
-    // Consumers use this to act on the rendered DOM (e.g. focus the first
-    // input of a freshly added row) without setTimeout / double-RAF hacks.
-    if (phase !== 0) {
-      this.#dispatchRenderEvent(phase, initial);
+    } catch (error) {
+      pendingReadyReject?.(error);
+      throw error;
     }
   }
 

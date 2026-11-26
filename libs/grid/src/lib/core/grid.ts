@@ -2867,7 +2867,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * such as container resize or dynamic style changes.
    *
    * @group Lifecycle
-   * @returns Promise that resolves when the render cycle completes
+   * @returns Promise that resolves when the render cycle completes, or rejects if it throws
    *
    * @example
    * ```typescript
@@ -2884,7 +2884,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (this.#scheduler.pendingPhase === 0) {
       this.#scheduler.requestPhase(RenderPhase.FULL, 'forceLayout');
     }
-    return this.#scheduler.whenReady();
+    return this.#scheduler.whenPendingReady();
   }
 
   /**

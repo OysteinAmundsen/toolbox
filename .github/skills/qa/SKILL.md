@@ -1,7 +1,6 @@
 ---
 name: qa
 description: Local pre-commit code review **and fix**. Reviews the target scope (file, folder, uncommitted changes, or the whole branch vs its base), produces an actionable findings list, then applies the fixes — same loop as opening a PR, getting Copilot review comments, and having an agent address them, but entirely local. Append `report-only` to skip the fix step.
-disable-model-invocation: true
 argument-hint: '[optional file/folder path | "branch [base-ref]"] [optional "report-only"]'
 ---
 
@@ -383,7 +382,7 @@ Output **one finding per actionable defect**, in this exact shape:
 
 After printing the report, delegate execution to `qa-apply-findings`:
 
-1. **Hard precondition — call `manage_todo_list` first.** Per the workspace's delivery checklist, you MUST register a todo list covering: read knowledge → apply fixes → run tests → run lint → docs check → retrospective → commit suggestion. Do not call any edit tool before this list exists.
+1. **Hard precondition — call `manage_todo_list` (or any other `todo` equivalent) first.** Per the workspace's delivery checklist, you MUST register a todo list covering: read knowledge → apply fixes → run tests → run lint → docs check → retrospective → commit suggestion. Do not call any edit tool before this list exists.
 2. Convert findings into the normalized JSON shape expected by
    `.github/skills/qa-apply-findings/findings.schema.json`.
 3. Run `qa-apply-findings` to apply `blocking` first, then `should-fix` findings.

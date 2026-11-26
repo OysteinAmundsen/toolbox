@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import '../../lib/core/grid';
+import type { DataGridElement } from '../../lib/core/grid';
+import { BaseGridPlugin } from '../../lib/core/plugin';
 import type { RenderDetail } from '../../lib/core/types';
 import { RenderPhase } from '../../lib/core/internal/render-scheduler';
 import { waitUpgrade } from '../../../test/helpers';
@@ -78,6 +80,34 @@ describe('render CustomEvent', () => {
     await grid.forceLayout();
 
     expect(fired).toBe(true);
+  });
+
+  it('waits for the layout requested from a plugin afterRender hook', async () => {
+    let start = false;
+    let renders = 0;
+    let layout: Promise<void> | undefined;
+    class LayoutPlugin extends BaseGridPlugin {
+      readonly name = 'layout-test';
+
+      override afterRender(): void {
+        if (!start) return;
+        this.gridElement.setAttribute('data-layout-renders', String(++renders));
+        if (renders === 1) layout = grid.forceLayout();
+      }
+    }
+
+    const grid = document.createElement('tbw-grid') as DataGridElement;
+    grid.gridConfig = { columns: [{ field: 'id' }], plugins: [new LayoutPlugin()] };
+    grid.rows = makeRows(1);
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    start = true;
+    grid.requestRender();
+    await new Promise<void>((resolve) => grid.addEventListener('render', () => resolve(), { once: true }));
+    expect(layout).toBeDefined();
+    await layout;
+    expect(grid.getAttribute('data-layout-renders')).toBe('2');
   });
 
   it('the rendered DOM is in place when the render listener runs', async () => {

@@ -20,8 +20,9 @@ import { reorderColumnsForPinning } from '../../plugins/pinned-columns/pinned-co
 import { buildPivot, flattenPivotRows, getAllGroupKeys } from '../../plugins/pivot/pivot-engine';
 import { expandAll, flattenTree } from '../../plugins/tree/tree-data';
 import type { TreeConfig } from '../../plugins/tree/types';
-import type { ColumnConfig, SortState } from '../types';
+import type { ColumnConfig, InternalGrid, SortState } from '../types';
 import { inferColumns } from './inference';
+import { RenderPhase, RenderScheduler } from './render-scheduler';
 import { builtInSort } from './sorting';
 import { computeVirtualWindow, createHeightCache, rebuildPositionCache } from './virtualization';
 
@@ -80,6 +81,26 @@ function generateTreeData(totalNodes: number, depth: number): Record<string, unk
 }
 
 // #endregion
+
+describe('scheduler: STYLE flush', () => {
+  const grid = {
+    _schedulerIsConnected: true,
+    _schedulerAfterRender: () => undefined,
+    _hostElement: document.createElement('div'),
+  } as InternalGrid;
+  const scheduler = new RenderScheduler(grid);
+
+  bench('without a layout waiter', () => {
+    scheduler.requestPhase(RenderPhase.STYLE, 'bench');
+    scheduler.flushPending();
+  });
+
+  bench('with a layout waiter', () => {
+    scheduler.requestPhase(RenderPhase.STYLE, 'bench');
+    scheduler.whenPendingReady();
+    scheduler.flushPending();
+  });
+});
 
 // #region Sort → Filter → Virtualization pipeline
 

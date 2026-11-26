@@ -220,6 +220,83 @@ describe('RenderScheduler', () => {
       await expect(result).resolves.toBeUndefined();
     });
 
+    describe('pending render completion', () => {
+      it('waits for the pending flush without changing mid-flush whenReady semantics', async () => {
+        let nextReady: Promise<void> | undefined;
+        vi.mocked(grid._schedulerAfterRender).mockImplementationOnce(() => {
+          scheduler.requestPhase(RenderPhase.FULL, 'next');
+          nextReady = scheduler.whenPendingReady();
+        });
+        scheduler.requestPhase(RenderPhase.STYLE, 'first');
+        const currentReady = scheduler.whenReady();
+        scheduler.flushPending();
+        await currentReady;
+
+        let nextResolved = false;
+        nextReady?.then(() => (nextResolved = true));
+        await Promise.resolve();
+        expect(nextResolved).toBe(false);
+        expect(scheduler.pendingPhase).toBe(RenderPhase.FULL);
+
+        scheduler.flushPending();
+        await nextReady;
+        expect(nextResolved).toBe(true);
+        expect(grid._schedulerMergeConfig).toHaveBeenCalledTimes(1);
+      });
+
+      it('resolves pending completion on cancellation', async () => {
+        scheduler.requestPhase(RenderPhase.STYLE, 'test');
+        const ready = scheduler.whenPendingReady();
+        expect(scheduler.whenPendingReady()).toBe(ready);
+        scheduler.cancel();
+        await expect(ready).resolves.toBeUndefined();
+      });
+
+      it('rejects pending completion when a render hook throws', async () => {
+        const error = new Error('render failed');
+        vi.mocked(grid._schedulerAfterRender).mockImplementationOnce(() => {
+          throw error;
+        });
+        scheduler.requestPhase(RenderPhase.STYLE, 'test');
+        const ready = scheduler.whenPendingReady();
+        const rejection = expect(ready).rejects.toBe(error);
+        expect(() => scheduler.flushPending()).toThrow(error);
+        scheduler.cancel();
+        await rejection;
+      });
+
+      it('keeps a later flush waiter separate when the current flush throws', async () => {
+        const error = new Error('render failed');
+        let nextReady: Promise<void> | undefined;
+        vi.mocked(grid._schedulerAfterRender).mockImplementationOnce(() => {
+          scheduler.requestPhase(RenderPhase.STYLE, 'next');
+          nextReady = scheduler.whenPendingReady();
+          throw error;
+        });
+        scheduler.requestPhase(RenderPhase.STYLE, 'first');
+        const rejection = expect(scheduler.whenPendingReady()).rejects.toBe(error);
+        expect(() => scheduler.flushPending()).toThrow(error);
+        await rejection;
+
+        let nextResolved = false;
+        nextReady?.then(() => (nextResolved = true));
+        await Promise.resolve();
+        expect(nextResolved).toBe(false);
+        scheduler.flushPending();
+        await nextReady;
+        expect(nextResolved).toBe(true);
+      });
+
+      it('resolves pending completion when the grid is disconnected', async () => {
+        Object.defineProperty(grid, '_schedulerIsConnected', { value: false });
+        scheduler.requestPhase(RenderPhase.STYLE, 'test');
+        const ready = scheduler.whenPendingReady();
+        scheduler.flushPending();
+        await expect(ready).resolves.toBeUndefined();
+        expect(grid._schedulerAfterRender).not.toHaveBeenCalled();
+      });
+    });
+
     it('should return promise that resolves after render', async () => {
       let resolved = false;
       scheduler.requestPhase(RenderPhase.STYLE, 'test');

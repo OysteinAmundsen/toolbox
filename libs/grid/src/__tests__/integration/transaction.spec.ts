@@ -623,6 +623,27 @@ describe('Transaction API', () => {
   // #region applyTransactionAsync — batching
 
   describe('applyTransactionAsync', () => {
+    it('publishes source rows once per structural phase for a merged batch', async () => {
+      const rows = makeRows(20);
+      const grid = await createGrid(rows);
+      const sourceSetter = vi.spyOn(grid, 'sourceRows', 'set');
+      const additions = makeRows(10).map((row, i) => ({ ...row, id: `new${i}` }));
+
+      const results = await Promise.all([
+        grid.applyTransactionAsync({ remove: rows.slice(0, 5).map((row) => ({ id: row.id })) }),
+        grid.applyTransactionAsync({ remove: rows.slice(5, 10).map((row) => ({ id: row.id })) }),
+        grid.applyTransactionAsync({ add: additions.slice(0, 5) }),
+        grid.applyTransactionAsync({ add: additions.slice(5) }),
+      ]);
+
+      expect(results.every((result) => result === results[0])).toBe(true);
+      expect(results[0].removed).toEqual(rows.slice(0, 10));
+      expect(results[0].added).toEqual(additions);
+      expect(sourceSetter).toHaveBeenCalledTimes(2);
+      expect(rows).toHaveLength(20);
+      expect(grid.sourceRows).toEqual([...rows.slice(10), ...additions]);
+    });
+
     it('applies merged transactions to filtered-out rows', async () => {
       const { grid, rows } = await createFilteredGrid();
 

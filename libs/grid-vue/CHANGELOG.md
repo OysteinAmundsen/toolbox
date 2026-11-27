@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.6.7](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.6.6...grid-vue-2.6.7) (2026-11-27)
+
+
+### Bug Fixes
+
+* **grid-angular/grid-react:** clear disabled features ([#684](https://github.com/OysteinAmundsen/toolbox/issues/684)) ([#699](https://github.com/OysteinAmundsen/toolbox/issues/699)) ([44187a9](https://github.com/OysteinAmundsen/toolbox/commit/44187a9813b98781b94801e14c2e178cafa3f3b6))
+* **grid-vue:** handle registered custom feature props ([#686](https://github.com/OysteinAmundsen/toolbox/issues/686)) ([#706](https://github.com/OysteinAmundsen/toolbox/issues/706)) ([1c8d555](https://github.com/OysteinAmundsen/toolbox/commit/1c8d55556c0c089628baf4b0f49cfb933cc62e66))
+
 ## [2.6.6](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-2.6.5...grid-vue-2.6.6) (2026-11-17)
 
 

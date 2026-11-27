@@ -111,6 +111,10 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
   private footerWrapper: HTMLElement | null = null;
   /** Slot-mode wrapper: holds top slot rows when `config.slots` is provided. */
   private headerWrapper: HTMLElement | null = null;
+  private panelRows = {
+    top: new WeakMap<PinnedRowSlot, (HTMLElement | null)[]>(),
+    bottom: new WeakMap<PinnedRowSlot, (HTMLElement | null)[]>(),
+  };
   // #endregion
 
   // #region Lifecycle
@@ -190,6 +194,7 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
     } else if (this.headerWrapper) {
       this.headerWrapper.remove();
       this.headerWrapper = null;
+      this.panelRows.top = new WeakMap();
     }
 
     if (bottomSlots.length > 0) {
@@ -202,6 +207,7 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
     } else if (this.footerWrapper) {
       this.footerWrapper.remove();
       this.footerWrapper = null;
+      this.panelRows.bottom = new WeakMap();
     }
   }
 
@@ -210,9 +216,8 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
    * in array order. Drops slots that emit nothing (panel slot whose renderers
    * all returned null).
    *
-   * Diffs the new rows against the wrapper's current children by reference
-   * and skips DOM mutation when nothing changed. Combined with the
-   * memoization in {@link renderPanelSlot}, this prevents consumer-supplied
+   * Reconciles rows by reference without detaching unchanged rows. Combined
+   * with the memoization in {@link renderPanelSlot}, this prevents consumer-supplied
    * panels from being torn down and re-mounted on every grid render — which
    * caused tight feedback loops with Angular/React/Vue framework adapters
    * whose mount/unmount cycles bounced viewport height through
@@ -224,8 +229,8 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
     position: 'top' | 'bottom',
     context: PinnedRowsContext,
   ): void {
-    // Index existing children by data-pinned-row-id so panel slots with a
-    // stable id can be reused. Aggregation slots have no id and always rebuild.
+    // Explicit IDs preserve rows across slot objects; anonymous panel slots
+    // reuse their row while the slot object remains stable.
     const previousById = new Map<string, HTMLElement>();
     for (let i = 0; i < wrapper.children.length; i++) {
       const child = wrapper.children[i] as HTMLElement;
@@ -234,13 +239,19 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
     }
 
     const newRows: HTMLElement[] = [];
+    const occurrences = new Map<PinnedRowSlot, number>();
+    const nextPanelRows = new WeakMap<PinnedRowSlot, (HTMLElement | null)[]>();
     for (const slot of slots) {
       const isPanel = 'render' in slot && (slot as { render?: unknown }).render != null;
+      const occurrence = occurrences.get(slot) ?? 0;
+      occurrences.set(slot, occurrence + 1);
+      const cachedRows = this.panelRows[position].get(slot) ?? [];
+      const cachedRow = cachedRows[occurrence];
       const rowEl = isPanel
         ? renderPanelSlot(
             slot as Parameters<typeof renderPanelSlot>[0],
             context,
-            slot.id ? (previousById.get(slot.id) ?? null) : null,
+            slot.id ? (previousById.get(slot.id) ?? null) : cachedRow && wrapper.contains(cachedRow) ? cachedRow : null,
           )
         : renderAggregationSlot(
             slot as AggregationRowConfig,
@@ -249,8 +260,14 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
             this.sourceRows as unknown[],
             this.config.fullWidth,
           );
+      if (isPanel) {
+        const nextRows = nextPanelRows.get(slot) ?? [];
+        nextRows.push(rowEl);
+        nextPanelRows.set(slot, nextRows);
+      }
       if (rowEl) newRows.push(rowEl);
     }
+    this.panelRows[position] = nextPanelRows;
 
     // Fast path: identical refs in identical order → no DOM mutation.
     const current = wrapper.children;
@@ -265,12 +282,19 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
       if (same) return;
     }
 
-    wrapper.replaceChildren(...newRows);
+    for (const child of Array.from(wrapper.children)) {
+      if (!newRows.includes(child as HTMLElement)) child.remove();
+    }
+    for (let i = 0; i < newRows.length; i++) {
+      if (wrapper.children[i] !== newRows[i]) wrapper.insertBefore(newRows[i], wrapper.children[i] ?? null);
+    }
   }
   // #endregion
 
   // #region Private Methods
   private cleanup(): void {
+    this.panelRows.top = new WeakMap();
+    this.panelRows.bottom = new WeakMap();
     if (this.footerWrapper) {
       this.footerWrapper.remove();
       this.footerWrapper = null;

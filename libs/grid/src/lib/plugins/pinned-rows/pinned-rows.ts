@@ -348,11 +348,8 @@ const rowOutputsCache = new WeakMap<HTMLElement, (HTMLElement | null)[]>();
  * Renders a single {@link PanelSlot} as a `.tbw-pinned-rows` row with three zones.
  * Returns `null` if no panel content was produced (all renders returned null).
  *
- * When `previousRow` is supplied and every per-renderer output is reference-equal
- * to the outputs that built `previousRow`, the cached row is returned unchanged
- * so the caller can skip DOM mutation. Built-in panels (e.g. row-count) create a
- * fresh element on every call so this short-circuit is naturally bypassed for
- * them; consumer-supplied panels that return a stable element benefit.
+ * When `previousRow` is supplied, unchanged renderer outputs retain their
+ * existing elements while changed outputs are reconciled within their zones.
  */
 export function renderPanelSlot(
   slot: PanelSlot,
@@ -367,9 +364,41 @@ export function renderPanelSlot(
   // outputs to decide whether to reuse the row as-is.
   const outputs: (HTMLElement | null)[] = renderers.map((entry) => entry.render(context) ?? null);
 
+  if (outputs.every((out) => out == null)) return null;
+
   if (previousRow) {
     const prevOutputs = rowOutputsCache.get(previousRow);
     if (prevOutputs && prevOutputs.length === outputs.length && prevOutputs.every((out, i) => out === outputs[i])) {
+      return previousRow;
+    }
+    if (prevOutputs && previousRow.children.length === 3) {
+      const zones = Array.from(previousRow.children) as HTMLElement[];
+      const desired: HTMLElement[][] = [[], [], []];
+      const zoneIndex: Record<PanelZone, number> = { left: 0, center: 1, right: 2 };
+      for (let i = 0; i < outputs.length; i++) {
+        const out = outputs[i];
+        if (!out) continue;
+        const index = zoneIndex[renderers[i].zone ?? 'left'];
+        const existing =
+          prevOutputs[i] === out ? (out.classList.contains('tbw-status-panel') ? out : out.parentElement) : null;
+        desired[index].push(
+          existing && existing.parentElement === zones[index]
+            ? existing
+            : out.classList.contains('tbw-status-panel')
+              ? out
+              : wrapCustomPanelElement(out),
+        );
+      }
+      for (let i = 0; i < zones.length; i++) {
+        const zone = zones[i];
+        for (const child of Array.from(zone.children)) {
+          if (!desired[i].includes(child as HTMLElement)) child.remove();
+        }
+        for (let j = 0; j < desired[i].length; j++) {
+          if (zone.children[j] !== desired[i][j]) zone.insertBefore(desired[i][j], zone.children[j] ?? null);
+        }
+      }
+      rowOutputsCache.set(previousRow, outputs);
       return previousRow;
     }
   }

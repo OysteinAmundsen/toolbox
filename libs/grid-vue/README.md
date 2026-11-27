@@ -126,6 +126,13 @@ import '@toolbox-web/grid-vue/features/filtering';
 - **Type-safe** - Full TypeScript support for feature props
 - **Clean templates** - No `plugins: [new SelectionPlugin({ mode: 'range' })]` boilerplate
 
+For third-party features, register the feature factory and augment `FeatureConfig`
+as described in the [custom plugin guide](https://toolboxjs.com/grid/plugin-development/custom-plugins/).
+Then call `registerFeaturePropKey('myFeature')` from `@toolbox-web/grid-vue`
+before mounting the grid. A registered `my-feature` attribute is passed to the
+factory rather than forwarded to the DOM. For a typed configuration, use
+`gridConfig.features` or bind an object checked against the augmented `FeatureConfig`.
+
 ### Available Features
 
 Import from `@toolbox-web/grid-vue/features/<name>`:

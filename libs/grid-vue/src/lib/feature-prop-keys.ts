@@ -1,6 +1,6 @@
 /**
  * Feature prop-key registry — the canonical list of `FeatureProps` keys that
- * `<TbwGrid>` extracts from its declared `props` and feeds to
+ * `<TbwGrid>` extracts from its declared props or registered attributes and feeds to
  * `createPluginsFromFeatures`. Pre-populated at module load with every
  * built-in feature name so existing shell behaviour is unchanged; third-party
  * features that augment the core `FeatureConfig` can call

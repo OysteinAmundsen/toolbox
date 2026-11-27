@@ -2,6 +2,48 @@ import { expect, test } from '@playwright/test';
 import { control, controlOption, dataRows, grid, headerCells, openDemo, toggleControl } from './utils';
 
 test.describe('Visibility Demos', () => {
+  for (const width of [320, 390]) {
+    test(`VisibilityDefaultDemo - check-group controls fit at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await openDemo(page, 'visibility/VisibilityDefaultDemo');
+
+      for (const name of ['hiddenColumns', 'lockedColumns']) {
+        const row = page.locator(`[data-ctrl-name="${name}"]`);
+        const label = row.locator('.dc-label-cell');
+        const widget = row.locator('.dc-widget-cell');
+        const rowBox = await row.boundingBox();
+        const labelBox = await label.boundingBox();
+        const widgetBox = await widget.boundingBox();
+        expect(rowBox).not.toBeNull();
+        expect(labelBox).not.toBeNull();
+        expect(widgetBox).not.toBeNull();
+        expect(widgetBox!.y).toBeGreaterThanOrEqual(labelBox!.y + labelBox!.height);
+        expect(widgetBox!.x).toBeGreaterThanOrEqual(rowBox!.x);
+        expect(widgetBox!.x + widgetBox!.width).toBeLessThanOrEqual(rowBox!.x + rowBox!.width);
+        for (const option of await widget.locator('label').all()) {
+          const optionBox = await option.boundingBox();
+          expect(optionBox).not.toBeNull();
+          expect(optionBox!.x).toBeGreaterThanOrEqual(rowBox!.x);
+          expect(optionBox!.x + optionBox!.width).toBeLessThanOrEqual(rowBox!.x + rowBox!.width);
+        }
+      }
+
+      await controlOption(page, 'lockedColumns', 'name').check();
+      await expect(controlOption(page, 'lockedColumns', 'name')).toBeChecked();
+    });
+  }
+
+  test('VisibilityDefaultDemo - check-group controls remain side by side on desktop', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await openDemo(page, 'visibility/VisibilityDefaultDemo');
+    const row = page.locator('[data-ctrl-name="lockedColumns"]');
+    const labelBox = await row.locator('.dc-label-cell').boundingBox();
+    const widgetBox = await row.locator('.dc-widget-cell').boundingBox();
+    expect(labelBox).not.toBeNull();
+    expect(widgetBox).not.toBeNull();
+    expect(widgetBox!.x).toBeGreaterThanOrEqual(labelBox!.x + labelBox!.width);
+  });
+
   for (const mode of ['sidebar', 'dropdown']) {
     for (const width of [1280, 390]) {
       test(`VisibilityDefaultDemo - column search in ${mode} at ${width}px`, async ({ page }) => {

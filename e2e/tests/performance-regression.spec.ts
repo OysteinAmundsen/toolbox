@@ -145,7 +145,7 @@ async function warmUpGrid(page: Page): Promise<void> {
 }
 
 /** Create a grid, set config + rows, wait for first rendered row. */
-async function setupGrid(page: Page, rowCount: number): Promise<number> {
+async function setupGrid(page: Page, rowCount: number, grouping = false): Promise<number> {
   return page.evaluate(
     `(async () => {
       const rows = ${rowGeneratorScript(rowCount)};
@@ -155,7 +155,7 @@ async function setupGrid(page: Page, rowCount: number): Promise<number> {
       document.body.appendChild(grid);
       grid.gridConfig = {
         columns: ${BENCH_COLUMNS_JSON},
-        features: { filtering: true },
+        features: { filtering: true, ${grouping ? 'groupingRows: {},' : ''} },
         getRowId: (row) => String(row.id),
       };
       grid.rows = rows;
@@ -520,29 +520,27 @@ async function measureGrouping(page: Page): Promise<number> {
   return page.evaluate(
     `(async () => {
       const grid = document.querySelector('tbw-grid');
-      if (!grid || !grid.getPluginByName) return -1;
-      const plugin = grid.getPluginByName('grouping-rows');
-      if (!plugin) return -1;
+      const plugin = grid?.getPluginByName?.('groupingRows');
+      if (!plugin || typeof plugin.setGroupOn !== 'function') {
+        throw new Error('Grouping plugin or setGroupOn is unavailable');
+      }
 
       const raf = () => new Promise(r => requestAnimationFrame(() => r()));
       const samples = [];
       for (let i = 0; i < 5; i++) {
         await raf();
         const start = performance.now();
-        if (plugin.setGroupOn) {
-          plugin.setGroupOn((row) => [row.department]);
-        } else if (plugin.groupOn) {
-          plugin.groupOn = (row) => [row.department];
-        }
+        plugin.setGroupOn((row) => [row.department]);
         await raf(); await raf();
         samples.push(performance.now() - start);
-        // Clear grouping
-        if (plugin.setGroupOn) {
-          plugin.setGroupOn(null);
-        } else if (plugin.clearGrouping) {
-          plugin.clearGrouping();
+        if (!grid.querySelector('.group-row')) {
+          throw new Error('Grouping did not produce group rows');
         }
-        await raf();
+        plugin.setGroupOn(undefined);
+        await raf(); await raf();
+        if (grid.querySelector('.group-row') || !grid.querySelector('.data-grid-row:not(.group-row)')) {
+          throw new Error('Clearing grouping did not restore ungrouped rows');
+        }
         await new Promise(r => setTimeout(r, 30));
       }
       samples.sort((a, b) => a - b);
@@ -550,6 +548,12 @@ async function measureGrouping(page: Page): Promise<number> {
       return trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
     })()`,
   ) as Promise<number>;
+}
+
+async function setupLocalGrouping(page: Page, grouping = true): Promise<void> {
+  test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
+  expect(await loadGridScript(page, 'local')).toBe(true);
+  await setupGrid(page, ROW_COUNT, grouping);
 }
 
 /** Generate wide-column config JSON for evaluation in page context. */
@@ -926,10 +930,12 @@ async function runComparison(
       test.skip(true, `CDN version (${CDN_VERSION}) not available`);
     }
 
-    const result = await benchFn(localPage, cdnPage);
-    await localPage.close();
-    await cdnPage.close();
-    return result;
+    try {
+      return await benchFn(localPage, cdnPage);
+    } finally {
+      await localPage.close();
+      await cdnPage.close();
+    }
   };
 
   const { local, cdn } = await run();
@@ -1131,15 +1137,69 @@ test.describe('Performance: Self-Comparison', () => {
     });
   });
 
+  test('grouping measurement rejects a missing plugin', async ({ page }) => {
+    await setupLocalGrouping(page, false);
+    await expect(measureGrouping(page)).rejects.toThrow('Grouping plugin');
+  });
+
+  test('grouping measurement exercises grouped rows', async ({ page }) => {
+    await setupLocalGrouping(page);
+    expect(await measureGrouping(page)).toBeGreaterThan(0);
+  });
+
+  test('grouping measurement rejects a no-op grouping operation', async ({ page }) => {
+    await setupLocalGrouping(page);
+    await page.evaluate(`document.querySelector('tbw-grid').getPluginByName('groupingRows').setGroupOn = () => {}`);
+    await expect(measureGrouping(page)).rejects.toThrow('Grouping did not produce group rows');
+  });
+
+  test('grouping measurement rejects a failed clear', async ({ page }) => {
+    await setupLocalGrouping(page);
+    await page.evaluate(`(() => {
+      const plugin = document.querySelector('tbw-grid').getPluginByName('groupingRows');
+      const setGroupOn = plugin.setGroupOn.bind(plugin);
+      plugin.setGroupOn = (fn) => { if (fn) setGroupOn(fn); };
+    })()`);
+    await expect(measureGrouping(page)).rejects.toThrow('Clearing grouping did not restore ungrouped rows');
+  });
+
+  test('grouping measurement rejects an empty grid after clearing', async ({ page }) => {
+    await setupLocalGrouping(page);
+    await page.evaluate(`(() => {
+      const grid = document.querySelector('tbw-grid');
+      const plugin = grid.getPluginByName('groupingRows');
+      const setGroupOn = plugin.setGroupOn.bind(plugin);
+      plugin.setGroupOn = (fn) => {
+        setGroupOn(fn);
+        if (!fn) requestAnimationFrame(() => requestAnimationFrame(() =>
+          grid.querySelectorAll('.data-grid-row').forEach(row => row.remove())
+        ));
+      };
+    })()`);
+    await expect(measureGrouping(page)).rejects.toThrow('Clearing grouping did not restore ungrouped rows');
+  });
+
   test('grouping', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
     await runComparison(browser, 'grouping', async (localPage, cdnPage) => {
-      await setupGrid(localPage, ROW_COUNT);
-      await setupGrid(cdnPage, ROW_COUNT);
+      await warmUpGrid(localPage);
+      await warmUpGrid(cdnPage);
+      await setupGrid(localPage, ROW_COUNT, true);
+      await setupGrid(cdnPage, ROW_COUNT, true);
+      const local = await measureGrouping(localPage);
+      expect(local, 'Local grouping measurement must be positive and finite').toBeGreaterThan(0);
+      expect(Number.isFinite(local)).toBe(true);
+      const cdnSupported = await cdnPage.evaluate(
+        `!!document.querySelector('tbw-grid')?.getPluginByName?.('groupingRows')`,
+      );
+      test.skip(!cdnSupported, `CDN version (${CDN_VERSION}) does not support groupingRows`);
+      const cdn = await measureGrouping(cdnPage);
+      expect(cdn, 'CDN grouping measurement must be positive and finite').toBeGreaterThan(0);
+      expect(Number.isFinite(cdn)).toBe(true);
       return {
-        local: await measureGrouping(localPage),
-        cdn: await measureGrouping(cdnPage),
+        local,
+        cdn,
       };
     });
   });

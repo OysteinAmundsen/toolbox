@@ -182,7 +182,7 @@ comparisons are skipped, not failed. Details: [e2e/README.md](../../../e2e/READM
 
 ## Performance-regression tests
 
-Part of the regular `e2e` suite. Compares the **current build** against the **latest published release** (loaded from CDN) in the same browser session, so runner variance cancels out. Flags a regression if the current build is **>10% slower**; auto-retries up to 2× to absorb CI noise.
+Part of the regular `e2e` suite. Compares the **current build** against the **latest published release** (loaded from CDN) in the same browser session. A regression requires both **>10% slower** and an increase of at least **20 ms** for operation latency or **4 ms per frame** for scroll. Scroll uses the median ratio of three interleaved pairs after a warm-up pair; its delta is median released time × (median pair ratio − 1), not the difference between measured medians. Up to two retries absorb transient noise.
 
 ```bash
 # Requires a build first (for the local UMD bundle)

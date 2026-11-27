@@ -55,7 +55,8 @@ export interface BreakpointConfig {
  * - `'fade'` — cross-fade the grid as a whole.
  * - `'morph-rows'` — travel each row from its table position to its card position.
  * - `'morph-cells'` — travel each cell from its column to its stacked position in
- *   the card. Falls back to `'morph-rows'` above 150 rendered cells.
+ *   the card. Falls back to `'morph-rows'` above 150 outgoing rendered cells;
+ *   only cells present in both snapshots morph.
  *
  * The morph styles require element-scoped view transitions
  * (`Element.startViewTransition()`); browsers without support fall back to the

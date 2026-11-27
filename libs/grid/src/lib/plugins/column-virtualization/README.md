@@ -59,9 +59,7 @@ A paste without a multi-cell selection writes into consecutive columns of the fu
 
 Rows with open editors follow horizontal scrolling like other rows: an editor whose column stays in view keeps its element, focus and draft, and columns that scroll into view get editors (`mode: 'grid'`, or the row being edited in row mode). A focused editor whose column scrolls out of view is blurred first, which commits its value. `Tab` in an editor continues to the next editable column even when it is outside the rendered window, and `beginCellEdit()` scrolls an off-window column into view before opening its editor.
 
-> **Known limitations:**
->
-> - Responsive card layout shows only the windowed columns ([#635](https://github.com/OysteinAmundsen/toolbox/issues/635)).
+In responsive card layout, column virtualization is suspended so each card can show every non-hidden column. The horizontal window resumes when the grid returns to table layout.
 
 Screen readers still get the full grid: `aria-colcount` is the number of visible columns, and each header and cell's `aria-colindex` is its position among all of them — not within the rendered window.
 

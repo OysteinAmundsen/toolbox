@@ -36,7 +36,7 @@ import {
   type PluginManifest,
   type PluginQuery,
 } from '../../core/plugin/base-plugin';
-import type { GridHost } from '../../core/types';
+import type { GridHost, RowElementInternal } from '../../core/types';
 import { PLACEHOLDER_ROW_CLASS } from '../shared/loading-placeholder';
 import {
   getResponsiveStyleMarkerState,
@@ -897,7 +897,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     const token = ++this.#transitionToken;
 
     // Names must exist on the outgoing rows before the snapshot is taken.
-    if (morph !== 'none') this.#setMorphNames(morph);
+    const cellNames = morph !== 'none' ? this.#setMorphNames(morph) : undefined;
     host.setAttribute('data-responsive-transition', '');
     this.#syncOwnedStyleMarkers();
 
@@ -911,7 +911,10 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
       await this.#internalGrid.forceLayout?.();
       // `detach()` may have cleared the names during the await.
       if (token !== this.#transitionToken) return;
-      if (morph !== 'none') this.#setMorphNames(morph);
+      if (morph !== 'none') {
+        this.#clearMorphNames();
+        this.#setMorphNames(morph, cellNames);
+      }
     });
 
     const cleanup = (): void => {
@@ -983,7 +986,8 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
    * Give every rendered row a stable `view-transition-name` so the compositor
    * animates each row from its table position to its card position.
    */
-  #setMorphNames(granularity: MorphGranularity): void {
+  #setMorphNames(granularity: MorphGranularity, outgoingCellNames?: Set<string>): Set<string> {
+    const cellNames = outgoingCellNames ?? new Set<string>();
     for (const row of this.#ownRows()) {
       // Data index decoded from the GRID-stamped aria-rowindex, never from content:
       // the header leaves the row count on the switch into card mode, so the raw
@@ -999,9 +1003,12 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
       // of the row's own snapshot and animate both against each other.
       for (const cell of row.querySelectorAll<HTMLElement>(':scope > .cell[aria-colindex]')) {
         const name = `${this.#cellMorphPrefix}${rowIndex}-${cell.getAttribute('aria-colindex')}`;
+        if (outgoingCellNames && !outgoingCellNames.has(name)) continue;
         cell.style.setProperty('view-transition-name', name);
+        cellNames.add(name);
       }
     }
+    return cellNames;
   }
 
   /**
@@ -1168,6 +1175,8 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
    */
   #applyResponsiveState(): void {
     this.#syncLayoutAttributes();
+    // Recompute any column window only after the new layout is applied.
+    this.requestColumnWindowRender();
 
     // Cast to internal type for virtualization access
     const internalGrid = this.#internalGrid;
@@ -1234,6 +1243,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
 
     // Clear existing content
     rowEl.replaceChildren();
+    (rowEl as RowElementInternal).__isCustomRow = true;
 
     // Call user's cardRenderer to get custom content
     const cardContent = this.config.cardRenderer(row as T, rowIndex);

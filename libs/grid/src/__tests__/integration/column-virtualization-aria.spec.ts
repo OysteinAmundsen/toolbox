@@ -15,6 +15,7 @@ import type { ColumnConfig } from '../../lib/core/types';
 import { ColumnVirtualizationPlugin } from '../../lib/plugins/column-virtualization/column-virtualization-plugin';
 import { EditingPlugin } from '../../lib/plugins/editing/editing-plugin';
 import { PinnedColumnsPlugin } from '../../lib/plugins/pinned-columns/pinned-columns-plugin';
+import { ResponsivePlugin } from '../../lib/plugins/responsive/responsive-plugin';
 
 const COLUMN_COUNT = 180;
 
@@ -65,6 +66,143 @@ const allFields = makeColumns().map((c) => c.field);
 describe('ColumnVirtualization × aria-colcount / aria-colindex (#642)', () => {
   afterEach(() => {
     document.body.innerHTML = '';
+  });
+
+  it('renders every visible field in responsive cards and restores the column window on exit', async () => {
+    const responsive = new ResponsivePlugin({ breakpoint: 10, animation: false });
+    const virtualization = new ColumnVirtualizationPlugin();
+    const { grid, row, scrollTo } = await setup([responsive], makeColumns(), virtualization);
+    await scrollTo(5_000);
+    expect(Object.keys(row(0)).length).toBeLessThan(COLUMN_COUNT);
+    const rowsContainer = grid.querySelector<HTMLElement>('.rows-viewport .rows')!;
+    expect(rowsContainer.style.width).not.toBe('');
+
+    responsive.setResponsive(true);
+    await waitUpgrade(grid);
+
+    expect(Object.keys(row(0))).toEqual(allFields);
+    expect(virtualization.getIsVirtualized()).toBe(false);
+    expect(rowsContainer.style.width).toBe('');
+
+    grid.setColumnVisible('c0', false);
+    await waitUpgrade(grid);
+    expect(Object.keys(row(0))).toEqual(allFields.slice(1));
+
+    responsive.setResponsive(false);
+    await waitUpgrade(grid);
+
+    expect(Object.keys(row(0)).length).toBeLessThan(COLUMN_COUNT);
+    expect(Object.keys(row(0))[0]).toBe('c1');
+    expect(virtualization.getIsVirtualized()).toBe(true);
+    expect(rowsContainer.style.width).not.toBe('');
+  });
+
+  it.each([true, false])(
+    'switches the window in the view transition update (virtualization first: %s)',
+    async (first) => {
+      const responsive = new ResponsivePlugin({ breakpoint: 10, animation: 'fade' });
+      const virtualization = new ColumnVirtualizationPlugin();
+      const columns = makeColumns();
+      const grid = createGrid();
+      Object.defineProperty(grid, 'clientWidth', { configurable: true, value: 800 });
+      grid.gridConfig = {
+        columns,
+        fitMode: 'fixed',
+        animation: { mode: 'on' },
+        plugins: first ? [virtualization, responsive] : [responsive, virtualization],
+      };
+      grid.rows = [Object.fromEntries(columns.map((c) => [c.field, c.field]))];
+      await waitUpgrade(grid);
+      let update: (() => Promise<void>) | undefined;
+      Object.assign(grid, {
+        startViewTransition: (callback: () => Promise<void>) => {
+          update = callback;
+          return { finished: Promise.resolve(), ready: Promise.resolve() };
+        },
+      });
+      const fields = () =>
+        [...grid.querySelectorAll<HTMLElement>('.rows > .data-grid-row > .cell')].map((cell) => cell.dataset.field);
+
+      responsive.setResponsive(true);
+      expect(grid.hasAttribute('data-responsive')).toBe(false);
+      expect(fields().length).toBeLessThan(COLUMN_COUNT);
+      expect(update).toBeDefined();
+      await update?.();
+      expect(fields()).toEqual(allFields);
+      expect(virtualization.getIsVirtualized()).toBe(false);
+
+      responsive.setResponsive(false);
+      expect(grid.hasAttribute('data-responsive')).toBe(true);
+      expect(fields()).toEqual(allFields);
+      expect(update).toBeDefined();
+      await update?.();
+      expect(fields().length).toBeLessThan(COLUMN_COUNT);
+      expect(virtualization.getIsVirtualized()).toBe(true);
+    },
+  );
+
+  it('only morphs the same cells in both snapshots when cards expand the window', async () => {
+    const responsive = new ResponsivePlugin({ breakpoint: 10, animation: 'morph-cells' });
+    const virtualization = new ColumnVirtualizationPlugin();
+    const { grid } = await setup([responsive], makeColumns(), virtualization);
+    let update: (() => Promise<void>) | undefined;
+    let finish: (() => void) | undefined;
+    Object.assign(grid, {
+      startViewTransition: (callback: () => Promise<void>) => {
+        update = callback;
+        return {
+          finished: new Promise<void>((resolve) => {
+            finish = resolve;
+          }),
+          ready: Promise.resolve(),
+        };
+      },
+    });
+    const names = () =>
+      [...grid.querySelectorAll<HTMLElement>('.rows > .data-grid-row > .cell')]
+        .map((cell) => cell.style.getPropertyValue('view-transition-name'))
+        .filter(Boolean);
+
+    responsive.setResponsive(true);
+    const outgoing = names();
+    expect(outgoing.length).toBeGreaterThan(0);
+    expect(outgoing.length).toBeLessThanOrEqual(150);
+    expect(update).toBeDefined();
+    await update?.();
+    expect(grid.querySelectorAll('.rows > .data-grid-row > .cell').length).toBe(COLUMN_COUNT * 2);
+    expect(names()).toEqual(outgoing);
+    finish?.();
+  });
+
+  it.each([true, false])('removes custom card content on exit (virtualization: %s)', async (virtualized) => {
+    const responsive = new ResponsivePlugin({
+      breakpoint: 10,
+      animation: false,
+      cardRenderer: () => {
+        const card = document.createElement('div');
+        card.className = 'custom-card';
+        return card;
+      },
+    });
+    const columns = makeColumns();
+    const grid = createGrid();
+    Object.defineProperty(grid, 'clientWidth', { configurable: true, value: 800 });
+    grid.gridConfig = {
+      columns,
+      fitMode: 'fixed',
+      plugins: virtualized ? [new ColumnVirtualizationPlugin(), responsive] : [responsive],
+    };
+    grid.rows = [Object.fromEntries(columns.map((c) => [c.field, c.field]))];
+    await waitUpgrade(grid);
+
+    responsive.setResponsive(true);
+    await waitUpgrade(grid);
+    expect(grid.querySelector('.rows > .data-grid-row > .custom-card')).not.toBeNull();
+
+    responsive.setResponsive(false);
+    await waitUpgrade(grid);
+    expect(grid.querySelector('.rows > .data-grid-row > .custom-card')).toBeNull();
+    expect(grid.querySelectorAll('.rows > .data-grid-row > .cell').length).toBeGreaterThan(0);
   });
 
   it('reports the full column count and absolute indices after a horizontal scroll', async () => {

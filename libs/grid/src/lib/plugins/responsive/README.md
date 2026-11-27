@@ -33,9 +33,11 @@ grid.gridConfig = {
 | `cardRowHeight`     | `number \| 'auto'`            | `'auto'` | Card row height (with custom renderer)                                                                   |
 | `debounceMs`        | `number`                      | `100`    | Minimum interval between layout switches; the first width change applies immediately                     |
 | `hiddenColumns`     | `HiddenColumnConfig[]`        | —        | Columns to hide in responsive mode                                                                       |
-| `animation`         | `ResponsiveAnimation`         | `'fade'` | `false`, `'fade'`, `'morph-rows'`, or `'morph-cells'` (falls back to rows above 150 rendered cells)      |
+| `animation`         | `ResponsiveAnimation`         | `'fade'` | `false`, `'fade'`, `'morph-rows'`, or `'morph-cells'` (falls back to rows above 150 outgoing cells)      |
 | `animate`           | `boolean`                     | `true`   | **Deprecated** since 3.7.0 — use `animation`; ignored when `animation` is set                            |
 | `animationDuration` | `number`                      | `200`    | Animation duration (ms)                                                                                  |
+
+Cell morphing names only cells present in both snapshots, including when column virtualization changes the rendered window.
 
 ### `BreakpointConfig`
 

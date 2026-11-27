@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.6.7](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-2.6.6...grid-react-2.6.7) (2026-11-27)
+
+
+### Bug Fixes
+
+* **grid-angular/grid-react:** clear disabled features ([#684](https://github.com/OysteinAmundsen/toolbox/issues/684)) ([#699](https://github.com/OysteinAmundsen/toolbox/issues/699)) ([44187a9](https://github.com/OysteinAmundsen/toolbox/commit/44187a9813b98781b94801e14c2e178cafa3f3b6))
+* **grid-react:** refresh feature callbacks without losing state ([#685](https://github.com/OysteinAmundsen/toolbox/issues/685)) ([#700](https://github.com/OysteinAmundsen/toolbox/issues/700)) ([3074a41](https://github.com/OysteinAmundsen/toolbox/commit/3074a41e9d95f160cfd7cb67cbdad2eadfacf635))
+
 ## [2.6.6](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-2.6.5...grid-react-2.6.6) (2026-11-17)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-2.6.3...grid-angular-2.6.4) (2026-11-27)
+
+
+### Bug Fixes
+
+* **grid-angular/grid-react:** clear disabled features ([#684](https://github.com/OysteinAmundsen/toolbox/issues/684)) ([#699](https://github.com/OysteinAmundsen/toolbox/issues/699)) ([44187a9](https://github.com/OysteinAmundsen/toolbox/commit/44187a9813b98781b94801e14c2e178cafa3f3b6))
+
 ## [2.6.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-2.6.2...grid-angular-2.6.3) (2026-10-23)
 
 

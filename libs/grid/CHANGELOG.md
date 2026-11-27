@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.12.5](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.12.4...grid-3.12.5) (2026-11-27)
+
+
+### Bug Fixes
+
+* **column-virtualization/responsive:** show all card columns ([#635](https://github.com/OysteinAmundsen/toolbox/issues/635)) ([#702](https://github.com/OysteinAmundsen/toolbox/issues/702)) ([29b94bf](https://github.com/OysteinAmundsen/toolbox/commit/29b94bf8cd4e79d8555e1210df08fc5a69aa862c))
+* **grid-react:** refresh feature callbacks without losing state ([#685](https://github.com/OysteinAmundsen/toolbox/issues/685)) ([#700](https://github.com/OysteinAmundsen/toolbox/issues/700)) ([3074a41](https://github.com/OysteinAmundsen/toolbox/commit/3074a41e9d95f160cfd7cb67cbdad2eadfacf635))
+* **grid:** apply transactions to hidden source rows ([#689](https://github.com/OysteinAmundsen/toolbox/issues/689)) ([#691](https://github.com/OysteinAmundsen/toolbox/issues/691)) ([3e04c9d](https://github.com/OysteinAmundsen/toolbox/commit/3e04c9df00065ee8527e4920452ce25e6c4628f3))
+* **grid:** isolate accessor caches by column ([#688](https://github.com/OysteinAmundsen/toolbox/issues/688)) ([#696](https://github.com/OysteinAmundsen/toolbox/issues/696)) ([9957a35](https://github.com/OysteinAmundsen/toolbox/commit/9957a35a590c60482eca0c3301be4cd359fc1765))
+* **grid:** make no-arg invalidateAccessorCache() clear the entire cache ([#687](https://github.com/OysteinAmundsen/toolbox/issues/687)) ([#692](https://github.com/OysteinAmundsen/toolbox/issues/692)) ([4e04f78](https://github.com/OysteinAmundsen/toolbox/commit/4e04f780486001215fbb9eadc48c0332384a32fa))
+* **grid:** optimize bulk transaction row processing ([#693](https://github.com/OysteinAmundsen/toolbox/issues/693)) ([#694](https://github.com/OysteinAmundsen/toolbox/issues/694)) ([8feb2bc](https://github.com/OysteinAmundsen/toolbox/commit/8feb2bcf981c39fcd138a140a09219a701cb4d16))
+* **grid:** refresh virtual scroll mapping before windowing ([#681](https://github.com/OysteinAmundsen/toolbox/issues/681)) ([#697](https://github.com/OysteinAmundsen/toolbox/issues/697)) ([4613f53](https://github.com/OysteinAmundsen/toolbox/commit/4613f5372c3b2fcd8c0c806ac3e043efd6535cb6))
+* **grid:** wait for pending forceLayout render ([#682](https://github.com/OysteinAmundsen/toolbox/issues/682)) ([#698](https://github.com/OysteinAmundsen/toolbox/issues/698)) ([1d51b89](https://github.com/OysteinAmundsen/toolbox/commit/1d51b89139cd0857e845215a7db9b3b72c535890))
+
 ## [3.12.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-3.12.3...grid-3.12.4) (2026-11-21)
 
 

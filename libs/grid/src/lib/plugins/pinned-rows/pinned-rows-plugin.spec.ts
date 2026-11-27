@@ -130,6 +130,56 @@ describe('PinnedRowsPlugin', () => {
   });
 
   describe('afterRender', () => {
+    it('keeps duplicate anonymous slot objects as separate rows across renders', () => {
+      const slot = { position: 'top' as const, render: () => document.createElement('span') };
+      const plugin = new PinnedRowsPlugin({ slots: [slot, slot] });
+      const grid = createMockGrid();
+      plugin.attach(grid);
+      plugin.afterRender();
+      expect(grid.querySelectorAll('.tbw-pinned-rows')).toHaveLength(2);
+      plugin.afterRender();
+      expect(grid.querySelectorAll('.tbw-pinned-rows')).toHaveLength(2);
+      plugin.detach();
+    });
+
+    it('reconciles changing panel outputs without detaching unchanged anonymous slots', () => {
+      const input = document.createElement('input');
+      const extra = document.createElement('strong');
+      extra.textContent = 'extra';
+      let show = false;
+      const plugin = new PinnedRowsPlugin({
+        slots: [
+          {
+            position: 'top',
+            render: [
+              { zone: 'left', render: () => input },
+              { zone: 'right', render: () => (show ? extra : null) },
+            ],
+          },
+          { position: 'top', render: () => (show ? document.createElement('span') : null) },
+        ],
+      });
+      const grid = createMockGrid();
+      document.body.appendChild(grid);
+      plugin.attach(grid);
+      plugin.afterRender();
+      const row = input.closest('.tbw-pinned-rows');
+      input.focus();
+      show = true;
+      plugin.afterRender();
+      expect(input.closest('.tbw-pinned-rows')).toBe(row);
+      expect(document.activeElement).toBe(input);
+      expect(row?.querySelector('.tbw-pinned-rows-right')?.textContent).toBe('extra');
+      expect(grid.querySelectorAll('.tbw-pinned-rows')).toHaveLength(2);
+      show = false;
+      plugin.afterRender();
+      expect(input.closest('.tbw-pinned-rows')).toBe(row);
+      expect(document.activeElement).toBe(input);
+      expect(row?.querySelector('.tbw-pinned-rows-right')?.textContent).toBe('');
+      expect(grid.querySelectorAll('.tbw-pinned-rows')).toHaveLength(1);
+      plugin.detach();
+    });
+
     it('should render info bar at bottom by default', () => {
       const plugin = new PinnedRowsPlugin({});
       const grid = createMockGrid({ rows: [{ id: 1 }, { id: 2 }] });

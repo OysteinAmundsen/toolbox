@@ -15,6 +15,13 @@ import '../jsx.d.ts';
 import { detectChildFeatures, registerChildFeatureDetector } from './child-feature-detector';
 import { applyColumnDefaults, normalizeColumns, type ColumnShorthand } from './column-shorthand';
 import { EVENT_PROP_MAP, type EventProps } from './event-props';
+import {
+  collectFeatureCallbacks,
+  getRefToken,
+  updateFeatureCallbackSlots,
+  wrapFeatureCallback,
+  type FeatureCallbackSlot,
+} from './feature-callback-slots';
 import { getFeaturePropKeys } from './feature-prop-keys';
 import { type AllFeatureProps, type FeatureProps } from './feature-props';
 import { type GridDetailPanelProps } from './grid-detail-panel';
@@ -56,21 +63,6 @@ function ensureAdapterRegistered(): GridAdapter {
 // Register adapter immediately at module load time
 // This ensures the adapter is available when grids parse their light DOM columns
 ensureAdapterRegistered();
-
-// Stable ref-id assignment for objects that can't be JSON.stringify'd
-// (e.g. third-party feature props containing cycles or BigInt). Used by
-// `featurePropsKey` below as a non-throwing fallback so a malformed feature
-// value can't crash <DataGrid>.
-const refTokens = new WeakMap<object, number>();
-let nextRefToken = 0;
-function getRefToken(value: object): number {
-  let id = refTokens.get(value);
-  if (id === undefined) {
-    id = ++nextRefToken;
-    refTokens.set(value, id);
-  }
-  return id;
-}
 
 // Pre-register the built-in child-component detectors at module load so the
 // declarative `<GridDetailPanel>` / `<GridResponsiveCard>` patterns Just Work
@@ -445,48 +437,66 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
 
   // Create a stable key from feature prop values to detect actual changes
   // This avoids infinite loops from `rest` object reference changing each render.
+  // Record function identities separately because JSON normally omits them.
   // `JSON.stringify` is wrapped because third-party features registered via
   // `registerFeaturePropKey` may pass non-serializable values (BigInt, cycles)
   // — falling back to a reference-token keeps render from throwing. Cache
   // misses on the fallback path mean the memo re-runs whenever the prop's
   // reference changes, which matches React's normal expectation for opaque
   // values.
-  const featurePropsKey = useMemo(() => {
-    return getFeaturePropKeys()
-      .map((key) => {
-        const value = (rest as Record<string, unknown>)[key];
-        if (value === undefined) return '';
-        let serialized: string;
-        try {
-          serialized = JSON.stringify(value) ?? 'undefined';
-        } catch {
-          // Non-serializable (cycle / BigInt / etc.) — use a per-reference
-          // token. Primitive fallback via String() handles BigInt; objects
-          // get a stable ref-id via a WeakMap-backed counter.
-          serialized =
-            typeof value === 'object' && value !== null ? `ref#${getRefToken(value)}` : `prim:${String(value)}`;
-        }
-        return `${key}:${serialized}`;
-      })
-      .filter(Boolean)
-      .join('|');
+  const featureInput = useMemo(() => {
+    const stablePaths = new Map<string, string[][]>();
+    const key = JSON.stringify(
+      getFeaturePropKeys()
+        .map((key) => {
+          const value = (rest as Record<string, unknown>)[key];
+          if (value === undefined) return undefined;
+          const callbacks: Array<[string[], number]> = [];
+          let serialized: string;
+          try {
+            collectFeatureCallbacks(value, key, stablePaths, callbacks);
+            serialized =
+              JSON.stringify(value, (_property, item: unknown) => (typeof item === 'function' ? null : item)) ??
+              'undefined';
+          } catch {
+            // Non-serializable (cycle / BigInt / etc.) — use a per-reference
+            // token. Primitive fallback via String() handles BigInt; objects
+            // get a stable ref-id via a WeakMap-backed counter.
+            serialized =
+              typeof value === 'object' && value !== null ? `ref#${getRefToken(value)}` : `prim:${String(value)}`;
+          }
+          return [key, serialized, callbacks];
+        })
+        .filter(Boolean),
+    );
+    return { key, stablePaths };
   }, [rest]);
 
   // Extract feature props - only recalculate when the stable key changes
-  const featureProps = useMemo(() => {
+  const { featureProps, callbackSlots } = useMemo(() => {
     const features: Record<string, unknown> = {};
+    const slots: FeatureCallbackSlot[] = [];
     const restRecord = rest as Record<string, unknown>;
 
     for (const key of getFeaturePropKeys()) {
       const value = restRecord[key];
       if (value !== undefined) {
-        features[key] = value;
+        let config: unknown = value;
+        for (const path of featureInput.stablePaths.get(key) ?? []) {
+          config = wrapFeatureCallback(config, key, path, slots);
+        }
+        features[key] = config;
       }
     }
 
-    return features as FeatureProps<TRow>;
+    return { featureProps: features as FeatureProps<TRow>, callbackSlots: slots };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [featurePropsKey]);
+  }, [featureInput.key]);
+
+  useLayoutEffect(() => {
+    if (updateFeatureCallbackSlots(callbackSlots, rest as Record<string, unknown>))
+      gridRef.current?.requestAfterRender();
+  });
 
   // Detect child components (GridDetailPanel, GridResponsiveCard) and merge with feature props
   const childFeatures = useMemo(() => detectChildFeatures<FeatureProps>(children), [children]);

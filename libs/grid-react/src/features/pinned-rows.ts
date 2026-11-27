@@ -47,9 +47,10 @@ import {
   type ZonedPanelRender as CoreZonedPanelRender,
   type PinnedRowsContext,
 } from '@toolbox-web/grid/plugins/pinned-rows';
+import { registerCallbackRefresh } from '../lib/feature-callback-slots';
 import type { PanelRender, PinnedRowSlot, PinnedRowsConfig } from '../lib/feature-props';
 import { registerFeature } from '../lib/feature-registry';
-import { removeFromContainer, renderToContainer } from '../lib/portal-bridge';
+import { registerStableFeatureCallback, removeFromContainer, renderToContainer } from '../lib/portal-bridge';
 
 // Re-export React-typed config shapes from their single source of truth in
 // `feature-props.ts`, so consumers can keep importing them from this module.
@@ -73,8 +74,7 @@ interface ReactRenderCache {
  * - Subsequent calls: re-renders into the same portal key (React reconciles)
  *   and returns the same host element so the plugin can short-circuit row
  *   DOM rebuilds (and avoid React unmount/remount loops).
- * - Returns `null` when React produces `null`/`undefined`/`false` so built-in
- *   conditional panels can opt out without tearing down state.
+ * - Returns `null` when React produces `null`/`undefined`/`false`.
  *
  * `registerTeardown` is invoked once per bridge so the registered cleanup
  * function fires when the plugin detaches (grid disconnect or config replace).
@@ -85,16 +85,33 @@ function createCachedReactRender(
 ): (ctx: PinnedRowsContext) => HTMLElement | null {
   let cache: ReactRenderCache | null = null;
   let registered = false;
+  let context: PinnedRowsContext | undefined;
+  let lastOutput: HTMLElement | null = null;
+  const refresh = () => {
+    if (!context) return false;
+    const node = reactFn(context);
+    if (node == null || node === false || node instanceof HTMLElement)
+      return (node instanceof HTMLElement ? node : null) !== lastOutput;
+    if (!cache?.host.isConnected) return true;
+    cache.portalKey = renderToContainer(cache.host, node, cache.portalKey ?? undefined, context.grid);
+    return false;
+  };
   return (ctx) => {
+    registerCallbackRefresh(reactFn, refresh);
+    context = ctx;
     const node = reactFn(ctx);
-    if (node == null || node === false) return null;
-    if (node instanceof HTMLElement) return node;
+    if (node == null || node === false || node instanceof HTMLElement) {
+      if (cache?.portalKey) removeFromContainer(cache.portalKey, { sync: false });
+      cache = null;
+      lastOutput = node instanceof HTMLElement ? node : null;
+      return lastOutput;
+    }
     if (!cache) {
       const host = document.createElement('div');
       host.style.display = 'contents';
       cache = { host, portalKey: null };
     }
-    cache.portalKey = renderToContainer(cache.host, node, cache.portalKey ?? undefined);
+    cache.portalKey = renderToContainer(cache.host, node, cache.portalKey ?? undefined, ctx.grid);
     if (!registered) {
       registered = true;
       registerTeardown(() => {
@@ -102,7 +119,8 @@ function createCachedReactRender(
         cache = null;
       });
     }
-    return cache.host;
+    lastOutput = cache.host;
+    return lastOutput;
   };
 }
 
@@ -178,3 +196,6 @@ registerFeature(
   },
   { override: true },
 );
+
+registerStableFeatureCallback('pinnedRows', ['slots', '*', 'render']);
+registerStableFeatureCallback('pinnedRows', ['slots', '*', 'render', '*', 'render']);

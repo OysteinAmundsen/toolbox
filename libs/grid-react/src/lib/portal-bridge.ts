@@ -14,6 +14,7 @@
  * @internal
  */
 
+import { getFeatureFactory } from '@toolbox-web/grid/features/registry';
 import type { ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
@@ -31,10 +32,27 @@ const keyToGrid = new Map<string, HTMLElement>();
 const fallbackRoots = new Map<string, Root>();
 
 let nextKey = 0;
+const stableCallbackPaths = Symbol.for('@toolbox-web/grid-react:stable-callback-paths/v1');
+
+type CallbackFactory = { [stableCallbackPaths]?: Array<readonly string[]> };
 
 // #endregion
 
 // #region Bridge management
+
+/** Register renderer callbacks that can be refreshed without reattaching a plugin. */
+export function registerStableFeatureCallback(feature: string, path: readonly string[]): void {
+  const factory = getFeatureFactory(feature);
+  if (!factory) throw new Error(`Feature "${feature}" must be registered before its callbacks`);
+  const metadata = factory as typeof factory & CallbackFactory;
+  (metadata[stableCallbackPaths] ??= []).push(path);
+}
+
+export function getStableFeatureCallbacks(feature: string): ReadonlyArray<readonly string[]> {
+  const factory = getFeatureFactory(feature);
+  const metadata = factory as (typeof factory & CallbackFactory) | undefined;
+  return metadata?.[stableCallbackPaths] ?? [];
+}
 
 /**
  * Register (or unregister) a PortalManager for a specific grid element.

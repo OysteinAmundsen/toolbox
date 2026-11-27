@@ -94,27 +94,25 @@ export type GroupingColumnsConfig = Omit<CoreGroupingColumnsConfig, 'groupHeader
 
 /**
  * Grouping-rows config widened to accept a React `groupRowRenderer`
- * `(params: GroupRowRenderParams) => ReactNode` in addition to the vanilla
- * `(params) => HTMLElement | string | void` signature.
+ * A renderer may return a React node, an HTML element, or `void`.
  *
  * @since 1.8.0
  */
 export type GroupingRowsConfig = Omit<CoreGroupingRowsConfig, 'groupRowRenderer'> & {
-  groupRowRenderer?: CoreGroupingRowsConfig['groupRowRenderer'] | ((params: GroupRowRenderParams) => ReactNode);
+  groupRowRenderer?: (params: GroupRowRenderParams) => ReactNode | HTMLElement | void;
 };
 
 /**
  * React-typed render function for a pinned-row panel slot.
  *
- * Mirrors the vanilla `PanelRender` signature but returns a `ReactNode`
- * instead of `HTMLElement | null`. The React adapter (see
- * `features/pinned-rows.ts`) wraps the returned node in a portal so the
+ * Accepts a `ReactNode` or a vanilla `HTMLElement`. The React adapter (see
+ * `features/pinned-rows.ts`) wraps React output in a portal so the
  * pinned-rows plugin can keep its host-element reference stable across
  * grid re-renders.
  *
  * @since 1.8.2
  */
-export type PanelRender = (ctx: PinnedRowsContext) => ReactNode;
+export type PanelRender = (ctx: PinnedRowsContext) => ReactNode | HTMLElement;
 
 /**
  * React-typed zoned panel render entry.
@@ -128,7 +126,7 @@ export interface ZonedPanelRender {
 
 /**
  * React-typed panel slot — same shape as the vanilla `PanelSlot` but with
- * `ReactNode` render returns.
+ * React or HTML element render returns.
  *
  * @since 1.8.2
  */

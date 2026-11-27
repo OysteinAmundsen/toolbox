@@ -11,18 +11,33 @@
  *
  * @vitest-environment happy-dom
  */
-import type { DataGridElement } from '@toolbox-web/grid';
+import { BaseGridPlugin, type DataGridElement } from '@toolbox-web/grid';
+import { registerFeature } from '@toolbox-web/grid/features/registry';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createApp, defineComponent, h, inject, nextTick, ref, type App } from 'vue';
+import { createApp, defineComponent, h, inject, nextTick, reactive, ref, type App } from 'vue';
 import '../features/filtering';
 import TbwGrid from './TbwGrid.vue';
+import { clearFeaturePropKeys, getFeaturePropKeys, registerFeaturePropKey } from './feature-prop-keys';
+import type { FeatureName } from './feature-registry';
 import { getTeleportManager, renderToContainer } from './teleport-bridge';
+
+declare module '@toolbox-web/grid' {
+  interface FeatureConfig<TRow> {
+    auditFeature?: { prefix: string; options?: { label: string }; row?: TRow } | false;
+  }
+}
+
+class AuditPlugin extends BaseGridPlugin<{ prefix: string; options?: { label: string } }> {
+  readonly name = 'auditFeature';
+}
 
 describe('TbwGrid integration', () => {
   let mountEl: HTMLElement;
   let app: App;
+  let featureKeys: readonly FeatureName[];
 
   beforeEach(() => {
+    featureKeys = getFeaturePropKeys();
     mountEl = document.createElement('div');
     document.body.appendChild(mountEl);
   });
@@ -33,6 +48,8 @@ describe('TbwGrid integration', () => {
     } catch {
       /* ignore */
     }
+    clearFeaturePropKeys();
+    featureKeys.forEach(registerFeaturePropKey);
     document.body.innerHTML = '';
   });
 
@@ -61,6 +78,7 @@ describe('TbwGrid integration', () => {
     app = createApp({
       setup: () => () => h(TbwGrid, { rows: [{ name: 'Alice' }], filtering: filtering.value }),
     });
+
     app.mount(mountEl);
     const grid = mountEl.querySelector('tbw-grid') as DataGridElement;
     await vi.waitFor(() => expect(grid.getPluginByName('filtering')).toBeDefined());
@@ -68,6 +86,80 @@ describe('TbwGrid integration', () => {
     filtering.value = disabled;
     await nextTick();
     await vi.waitFor(() => expect(grid.getPluginByName('filtering')).toBeUndefined());
+  });
+
+  it('uses registered third-party feature attributes without forwarding them to the DOM', async () => {
+    const factory = vi.fn(
+      (config: { prefix: string; options?: { label: string } } | false | undefined) => new AuditPlugin(config || {}),
+    );
+    registerFeature('auditFeature', factory, { override: true });
+    registerFeaturePropKey('auditFeature');
+    const original = reactive({ prefix: 'first' });
+    const config = ref<{ prefix: string; options?: { label: string } } | false>(original);
+    const extra = ref('kept');
+    app = createApp({
+      components: { TbwGrid },
+      setup: () => ({ config, extra }),
+      template: '<TbwGrid :audit-feature="config" :data-extra="extra" />',
+    });
+    app.mount(mountEl);
+    const grid = mountEl.querySelector('tbw-grid') as DataGridElement;
+    await vi.waitFor(() => expect(factory).toHaveBeenCalledWith({ prefix: 'first' }));
+    expect(grid.getAttribute('audit-feature')).toBeNull();
+    expect(grid.getAttribute('data-extra')).toBe('kept');
+    expect(grid.getPluginByName('auditFeature')).toBeDefined();
+
+    config.value = { prefix: 'second', options: { label: 'initial' } };
+    await vi.waitFor(() =>
+      expect((grid.getPluginByName('auditFeature') as AuditPlugin | undefined)?.resolvedConfig.prefix).toBe('second'),
+    );
+    const callsAfterReplacement = factory.mock.calls.length;
+    original.prefix = 'obsolete';
+    await nextTick();
+    expect(factory).toHaveBeenCalledTimes(callsAfterReplacement);
+
+    const callsBeforeMutation = factory.mock.calls.length;
+    config.value.prefix = 'third';
+    await vi.waitFor(() => expect(factory.mock.calls.length).toBeGreaterThan(callsBeforeMutation));
+    await vi.waitFor(() =>
+      expect((grid.getPluginByName('auditFeature') as AuditPlugin | undefined)?.resolvedConfig.prefix).toBe('third'),
+    );
+
+    const callsBeforeNestedMutation = factory.mock.calls.length;
+    config.value.options!.label = 'updated';
+    await vi.waitFor(() => expect(factory.mock.calls.length).toBeGreaterThan(callsBeforeNestedMutation));
+    await vi.waitFor(() =>
+      expect((grid.getPluginByName('auditFeature') as AuditPlugin | undefined)?.resolvedConfig.options?.label).toBe(
+        'updated',
+      ),
+    );
+
+    const calls = factory.mock.calls.length;
+    extra.value = 'changed';
+    await nextTick();
+    expect(grid.getAttribute('data-extra')).toBe('changed');
+    expect(factory).toHaveBeenCalledTimes(calls);
+
+    config.value = false;
+    await vi.waitFor(() => expect(grid.getPluginByName('auditFeature')).toBeUndefined());
+  });
+
+  it('accepts camel-case feature attributes and removes a feature when its attribute is removed', async () => {
+    const factory = vi.fn(() => new AuditPlugin());
+    registerFeature('auditFeature', factory, { override: true });
+    registerFeaturePropKey('auditFeature');
+    const enabled = ref(true);
+    app = createApp({
+      setup: () => () => h(TbwGrid, enabled.value ? { auditFeature: { prefix: 'camel' } } : {}),
+    });
+    app.mount(mountEl);
+    const grid = mountEl.querySelector('tbw-grid') as DataGridElement;
+    await vi.waitFor(() => expect(grid.getPluginByName('auditFeature')).toBeDefined());
+    expect(factory).toHaveBeenCalledWith({ prefix: 'camel' });
+    expect(grid.hasAttribute('auditfeature')).toBe(false);
+
+    enabled.value = false;
+    await vi.waitFor(() => expect(grid.getPluginByName('auditFeature')).toBeUndefined());
   });
 
   it('should let teleport-bridge.renderToContainer preserve provide()d values', async () => {

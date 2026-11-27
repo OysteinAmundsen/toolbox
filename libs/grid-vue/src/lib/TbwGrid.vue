@@ -83,7 +83,19 @@ import type {
   VisibilityConfig,
 } from '@toolbox-web/grid/all';
 import { createPluginsFromFeatures } from '@toolbox-web/grid/features/registry';
-import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch, type PropType } from 'vue';
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onBeforeUpdate,
+  onMounted,
+  provide,
+  ref,
+  shallowRef,
+  useAttrs,
+  watch,
+  type PropType,
+} from 'vue';
 import { applyColumnDefaults, normalizeColumns, type ColumnShorthand } from './column-shorthand';
 import { getFeaturePropKeys } from './feature-prop-keys';
 import { useGridIcons } from './grid-icon-registry';
@@ -116,8 +128,8 @@ ensureAdapterRegistered();
 
 // TbwGrid renders a fragment root (<TeleportManager> + <tbw-grid>). Disable
 // Vue's automatic attribute fallthrough — we forward `class`, `style` and any
-// other unknown attribute onto the inner `<tbw-grid>` custom element via
-// `v-bind="$attrs"` in the template instead. Without this, Vue logs an
+// other non-feature attributes onto the inner `<tbw-grid>` element instead.
+// Without this, Vue logs an
 // "Extraneous non-props attributes" warning whenever consumers add `class=`
 // or any custom attribute to the component.
 defineOptions({ inheritAttrs: false });
@@ -534,6 +546,34 @@ provide(GRID_ELEMENT_KEY, gridRef);
 // Get type defaults and icons from providers
 const typeDefaults = useGridTypeDefaults();
 const iconOverrides = useGridIcons();
+const attrs = useAttrs();
+
+function splitFeatureAttrs() {
+  const keys = new Set<string>(getFeaturePropKeys());
+  const features: Record<string, unknown> = {};
+  const forwarded: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(attrs)) {
+    const feature = key.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
+    if (keys.has(feature)) features[feature] = value;
+    else forwarded[key] = value;
+  }
+  return { features, forwarded };
+}
+
+// Vue attributes are not watchable, so snapshot feature values on component updates.
+const featureAttrs = shallowRef(splitFeatureAttrs().features);
+const featureAttrsVersion = ref(0);
+watch(featureAttrs, () => featureAttrsVersion.value++, { deep: true });
+onBeforeUpdate(() => {
+  const next = splitFeatureAttrs().features;
+  const previous = featureAttrs.value;
+  if (
+    Object.keys(next).length !== Object.keys(previous).length ||
+    Object.keys(next).some((key) => !Object.is(next[key], previous[key]))
+  ) {
+    featureAttrs.value = next;
+  }
+});
 
 /**
  * Create plugins from feature props. Delegates to the core registry's
@@ -550,7 +590,9 @@ function createFeaturePlugins(): BaseGridPlugin[] {
   // Manual `plugins` prop is an escape hatch: when present it takes over
   // entirely, matching `<DataGrid plugins={...}>` in the React adapter.
   if (props.plugins) return [];
-  const featureProps: Record<string, unknown> = {};
+  // Recreate plugin instances when a reactive attribute config mutates in place.
+  void featureAttrsVersion.value;
+  const featureProps: Record<string, unknown> = { ...featureAttrs.value };
   for (const feature of getFeaturePropKeys()) {
     const propValue = props[feature as keyof typeof props];
     if (propValue !== undefined) {
@@ -851,7 +893,7 @@ defineExpose({
     `tbw-grid-v2-11-0`); `GridElement.activeTag` reflects whichever tag
     THIS bundle actually owns. See issue #339.
   -->
-  <component :is="gridTag" ref="gridRef" v-bind="$attrs">
+  <component :is="gridTag" ref="gridRef" v-bind="splitFeatureAttrs().forwarded">
     <slot></slot>
   </component>
 </template>

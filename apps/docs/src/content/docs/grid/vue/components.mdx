@@ -47,6 +47,29 @@ Each feature prop requires its side-effect import (for example
 `import '@toolbox-web/grid-vue/features/selection'`). See
 [Vue Integration](/grid/vue/getting-started/) for the import list.
 
+Third-party features can also use direct attributes. Register the factory and
+augment `FeatureConfig` as described in [Registering as a Feature](/grid/plugin-development/custom-plugins/#registering-as-a-feature),
+then call `registerFeaturePropKey` before mounting:
+
+```vue
+<script setup lang="ts">
+import type { FeatureConfig } from '@toolbox-web/grid';
+import { TbwGrid, registerFeaturePropKey } from '@toolbox-web/grid-vue';
+import './my-feature'; // Registers the factory and augments FeatureConfig.
+
+registerFeaturePropKey('myFeature');
+const featureProps = { myFeature: { enabled: true } } satisfies Pick<FeatureConfig, 'myFeature'>;
+</script>
+
+<template>
+  <TbwGrid v-bind="featureProps" />
+</template>
+```
+
+The registered key also accepts kebab-case (`:my-feature`). The component's
+declared prop types do not automatically include third-party keys; use a typed
+object as above or `gridConfig.features` for type-checked configuration.
+
 ### Emits
 
 Every event in the core [`DataGridEventMap`](/grid/api-reference/#events) is re-emitted
@@ -72,8 +95,8 @@ under its native name, with the original `CustomEvent` as the payload — for ex
 
 ### Notes
 
-- `inheritAttrs` is `false`; unrecognised attributes are forwarded to the inner
-  `<tbw-grid>` via `v-bind="$attrs"`.
+- `inheritAttrs` is `false`; unregistered attributes are forwarded to the inner
+  `<tbw-grid>`. Registered feature attributes are consumed by the feature bridge.
 - When `getRowId` is configured and `rows` is replaced with a new array reference, the
   component diffs by value and calls `updateRows()` with source `'sync'` so unchanged
   rows are not marked dirty.

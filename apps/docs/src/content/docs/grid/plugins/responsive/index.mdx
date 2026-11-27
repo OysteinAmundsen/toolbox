@@ -222,9 +222,12 @@ the rest of your page stays interactive and keeps painting. Browsers without sup
 CSS keyframe fade — the two never run together.
 
 The morph styles give every named element its own compositor layer, so they cost more than the
-default. `'morph-cells'` falls back to `'morph-rows'` above 150 rendered cells; reach for it on
+default. `'morph-cells'` falls back to `'morph-rows'` above 150 outgoing rendered cells; reach for it on
 compact grids where the column-to-label movement is the point, and stay on `'morph-rows'` for dense
 ones.
+
+Only cells present in both snapshots morph. For example, columns newly revealed when entering cards
+with column virtualization are not individually named for the transition.
 
 The budget counts **rendered** cells, not rows in your data — rows are virtualized, so a 100-row grid
 names only the cells in the visible window. Each named cell costs three animations (group, old, new)

@@ -254,9 +254,9 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
   }
 
   /**
-   * Narrow the full visible column list to the rendered scroll window. A pure function of
-   * `(columns, scrollLeft)`: core passes the complete post-plugin set on every call and never
-   * feeds the window back into `processColumns` (#603).
+   * Narrow the full visible column list to the rendered scroll window, except in card layout.
+   * Core passes the complete post-plugin set on every call and never feeds the window back into
+   * `processColumns` (#603).
    * @internal
    */
   override windowColumns(columns: readonly ColumnConfig[]): readonly ColumnConfig[] {
@@ -299,8 +299,12 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
   #window(columns: readonly ColumnConfig[]): readonly ColumnConfig[] {
     this.#windowSource = columns;
     this.#measure(columns);
+    // The applied layout can lag Responsive's state while a view transition takes its snapshot.
+    const cardMode = this.gridElement?.hasAttribute('data-responsive') ?? false;
+    if (cardMode) this.scrollLeft = 0;
     this.isVirtualized =
-      shouldVirtualize(columns.length, this.config.threshold ?? 30, this.config.autoEnable ?? true) ?? false;
+      !cardMode &&
+      (shouldVirtualize(columns.length, this.config.threshold ?? 30, this.config.autoEnable ?? true) ?? false);
 
     if (!this.isVirtualized) {
       this.startCol = 0;

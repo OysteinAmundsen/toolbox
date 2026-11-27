@@ -16,7 +16,7 @@ flowchart TB
     A["new Plugin()<br/><i>Constructor stores user config</i>"] --> B["attach(grid)<br/><i>Plugin receives grid ref, merges config</i>"]
     B --> C["Grid Render Cycle"]
     C --> D["User Interaction"]
-    D --> E["detach()<br/><i>Cleanup on grid disconnect</i>"]
+    D --> E["detach()<br/><i>Cleanup on disconnect or reconfiguration</i>"]
 
     subgraph C["Grid Render Cycle"]
         C1["processColumns() hook"]
@@ -33,6 +33,14 @@ flowchart TB
         D4["onCellMouseDown/Move/Up()"]
     end
 ```
+
+### Reconfiguring plugins
+
+Supplying a new explicit `plugins` array with different instances or a different order, or replacing the `features` configuration, causes the grid to detach all attached plugins and initialise the plugin set again. This includes plugins whose own configuration or instance did not change. A new `plugins` array containing the same instances in the same order does not, by itself, trigger reinitialisation. Do not mutate the existing `plugins` array in place; the grid uses its reference when detecting changes.
+
+Detach may clear runtime state. For example, Row Grouping clears expanded groups even if its explicit plugin instance is reused. Keep plugin instances and unchanged feature configuration references stable when updating unrelated settings. When a plugin change is necessary, save and restore any state your application needs using that plugin's API after the new configuration has rendered.
+
+The recommended `features` API provides declarative configuration and dependency ordering, but it does not guarantee state survives reconfiguration: feature instances may be reused, yet their `detach()` methods still run.
 
 ### Creating a Plugin
 

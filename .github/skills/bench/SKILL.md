@@ -37,8 +37,7 @@ Add or extend a benchmark as an integral part of issue development whenever you:
 
 Bench files live next to the code under test as `*.bench.ts` and are picked up by each project's
 `bench` target (`vitest bench`, `include: ['src/**/*.bench.ts']`). Keep each `bench()` case
-focused on one operation; avoid mixing setup cost into the measured body (use the bench harness's
-setup hooks only for immutable fixture construction). Mirror the style of existing benches under
+focused on one operation; avoid mixing fixture setup cost into the measured body. Mirror the style of existing benches under
 `libs/*/src/**/*.bench.ts`.
 
 ### Stateful benchmark rules
@@ -55,6 +54,9 @@ setup hooks only for immutable fixture construction). Mirror the style of existi
 - **Keep unrelated work outside the callback.** Prebuild rows, caches, and column definitions. If
   the operation under test requires invalidation, mutation, or cloning, include only the minimum
   reset that preserves a real operation on every invocation.
+- **Check actual samples.** Vitest 4.1.12 does not run `beforeAll` in benchmark suites and a
+  warmup failure can still exit 0 with empty results. Initialize fixtures before registering the
+  benchmark and inspect the JSON for a positive `sampleCount` and `hz` for every new case.
 
 ## Two ways to run
 

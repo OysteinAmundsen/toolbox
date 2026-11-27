@@ -173,13 +173,13 @@ These verify visual and functional parity across framework demos (vanilla as bas
 
 ## Performance Regression Tests (`e2e/tests/performance-regression.spec.ts`)
 
-Automated benchmarks that catch performance regressions by comparing the **current build against the latest published release** loaded from CDN. Both versions run identical benchmarks in the same browser session, so CI runner variance cancels out. Runs as part of the regular `e2e` suite — no separate CI job needed.
+Automated benchmarks that catch performance regressions by comparing the **current build against the latest published release** loaded from CDN. Both versions run identical benchmarks in the same browser session to reduce CI runner variance. Runs as part of the regular `e2e` suite — no separate CI job needed.
 
 ### How It Works
 
 1. **Self-Comparison tests** load the local UMD build (`dist/libs/grid/umd/grid.all.umd.js`) and the CDN release (`@toolbox-web/grid@latest`) in separate browser pages
 2. Identical benchmarks (render, data update, scroll) run on both versions
-3. The test flags a regression if the current build is **>10% slower** than the released version
+3. The test flags a regression only when the current build is **>10% slower** and the increase is at least **20 ms** for operation latency or **4 ms per frame** for scroll. Scroll uses the median ratio of three interleaved pairs after a warm-up pair; its delta is median released time × (median pair ratio − 1), not the difference between two measured medians
 4. **Retry on regression** — when a regression is detected, the benchmark re-runs up to 2 more times with fresh browser pages. Only fails if the regression reproduces consistently (absorbs transient CI noise)
 
 ### Rule: every measurement must be warmed up AND sampled

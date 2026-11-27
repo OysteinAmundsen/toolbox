@@ -8,8 +8,8 @@ import { flushMetrics, recordMetric } from './perf-metrics-helper';
  *
  * Compares the current build against the latest published release loaded
  * from CDN. Both versions execute identical benchmarks in the same browser
- * session, so CI runner variance cancels out. If the current build is
- * significantly slower, the test fails.
+ * session to reduce runner variance. If the current build is significantly
+ * slower on every attempt, the test fails.
  *
  * No demo server required — tests load UMD bundles into blank pages.
  *
@@ -35,7 +35,8 @@ import { flushMetrics, recordMetric } from './perf-metrics-helper';
  * re-run up to 2 more times with fresh browser pages. The test only fails
  * if the regression reproduces consistently across all attempts. The
  * load-sensitive wide-column benchmarks also compare interleaved PAIRS by
- * their median ratio (see `measureInterleaved`, #665).
+ * their median ratio (see `measureInterleaved`, #665); scroll comparisons
+ * use the same paired statistic with a frame-specific absolute floor.
  *
  * Run locally:  bun nx build grid && bunx playwright test performance-regression.spec.ts
  * Run on CI:    runs as part of the regular e2e suite
@@ -49,11 +50,11 @@ const CDN_VERSION = process.env.PERF_CDN_VERSION ?? 'latest';
 const CDN_UMD = `https://cdn.jsdelivr.net/npm/@toolbox-web/grid@${CDN_VERSION}/umd/grid.all.umd.js`;
 
 /**
- * Maximum allowed slowdown ratio (current / released).
- * 1.10 means current can be at most 10% slower than the released version.
- * Self-comparison in the same session has low variance, so 10% is safe.
+ * A regression must exceed this ratio AND the metric's absolute noise floor.
  */
 const REGRESSION_THRESHOLD = 1.1;
+const OPERATION_MIN_DELTA_MS = 20;
+const FRAME_MIN_DELTA_MS = 4;
 
 const ROW_COUNT = 500;
 const LARGE_ROW_COUNT = 1000;
@@ -65,6 +66,8 @@ const WIDE_COL_ROW_COUNT = 200;
  * false positives under full CPU contention yet caught a +30% slowdown 8/8 (#665).
  */
 const INTERLEAVED_PAIRS = 15;
+// Scroll samples span 31 animation frames each, so use fewer pairs per attempt.
+const SCROLL_PAIRS = 3;
 
 const runId = process.env.PERF_RUN_ID ?? Date.now().toString();
 
@@ -652,8 +655,14 @@ async function measureInterleaved(
   measure: (page: Page) => Promise<number>,
   pairs = INTERLEAVED_PAIRS,
 ): Promise<{ local: number; cdn: number }> {
-  await measure(localPage);
-  await measure(cdnPage);
+  const validate = (local: number, cdn: number, label: string): void => {
+    if (!Number.isFinite(local) || !Number.isFinite(cdn) || local <= 0 || cdn <= 0) {
+      throw new Error(`Invalid paired measurement (${label}): local=${local}, released=${cdn}`);
+    }
+  };
+  const warmLocal = await measure(localPage);
+  const warmCdn = await measure(cdnPage);
+  validate(warmLocal, warmCdn, 'warm-up');
   const ratios: number[] = [];
   const cdnSamples: number[] = [];
   for (let s = 0; s < pairs; s++) {
@@ -662,7 +671,7 @@ async function measureInterleaved(
     const secondSample = await measure(second);
     const localSample = first === localPage ? firstSample : secondSample;
     const cdnSample = first === localPage ? secondSample : firstSample;
-    if (localSample <= 0 || cdnSample <= 0) return { local: localSample, cdn: cdnSample };
+    validate(localSample, cdnSample, `pair ${s + 1}`);
     ratios.push(localSample / cdnSample);
     cdnSamples.push(cdnSample);
   }
@@ -845,7 +854,14 @@ async function measureDestroy(page: Page, rowCount: number): Promise<number> {
  */
 const REGRESSION_RETRIES = 2;
 
-function checkRegression(metricName: string, localTime: number, cdnTime: number): string | null {
+type MetricKind = 'operation' | 'frame';
+
+function exceedsRegressionThreshold(localTime: number, cdnTime: number, kind: MetricKind): boolean {
+  const minDelta = kind === 'frame' ? FRAME_MIN_DELTA_MS : OPERATION_MIN_DELTA_MS;
+  return localTime - cdnTime >= minDelta && localTime / cdnTime > REGRESSION_THRESHOLD;
+}
+
+function checkRegression(metricName: string, localTime: number, cdnTime: number, kind: MetricKind): string | null {
   recordMetric(`compare.${metricName}.local`, localTime);
   recordMetric(`compare.${metricName}.cdn`, cdnTime);
 
@@ -853,17 +869,11 @@ function checkRegression(metricName: string, localTime: number, cdnTime: number)
   if (localTime <= 0 || cdnTime <= 0) return null;
 
   const ratio = localTime / cdnTime;
-  const absoluteDelta = localTime - cdnTime;
   recordMetric(`compare.${metricName}.ratio`, ratio);
 
-  // Only flag if the ratio exceeds threshold AND the absolute difference
-  // is meaningful. Small absolute deltas (e.g. 4 ms = 25% slower) are noise,
-  // not real regressions — skip unless the delta is clearly significant.
-  const MIN_ABSOLUTE_DELTA_MS = 20;
-  if (absoluteDelta < MIN_ABSOLUTE_DELTA_MS) return null;
-
-  if (ratio > REGRESSION_THRESHOLD) {
-    return `${metricName} regression: local=${localTime.toFixed(1)}ms, released=${cdnTime.toFixed(1)}ms, ratio=${ratio.toFixed(2)}`;
+  if (exceedsRegressionThreshold(localTime, cdnTime, kind)) {
+    const labels = kind === 'frame' ? ['adjusted local', 'median released'] : ['local', 'released'];
+    return `${metricName} regression: ${labels[0]}=${localTime.toFixed(1)}ms, ${labels[1]}=${cdnTime.toFixed(1)}ms, ratio=${ratio.toFixed(2)}`;
   }
   return null;
 }
@@ -878,9 +888,10 @@ async function assertNoRegression(
   metricName: string,
   localTime: number,
   cdnTime: number,
+  kind: MetricKind,
   retryFn?: () => Promise<{ local: number; cdn: number }>,
 ): Promise<void> {
-  let failure = checkRegression(metricName, localTime, cdnTime);
+  let failure = checkRegression(metricName, localTime, cdnTime, kind);
   if (!failure) return;
   const attempts = [failure];
 
@@ -888,7 +899,7 @@ async function assertNoRegression(
   if (retryFn) {
     for (let attempt = 1; attempt <= REGRESSION_RETRIES; attempt++) {
       const { local, cdn } = await retryFn();
-      failure = checkRegression(`${metricName}.retry${attempt}`, local, cdn);
+      failure = checkRegression(`${metricName}.retry${attempt}`, local, cdn, kind);
       if (!failure) return; // Retry passed — transient noise, not a real regression
       attempts.push(failure);
     }
@@ -916,6 +927,7 @@ async function runComparison(
   browser: Browser,
   metricName: string,
   benchFn: (localPage: Page, cdnPage: Page) => Promise<{ local: number; cdn: number }>,
+  kind: MetricKind = 'operation',
 ): Promise<void> {
   const run = async (): Promise<{ local: number; cdn: number }> => {
     const localPage = await browser.newPage();
@@ -939,8 +951,40 @@ async function runComparison(
   };
 
   const { local, cdn } = await run();
-  await assertNoRegression(metricName, local, cdn, run);
+  await assertNoRegression(metricName, local, cdn, kind, run);
 }
+
+test.describe('Performance: Regression thresholds', () => {
+  test('detects material frame regressions below the operation floor', () => {
+    expect(exceedsRegressionThreshold(33.4, 16.7, 'frame')).toBe(true);
+    expect(exceedsRegressionThreshold(25, 8.3, 'frame')).toBe(true);
+    expect(exceedsRegressionThreshold(84, 60, 'frame')).toBe(true);
+    expect(exceedsRegressionThreshold(33.4, 16.7, 'operation')).toBe(false);
+  });
+
+  test('requires both the ratio and the metric-specific absolute floor', () => {
+    expect(exceedsRegressionThreshold(19.9, 16, 'frame')).toBe(false);
+    expect(exceedsRegressionThreshold(104, 100, 'frame')).toBe(false);
+    expect(exceedsRegressionThreshold(20, 16, 'frame')).toBe(true);
+    expect(exceedsRegressionThreshold(119.9, 100, 'operation')).toBe(false);
+    expect(exceedsRegressionThreshold(120, 100, 'operation')).toBe(true);
+    expect(exceedsRegressionThreshold(220, 200, 'operation')).toBe(false);
+  });
+
+  test('rejects invalid samples in paired comparisons', async ({ page, context }) => {
+    const releasedPage = await context.newPage();
+    const valid = await measureInterleaved(page, releasedPage, async () => 10, 3);
+    expect(valid).toEqual({ local: 10, cdn: 10 });
+
+    for (const invalid of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      for (const invalidCall of [1, 2, 7, 8]) {
+        let calls = 0;
+        const measure = async () => (++calls === invalidCall ? invalid : 10);
+        await expect(measureInterleaved(page, releasedPage, measure, 3)).rejects.toThrow('Invalid paired measurement');
+      }
+    }
+  });
+});
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SELF-COMPARISON BENCHMARKS
@@ -1017,14 +1061,19 @@ test.describe('Performance: Self-Comparison', () => {
   test('vertical scroll', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    await runComparison(browser, 'scroll', async (localPage, cdnPage) => {
-      await setupGrid(localPage, ROW_COUNT);
-      await setupGrid(cdnPage, ROW_COUNT);
-      return {
-        local: await measureScroll(localPage),
-        cdn: await measureScroll(cdnPage),
-      };
-    });
+    test.slow();
+    await runComparison(
+      browser,
+      'scroll',
+      async (localPage, cdnPage) => {
+        await warmUpGrid(localPage);
+        await warmUpGrid(cdnPage);
+        await setupGrid(localPage, ROW_COUNT);
+        await setupGrid(cdnPage, ROW_COUNT);
+        return measureInterleaved(localPage, cdnPage, measureScroll, SCROLL_PAIRS);
+      },
+      'frame',
+    );
   });
 
   test('sort', async ({ browser }) => {
@@ -1218,14 +1267,19 @@ test.describe('Performance: Self-Comparison', () => {
   test('wide columns horizontal scroll', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    await runComparison(browser, 'horizontalScroll', async (localPage, cdnPage) => {
-      await setupWideGrid(localPage, 100, WIDE_COL_ROW_COUNT);
-      await setupWideGrid(cdnPage, 100, WIDE_COL_ROW_COUNT);
-      return {
-        local: await measureHorizontalScroll(localPage),
-        cdn: await measureHorizontalScroll(cdnPage),
-      };
-    });
+    test.slow();
+    await runComparison(
+      browser,
+      'horizontalScroll',
+      async (localPage, cdnPage) => {
+        await warmUpGrid(localPage);
+        await warmUpGrid(cdnPage);
+        await setupWideGrid(localPage, 100, WIDE_COL_ROW_COUNT);
+        await setupWideGrid(cdnPage, 100, WIDE_COL_ROW_COUNT);
+        return measureInterleaved(localPage, cdnPage, measureHorizontalScroll, SCROLL_PAIRS);
+      },
+      'frame',
+    );
   });
 
   test('wide column replacement churn', async ({ browser }) => {
@@ -1245,16 +1299,19 @@ test.describe('Performance: Self-Comparison', () => {
   test('feature-dense vertical scroll', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    await runComparison(browser, 'featureDenseScroll', async (localPage, cdnPage) => {
-      await warmUpGrid(localPage);
-      await warmUpGrid(cdnPage);
-      await setupFeatureDenseGrid(localPage, LARGE_ROW_COUNT);
-      await setupFeatureDenseGrid(cdnPage, LARGE_ROW_COUNT);
-      return {
-        local: await measureScroll(localPage),
-        cdn: await measureScroll(cdnPage),
-      };
-    });
+    test.slow();
+    await runComparison(
+      browser,
+      'featureDenseScroll',
+      async (localPage, cdnPage) => {
+        await warmUpGrid(localPage);
+        await warmUpGrid(cdnPage);
+        await setupFeatureDenseGrid(localPage, LARGE_ROW_COUNT);
+        await setupFeatureDenseGrid(cdnPage, LARGE_ROW_COUNT);
+        return measureInterleaved(localPage, cdnPage, measureScroll, SCROLL_PAIRS);
+      },
+      'frame',
+    );
   });
 
   test('grid destroy', async ({ browser }) => {

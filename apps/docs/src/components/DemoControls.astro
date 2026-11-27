@@ -383,9 +383,13 @@ for (const ctrl of controls) {
     .dc-section {
       border-right: none;
       border-bottom: 1px solid var(--sl-color-gray-6);
+      align-self: stretch;
     }
     .dc-section:last-child {
       border-bottom: none;
+    }
+    .dc-row:has(.dc-check-group) {
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 </style>
